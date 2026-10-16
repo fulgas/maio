@@ -1,0 +1,25 @@
+# MediaMTX for Maio: anyone can pull every radio over RTSP, SRT and RTMP.
+# Maio answers every auth question (who may publish, who may read which path) at /relay/auth.
+logLevel: warn
+authMethod: http
+authHTTPAddress: http://maio:8080/relay/auth
+authHTTPExclude: []
+
+api: true
+apiAddress: :9997
+metrics: false
+pprof: false
+playback: false
+
+rtsp: true
+rtspTransports: [tcp]
+rtspAddress: :8554
+rtmp: true
+rtmpAddress: :1935
+srt: true
+srtAddress: :8890
+hls: false
+webrtc: false
+
+paths:
+  all_others:

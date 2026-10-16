@@ -1,0 +1,27 @@
+name: maio
+services:
+  maio:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+      - ./maio.toml:/etc/maio/maio.toml:ro
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - mediamtx
+    restart: unless-stopped
+
+  # Lets anyone pull every radio over RTSP, SRT and RTMP; Maio publishes to it and answers its auth.
+  # Host ports 8555, 8891 and 1936 leave 8554, 8890 and 1935 free for another MediaMTX on the same machine.
+  mediamtx:
+    image: bluenviron/mediamtx:1.21.2
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      - "8555:8554"      # RTSP
+      - "8891:8890/udp"  # SRT
+      - "1936:1935"      # RTMP
+    restart: unless-stopped

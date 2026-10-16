@@ -1,0 +1,14 @@
+target/
+data/
+.env
+engine/.venv/
+__pycache__/
+.superpowers/
+engine/.cache/
+
+
+# Added by cargo
+
+/target
+maio.toml
+.idea/

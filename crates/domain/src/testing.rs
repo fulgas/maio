@@ -1,0 +1,33 @@
+//! Sample values for tests in this crate and the ones above it.
+
+use crate::{Commercial, Licence, Song, TitleSource};
+
+/// A finished instrumental song with plausible fields.
+pub fn song(id: &str) -> Song {
+    Song {
+        id: id.into(),
+        title: format!("Song {id}"),
+        title_source: TitleSource::Words,
+        description: None,
+        prompt: "warm pads".into(),
+        mood: Some("calm".into()),
+        genre: Some("ambient".into()),
+        energy: None,
+        seconds: 180.0,
+        bpm: Some(70),
+        seed: 7,
+        vocals: false,
+        key: None,
+        time_signature: None,
+        lyrics: None,
+        vocal_language: None,
+        engine: "ace-step".into(),
+        licence: Licence { name: "MIT".into(), commercial: Commercial::Yes, note: String::new() },
+        lyrics_engine: None,
+        title_engine: None,
+        artist: "Maio".into(),
+        file: format!("songs/{id}.opus"),
+        bytes: 1000,
+        created_at: "2026-10-16T12:00:00Z".into(),
+    }
+}

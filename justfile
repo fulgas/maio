@@ -4,6 +4,7 @@
 set dotenv-load := true
 
 ace_root := env("ACE_ROOT", home_directory() / "Projects/fulgas/ACE-Step-1.5")
+engine_root := env("ENGINE_ROOT", home_directory() / "Projects/fulgas/maio-engine")
 engine_port := "7801"
 
 # Start the stack, then run ACE-Step in this terminal; Ctrl-C stops the engine and the stack.
@@ -19,13 +20,13 @@ stack:
     docker compose up -d --build
     @echo "Maio on http://localhost:8080"
 
-# Run the ACE-Step engine in the foreground; it reads its token from .env.
+# Run the ACE-Step engine in the foreground.
 engine:
-    cd engine && MAIO_ENGINE_TOKEN="$MAIO_ACE_STEP_TOKEN" uv run --extra ace-step maio-engine --backend ace-step --ace-root "{{ace_root}}" --port {{engine_port}}
+    cd "{{engine_root}}" && uv run --extra ace-step maio-engine --backend ace-step --ace-root "{{ace_root}}" --port {{engine_port}}
 
 # Run the fake engine instead (sine tones, no GPU), for trying things quickly.
 fake:
-    cd engine && MAIO_ENGINE_TOKEN="$MAIO_ACE_STEP_TOKEN" uv run maio-engine --backend fake --port {{engine_port}}
+    cd "{{engine_root}}" && uv run maio-engine --backend fake --port {{engine_port}}
 
 # Stop the stack.
 stop:
@@ -35,8 +36,7 @@ stop:
 logs:
     docker compose logs -f maio
 
-# Every test: Rust, the web helpers and the engine.
+# Every test: Rust and the web helpers (the engine tests live in its own repo).
 test:
     cargo test
     node --test web/tests/*.test.mjs
-    cd engine && uv run pytest -q

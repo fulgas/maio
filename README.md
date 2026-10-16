@@ -1,10 +1,10 @@
 # Maio
 
-Makes music with generation models and streams it. Spec: `SPEC.md`. Engine server: `engine/`.
+Makes music with generation models and streams it. Spec: `SPEC.md`. Engine server: the `maio-engine` repo, next to this one.
 
 ## Run
 
-1. Start the ACE-Step engine server on the Mac (`engine/README.md`).
+1. Start the ACE-Step engine server on the Mac (`just engine`, or the `maio-engine` README).
 2. `cp maio.example.toml maio.toml && cp .env.example .env`, fill in `.env`. `MAIO_ADMIN_USER` and `MAIO_ADMIN_PASSWORD` (10 characters or more) create the first admin on first start; Maio refuses to start without them while it has no users.
 3. `mkdir -p data && docker compose up -d --build` (Colima cannot create the bind-mount folder itself)
 4. Open http://localhost:8080 and sign in as that admin. Add people under Users.

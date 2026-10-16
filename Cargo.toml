@@ -27,3 +27,7 @@ ulid = "3.0.0"
 
 [dev-dependencies]
 tempfile = "3.27.0"
+
+[workspace]
+members = [".", "crates/domain", "crates/app", "crates/adapters"]
+resolver = "3"

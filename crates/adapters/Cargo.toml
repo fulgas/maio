@@ -1,0 +1,18 @@
+[package]
+name = "adapters"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+app = { path = "../app" }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+domain = { path = "../domain" }
+rand = "0.9"
+rusqlite = { version = "0.40", features = ["bundled"] }
+ulid = "3"
+
+[dev-dependencies]
+app = { path = "../app", features = ["testing"] }
+domain = { path = "../domain", features = ["testing"] }
+tempfile = "3"

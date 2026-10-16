@@ -1,0 +1,15 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+testing = ["domain/testing"]
+
+[dependencies]
+anyhow = "1"
+domain = { path = "../domain" }
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+domain = { path = "../domain", features = ["testing"] }

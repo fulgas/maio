@@ -3,6 +3,20 @@
 version = 4
 
 [[package]]
+name = "adapters"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "app",
+ "chrono",
+ "domain",
+ "rand 0.9.5",
+ "rusqlite",
+ "tempfile",
+ "ulid",
+]
+
+[[package]]
 name = "android_system_properties"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -16,6 +30,15 @@ name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
+
+[[package]]
+name = "app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "domain",
+ "serde",
+]
 
 [[package]]
 name = "argon2"
@@ -257,6 +280,13 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.9",
+]
+
+[[package]]
+name = "domain"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

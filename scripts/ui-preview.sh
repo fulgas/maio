@@ -5,7 +5,7 @@ set -euo pipefail
 PORT="${1:-8099}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DATA="$(mktemp -d)"
-export MAIO_ADMIN_USER=admin MAIO_ADMIN_PASSWORD=preview-password MAIO_ENGINE_TOKEN=dev T_FAKE=dev
+export MAIO_ADMIN_USER=admin MAIO_ADMIN_PASSWORD=preview-password T_FAKE=dev
 cat > "$DATA/maio.toml" <<EOF
 listen = "127.0.0.1:$PORT"
 data_dir = "$DATA"
@@ -19,7 +19,7 @@ id = "fake"
 url = "http://127.0.0.1:7899"
 token_env = "T_FAKE"
 EOF
-(cd "$ROOT/engine" && uv run maio-engine --backend fake --port 7899 >/dev/null 2>&1) &
+(cd "${ENGINE_ROOT:-$ROOT/../maio-engine}" && uv run maio-engine --backend fake --port 7899 >/dev/null 2>&1) &
 ENGINE=$!
 (cd "$ROOT" && cargo run -q -- "$DATA/maio.toml" >"$DATA/maio.log" 2>&1) &
 APP=$!

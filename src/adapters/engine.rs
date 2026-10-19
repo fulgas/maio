@@ -17,10 +17,19 @@ use serde_json::{Value, json};
 use tokio::io::AsyncWriteExt;
 
 /// `[[engine]]` in config (SPEC 6).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct EngineConfig {
     pub id: String,
     pub url: String,
+    /// ACE-Step's API key, when it runs with `ACESTEP_API_KEY`; sent as a bearer token on every call.
+    pub api_key: Option<String>,
+}
+
+/// By hand, so a key never reaches a log line or a panic message.
+impl std::fmt::Debug for EngineConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EngineConfig").field("id", &self.id).field("url", &self.url).field("api_key", &self.api_key.as_ref().map(|_| "***")).finish()
+    }
 }
 
 /// Generation time over audio length until a song has been measured; ACE-Step turbo on Apple silicon.
@@ -71,7 +80,8 @@ impl HttpEngine {
         format!("{}{path}", self.cfg.url.trim_end_matches('/'))
     }
 
-    /// The current span's W3C trace context, so ACE-Step's spans (when it runs under OpenTelemetry) join this trace.
+    /// Every call to ACE-Step: the current span's W3C trace context, so ACE-Step's spans (when it runs under
+    /// OpenTelemetry) join this trace, and the API key when there is one.
     fn traced(&self, rb: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         use opentelemetry::propagation::Injector;
         use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -84,7 +94,11 @@ impl HttpEngine {
         let mut h = Headers(Vec::new());
         let cx = tracing::Span::current().context();
         opentelemetry::global::get_text_map_propagator(|p| p.inject_context(&cx, &mut h));
-        h.0.into_iter().fold(rb, |rb, (k, v)| rb.header(k, v))
+        let rb = h.0.into_iter().fold(rb, |rb, (k, v)| rb.header(k, v));
+        match &self.cfg.api_key {
+            Some(key) => rb.bearer_auth(key),
+            None => rb,
+        }
     }
 
     fn seen(&self) -> MutexGuard<'_, Seen> {
@@ -362,6 +376,8 @@ mod tests {
         stage: Arc<Mutex<&'static str>>,
         init_ms: Arc<Mutex<u64>>,
         posted: Arc<Mutex<Vec<(String, Value)>>>,
+        /// The Authorization header of every call, health checks included.
+        auth: Arc<Mutex<Vec<String>>>,
     }
 
     fn wrap(data: Value) -> Json<Value> {
@@ -370,7 +386,8 @@ mod tests {
 
     async fn serve(fake: Fake) -> String {
         let record = |path: &'static str| {
-            move |State(f): State<Fake>, Json(body): Json<Value>| async move {
+            move |State(f): State<Fake>, headers: axum::http::HeaderMap, Json(body): Json<Value>| async move {
+                f.auth.lock().unwrap().push(headers.get("authorization").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string());
                 f.posted.lock().unwrap().push((path.to_string(), body));
                 match path {
                     "/release_task" => wrap(json!({"task_id": "t1", "status": "queued", "queue_position": 1})),
@@ -402,7 +419,8 @@ mod tests {
         let app = Router::new()
             .route(
                 "/health",
-                get(|State(f): State<Fake>| async move {
+                get(|State(f): State<Fake>, headers: axum::http::HeaderMap| async move {
+                    f.auth.lock().unwrap().push(headers.get("authorization").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string());
                     wrap(json!({"status": "ok", "service": "ACE-Step API", "version": "1.0",
                     "models_initialized": *f.initialized.lock().unwrap(), "llm_initialized": false,
                     "loaded_model": "acestep-v15-turbo", "loaded_lm_model": null}))
@@ -428,7 +446,7 @@ mod tests {
     }
 
     fn engine(url: String) -> HttpEngine {
-        HttpEngine::new(EngineConfig { id: "ace-step".into(), url })
+        HttpEngine::new(EngineConfig { id: "ace-step".into(), url, api_key: None })
     }
 
     fn request() -> EngineRequest {
@@ -569,5 +587,19 @@ mod tests {
         switching.await.unwrap().unwrap();
         e.check().await;
         assert_eq!(e.status().health, Health::Up);
+    }
+
+    #[tokio::test]
+    async fn a_key_goes_with_every_call_when_ace_step_wants_one() {
+        let fake = Fake::default();
+        *fake.status.lock().unwrap() = 1;
+        let url = serve(fake.clone()).await;
+        let e = HttpEngine::new(EngineConfig { id: "ace-step".into(), url, api_key: Some("ace-secret".into()) });
+        e.check().await;
+        e.submit(&request()).await.unwrap();
+        e.job("t1").await.unwrap();
+        let auth = fake.auth.lock().unwrap().clone();
+        assert!(auth.len() >= 3, "{auth:?}");
+        assert!(auth.iter().all(|a| a == "Bearer ace-secret"), "{auth:?}");
     }
 }

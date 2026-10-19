@@ -48,9 +48,10 @@ pub fn PlaylistsPage() -> impl IntoView {
         c.playlists.track();
         api::playlists()
     });
+    let open = RwSignal::new(false);
     let summary = move || {
         playlists.get().and_then(Result::ok).map(|all| match all.len() {
-            0 => "None yet. Make one with +, then add songs to it from Songs.".to_string(),
+            0 => "None yet. Make one with New playlist, then add songs to it from Songs.".to_string(),
             1 => "1 playlist".to_string(),
             n => format!("{n} playlists"),
         })
@@ -59,8 +60,60 @@ pub fn PlaylistsPage() -> impl IntoView {
         <div class="list-head">
             <h1>"Playlists"</h1>
             <span class="hint">{summary}</span>
+            <button type="button" class="new-playlist" on:click=move |_| open.set(true)><Svg icon=Icon::Add size=18/>"New playlist"</button>
         </div>
-        <Shelf playlists grid=true/>
+        <NewPlaylist open/>
+        <PlaylistList playlists/>
+    }
+}
+
+/// Every playlist as a row (SPEC 12): its colour, like its banner; play; its name; live; songs; length.
+#[component]
+fn PlaylistList(playlists: Playlists) -> impl IntoView {
+    let player = expect_context::<Player>();
+    let toaster = ToasterInjection::expect_context();
+    let rows = move || {
+        let all = loaded(playlists);
+        shelf::order(&all, &shelf::played()).into_iter().map(|p| (shelf::colour(&all, &p.id), p)).collect::<Vec<_>>()
+    };
+    view! {
+        <ol class="playlist-list" aria-label="Your playlists">
+            <For each=rows key=|(_, p)| (p.id.clone(), p.name.clone(), p.songs, p.live.on) children=move |(colour, p)| {
+                let (id, name) = (p.id.clone(), p.name.clone());
+                let play = {
+                    let (id, name) = (id.clone(), name.clone());
+                    move || {
+                        if player.queue.with_untracked(|q| q.from.as_ref().is_some_and(|f| f.id == id)) {
+                            return player.toggle();
+                        }
+                        let (id, name) = (id.clone(), name.clone());
+                        leptos::task::spawn_local(async move {
+                            match api::playlist(&id).await {
+                                Ok(v) if v.songs.is_empty() => say(toaster, format!("{name} has no songs yet."), ToastIntent::Info),
+                                Ok(v) => player.play(v.songs.iter().map(QSong::from).collect(), 0, Some(crate::domain::PlaylistRef { id, name })),
+                                Err(f) => say(toaster, f.text(), ToastIntent::Error),
+                            }
+                        });
+                    }
+                };
+                view! {
+                    <li class="playlist-row">
+                        <IconButton class="play" size=14
+                            icon={ let id = id.clone(); Signal::derive(move || if player.is_playing_list(&id) { Icon::Pause } else { Icon::Play }) }
+                            label={ let (id, name) = (id.clone(), name.clone()); Signal::derive(move || format!("{} {name}", if player.is_playing_list(&id) { "Pause" } else { "Play" })) }
+                            on_click=play/>
+                        <span class="song-main">
+                            <a class="song-title playlist-name" href=format!("/playlists/{id}")>
+                                <i class="strip" style:background=colour aria-hidden="true"></i>{name.clone()}
+                            </a>
+                            <span class="song-prompt">{format::songs(p.songs)}</span>
+                        </span>
+                        <span class="live-chip">{p.live.on.then(|| view! { <Svg icon=Icon::Live size=14/>"Live" })}</span>
+                        <span class="len">{format::length(p.seconds)}</span>
+                    </li>
+                }
+            }/>
+        </ol>
     }
 }
 
@@ -68,12 +121,71 @@ fn loaded(playlists: Playlists) -> Vec<PlaylistSummary> {
     playlists.get().and_then(Result::ok).unwrap_or_default()
 }
 
-/// The playlist tiles: a sideways row on Songs, a wrapping grid (`grid`) on Playlists.
+/// The Songs screen's shelf of playlist tiles.
 #[component]
-fn Shelf(playlists: Playlists, #[prop(optional)] grid: bool) -> impl IntoView {
+fn Shelf(playlists: Playlists) -> impl IntoView {
+    let open = RwSignal::new(false);
+    // One row that never scrolls: as many playlists as fit (at most a few), then "All playlists".
+    let row = NodeRef::<leptos::html::Section>::new();
+    let width = RwSignal::new(None::<f64>);
+    {
+        let measure = move || {
+            if let Some(el) = row.get_untracked() {
+                width.set(Some(f64::from(el.client_width())));
+            }
+        };
+        Effect::new(move |_| {
+            if row.get().is_some() {
+                measure();
+            }
+        });
+        let resize = window_event_listener(leptos::ev::resize, move |_| measure());
+        on_cleanup(move || resize.remove());
+    }
+    let ordered = move || {
+        let all = loaded(playlists);
+        shelf::order(&all, &shelf::played()).into_iter().map(|p| (shelf::colour(&all, &p.id), p)).collect::<Vec<_>>()
+    };
+    let shown = move || match width.get() {
+        Some(w) => {
+            let list = ordered();
+            let (n, more) = shelf::fits(w, list.len());
+            (list.into_iter().take(n).collect::<Vec<_>>(), more)
+        }
+        _ => (ordered(), false),
+    };
+    let tiles = move || shown().0;
+    let total = move || loaded(playlists).len();
+    view! {
+        // A full shelf stretches its tiles to end where the Make box ends.
+        <section class="shelf" class:full=move || { let (shown, more) = shown(); more || shown.len() == shelf::MAX_SHOWN } aria-label="Your playlists" node_ref=row>
+            // Words, not captions: the shelf's scrolling row would cut a caption off.
+            <button type="button" class="tile new" on:click=move |_| open.set(true)>
+                <Svg icon=Icon::Add size=28/><span>"New playlist"</span>
+            </button>
+            <For each=tiles key=|(_, p)| (p.id.clone(), p.name.clone(), p.songs, p.live.on) children=move |(colour, p)| view! {
+                <a class="tile" href=format!("/playlists/{}", p.id) style:background=colour>
+                    <span class="tile-name">{p.name.clone()}</span>
+                    <span class="tile-count">
+                        {format::songs(p.songs)}
+                        {p.live.on.then(|| view! { <span class="live-mark"><Svg icon=Icon::Live size=16/>"Live"</span> })}
+                    </span>
+                </a>
+            }/>
+            {move || shown().1.then(|| view! {
+                <a class="tile all" href="/playlists">"All playlists"<span class="tile-count">{format!("{} in all", total())}</span></a>
+            })}
+        </section>
+        <NewPlaylist open/>
+    }
+}
+
+/// The "New playlist" dialog, from the shelf's "+" or the Playlists page; a new playlist opens at once.
+#[component]
+fn NewPlaylist(open: RwSignal<bool>) -> impl IntoView {
     let toaster = ToasterInjection::expect_context();
     let navigate = use_navigate();
-    let (open, name, busy) = (RwSignal::new(false), RwSignal::new(String::new()), RwSignal::new(false));
+    let (name, busy) = (RwSignal::new(String::new()), RwSignal::new(false));
     let create = move || {
         if busy.get_untracked() {
             return;
@@ -93,26 +205,7 @@ fn Shelf(playlists: Playlists, #[prop(optional)] grid: bool) -> impl IntoView {
             }
         });
     };
-    let tiles = move || {
-        let all = loaded(playlists);
-        shelf::order(&all, &shelf::played()).into_iter().map(|p| (shelf::colour(&all, &p.id), p)).collect::<Vec<_>>()
-    };
     view! {
-        <section class="shelf" class:grid=grid aria-label="Your playlists">
-            // Words, not captions: the shelf's scrolling row would cut a caption off.
-            <button type="button" class="tile new" on:click=move |_| open.set(true)>
-                <Svg icon=Icon::Add size=28/><span>"New playlist"</span>
-            </button>
-            <For each=tiles key=|(_, p)| (p.id.clone(), p.name.clone(), p.songs, p.live.on) children=move |(colour, p)| view! {
-                <a class="tile" href=format!("/playlists/{}", p.id) style:background=colour>
-                    <span class="tile-name">{p.name.clone()}</span>
-                    <span class="tile-count">
-                        {format::songs(p.songs)}
-                        {p.live.on.then(|| view! { <span class="live-mark"><Svg icon=Icon::Live size=16/>"Live"</span> })}
-                    </span>
-                </a>
-            }/>
-        </section>
         <Dialog open>
             <DialogSurface>
                 <DialogBody>

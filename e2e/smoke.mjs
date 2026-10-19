@@ -193,8 +193,15 @@ assert.equal(await page.locator(".track").count(), 2);
 await check("the Playlists tab lists the playlist", async () => {
   await page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Playlists" }).click();
   await page.waitForURL(base + "/playlists");
-  await page.getByRole("link", { name: /Smoke test list/ }).waitFor({ timeout: 5_000 });
-  await page.getByRole("link", { name: /Smoke test list/ }).click();
+  const row = page.locator(".playlist-row", { hasText: "Smoke test list" });
+  await row.waitFor({ timeout: 5_000 });
+  assert.match(await row.innerText(), /\d+ songs?/, "the row says how many songs");
+  assert.ok(await row.locator(".strip").count(), "the row starts with its colour, like its banner");
+  const look = await row.evaluate((el) => getComputedStyle(el).backgroundColor);
+  assert.equal(look, "rgba(0, 0, 0, 0)", "rows like the songs list, not cards");
+  await row.getByRole("button", { name: "Play Smoke test list" }).waitFor();
+  await page.getByRole("button", { name: "New playlist" }).waitFor();
+  await row.getByRole("link", { name: /Smoke test list/ }).click();
   await page.waitForURL(base + playlistPath);
   await page.locator(".track").nth(1).waitFor();
 });
@@ -363,6 +370,36 @@ step("no sideways scrolling at 360 px");
 await noSidewaysScroll("/");
 await noSidewaysScroll(playlistPath);
 await noSidewaysScroll("/playlists");
+
+await check("the shelf never scrolls; with more playlists than it shows it ends with All playlists, level with the Make box", async () => {
+  const headers = { origin: base, "content-type": "application/json" };
+  const made = [];
+  for (const name of ["Extra one", "Extra two", "Extra three", "Extra four", "Extra five"]) {
+    const r = await page.request.post(base + "/api/v1/playlists", { headers, data: { name } });
+    made.push((await r.json()).id);
+  }
+  try {
+    await page.goto(base + "/");
+    const all = page.getByRole("link", { name: /^All playlists/ });
+    await all.waitFor({ timeout: 5_000 });
+    assert.ok(await page.locator(".shelf a.tile:not(.all)").count() <= 5, "at most five playlists, then All playlists");
+    const ends = await page.evaluate(() => {
+      const shelf = document.querySelector(".shelf .tile.all").getBoundingClientRect().right;
+      const make = document.querySelector(".make").getBoundingClientRect().right;
+      return Math.abs(shelf - make) <= 6;
+    });
+    assert.ok(ends, "a full shelf ends where the Make box ends");
+    const scrolls = () => page.evaluate(() => { const s = document.querySelector(".shelf"); return s.scrollWidth > s.clientWidth + 1; });
+    assert.equal(await scrolls(), false, "no scrolling at full width");
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.waitForTimeout(300);
+    assert.equal(await scrolls(), false, "no scrolling at 360 px");
+    assert.ok(await all.isVisible(), "All playlists stays in view");
+  } finally {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    for (const id of made) await page.request.delete(base + `/api/v1/playlists/${id}`, { headers });
+  }
+});
 
 await check("a session that ends while the page is open sends you to sign-in", async () => {
   await page.goto(base + "/");

@@ -23,6 +23,9 @@ stack:
 engine:
     #!/usr/bin/env bash
     set -euo pipefail
+    # ACE-Step's API key, when .env has one; Maio sends it too when [[engine]] names it in api_key_env.
+    key=$(sed -n 's/^ACE_STEP_API_KEY=//p' "{{justfile_directory()}}/.env" 2>/dev/null || true)
+    if [ -n "$key" ]; then export ACESTEP_API_KEY="$key"; fi
     cd "{{ace_root}}"
     # Load the models at start: acestep-api otherwise waits for the first song, and Maio waits for the models.
     export ACESTEP_NO_INIT=false ACESTEP_API_HOST=127.0.0.1 ACESTEP_API_PORT={{engine_port}} ACESTEP_DEVICE=mps ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-1.7B ACESTEP_LM_BACKEND=pt

@@ -69,7 +69,8 @@ async fn a_prompt_becomes_a_tagged_opus_song_in_the_library() {
     let dir = tempfile::tempdir().unwrap();
     let wav = dir.path().join("tone.wav");
     tone(&wav, 20);
-    let engine = Arc::new(HttpEngine::new(EngineConfig { id: "ace-step".into(), url: serve_engine(std::fs::read(&wav).unwrap()).await }));
+    let engine =
+        Arc::new(HttpEngine::new(EngineConfig { id: "ace-step".into(), api_key: None, url: serve_engine(std::fs::read(&wav).unwrap()).await }));
     engine.check().await;
     let songs = Arc::new(SqliteSongs(Arc::new(Db::open(&dir.path().join("library.db")).unwrap())));
     let making = Making::new(

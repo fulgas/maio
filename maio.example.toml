@@ -45,6 +45,7 @@ bitrate_k = 160
 [[engine]]
 id = "ace-step"
 url = "http://host.docker.internal:7801"
+# api_key_env = "ACE_STEP_API_KEY"   # when ACE-Step runs with a key (ACE_STEP_API_KEY in .env)
 
 # Text engines write lyrics and titles, never music. Leave them out to use ACE-Step's own lyrics and word-list titles.
 # [[text_engine]]

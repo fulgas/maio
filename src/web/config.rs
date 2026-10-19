@@ -169,6 +169,11 @@ impl Default for Storage {
 pub struct Engine {
     pub id: String,
     pub url: String,
+    /// The environment variable holding ACE-Step's API key (its `ACESTEP_API_KEY`), when it wants one.
+    pub api_key_env: Option<String>,
+    /// Read from `api_key_env` at load.
+    #[serde(skip)]
+    pub api_key: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -239,6 +244,11 @@ pub fn parse(text: &str, env: impl Fn(&str) -> Option<String>) -> Result<Config>
     let mut cfg: Config = toml::from_str(text)?;
     unique(cfg.engines.iter().map(|e| &e.id), "engine")?;
     unique(cfg.text_engines.iter().map(|t| &t.id), "text engine")?;
+    for e in &mut cfg.engines {
+        if let Some(var) = &e.api_key_env {
+            e.api_key = Some(env(var).with_context(|| format!("engine {}: {var} is not set", e.id))?);
+        }
+    }
     for t in &mut cfg.text_engines {
         ensure!(t.id != "ace-step", "a text engine cannot be called \"ace-step\": that name means ACE-Step writes the lyrics");
         ensure!(t.kind != Kind::Openai || t.url.is_some(), "text engine {}: kind \"openai\" needs a url", t.id);
@@ -275,7 +285,7 @@ pub fn parse(text: &str, env: impl Fn(&str) -> Option<String>) -> Result<Config>
 
 impl Config {
     pub fn engine_configs(&self) -> Vec<EngineConfig> {
-        self.engines.iter().map(|e| EngineConfig { id: e.id.clone(), url: e.url.clone() }).collect()
+        self.engines.iter().map(|e| EngineConfig { id: e.id.clone(), url: e.url.clone(), api_key: e.api_key.clone() }).collect()
     }
 
     pub fn text_engine_configs(&self) -> Vec<TextEngineConfig> {
@@ -349,6 +359,15 @@ mod tests {
     }
 
     #[test]
+    fn an_engine_key_comes_from_the_variable_it_names_and_must_be_set() {
+        let text = format!("{MINIMAL}[[engine]]\nid = \"ace-step\"\nurl = \"http://x\"\napi_key_env = \"ACE_STEP_API_KEY\"\n");
+        let cfg = parse(&text, |k| (k == "ACE_STEP_API_KEY").then(|| "ace-secret".to_string())).unwrap();
+        assert_eq!(cfg.engine_configs()[0].api_key.as_deref(), Some("ace-secret"));
+        assert!(!format!("{:?}", cfg.engine_configs()[0]).contains("ace-secret"), "a key never shows in Debug output or logs");
+        assert!(error(&text).contains("engine ace-step: ACE_STEP_API_KEY is not set"), "{}", error(&text));
+    }
+
+    #[test]
     fn engines_and_text_engines_become_adapter_configs() {
         let text = format!(
             "{MINIMAL}[[engine]]\nid = \"ace-step\"\nurl = \"http://host.docker.internal:7801\"\n\
@@ -356,7 +375,7 @@ mod tests {
              [naming]\nengine = \"claude\"\n[lyrics]\ndefault_engine = \"claude\"\n[storage]\nformat = \"flac\"\n"
         );
         let cfg = parse(&text, |k| (k == "KEY").then(|| "sk-secret".to_string())).unwrap();
-        assert_eq!(cfg.engine_configs(), [EngineConfig { id: "ace-step".into(), url: "http://host.docker.internal:7801".into() }]);
+        assert_eq!(cfg.engine_configs(), [EngineConfig { id: "ace-step".into(), url: "http://host.docker.internal:7801".into(), api_key: None }]);
         let t = &cfg.text_engine_configs()[0];
         assert_eq!((t.kind, t.api_key.as_deref(), t.url.as_deref()), (TextKind::Anthropic, Some("sk-secret"), None));
         assert_eq!(cfg.store_format(), StoreFormat::Flac);

@@ -88,8 +88,8 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .sign-in .logo { margin: 0 0 8px; font-size: 30px; }
 
 /* Shelf */
-.shelf { display: flex; gap: 12px; padding: 4px 0 6px; overflow-x: auto; scroll-snap-type: x proximity; }
-.tile { flex: 0 0 auto; width: 200px; height: 104px; padding: 14px 16px; border-radius: 6px; color: var(--on-colour); text-decoration: none; display: flex; flex-direction: column; justify-content: space-between; scroll-snap-align: start; }
+.shelf { display: flex; gap: 12px; padding: 4px; margin: 0 -4px; overflow: hidden; } /* room for focus outlines */
+.tile { flex: 0 0 auto; width: 200px; height: 104px; padding: 14px 16px; border-radius: 6px; color: var(--on-colour); text-decoration: none; display: flex; flex-direction: column; justify-content: space-between; }
 .tile.new { width: 104px; border: 2px dashed var(--line2); background: transparent; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; }
 .tile-name { font: 700 16px/1.15 Unbounded, sans-serif; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .tile-count { font-size: 13px; font-weight: 600; display: flex; align-items: center; }
@@ -225,8 +225,6 @@ body > .thaw-config-provider { background-color: transparent; color: var(--ink);
 .tabs a { height: 38px; padding: 0 18px; display: flex; align-items: center; border-radius: 19px; text-decoration: none; font-size: 15px; }
 .tabs a[aria-current="page"] { background: var(--ink); color: var(--bg); font-weight: 700; }
 /* The Playlists page: the same tiles, wrapping */
-.shelf.grid { flex-wrap: wrap; overflow-x: visible; }
-@media (max-width: 720px) { .shelf.grid .tile:not(.new) { flex: 1 1 100%; width: auto; } }
 
 /* The live strip (SPEC 12) */
 .band { border-radius: 8px 8px 0 0; }
@@ -259,3 +257,16 @@ button.song-title:focus-visible, .track-title button:focus-visible { outline: 2p
 .downloads .chip { text-decoration: none; }
 .downloads-label { align-self: center; color: var(--muted); margin-right: 4px; }
 .engines .queue { margin: -6px 0 12px; color: var(--muted); font-size: 14px; }
+.tile.all { width: 104px; background: var(--panel); color: var(--ink); font-size: 14px; font-weight: 600; }
+.tile.all .tile-count { color: var(--muted); font-weight: 500; }
+/* The Playlists page: rows like the songs list; each name starts with its playlist's colour, as on its banner. */
+.new-playlist { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 6px; border: 2px dashed var(--line2); background: transparent; color: var(--ink); cursor: pointer; }
+.playlist-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.playlist-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) 80px 72px; gap: 14px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.playlist-row .play { background: var(--panel); }
+.playlist-name { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+.playlist-name:hover { text-decoration: underline; }
+.playlist-row .strip { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+.playlist-row .live-chip { display: inline-flex; align-items: center; gap: 4px; color: #FF6B5E; font-size: 12px; font-weight: 700; }
+.playlist-row .len { text-align: right; color: var(--muted); }
+.shelf.full .tile:not(.new):not(.all) { flex: 1 1 200px; }

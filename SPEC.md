@@ -148,7 +148,10 @@ Maio makes music with ACE-Step 1.5, through ACE-Step's own HTTP server, `acestep
 [[engine]]
 id = "ace-step"
 url = "http://host.docker.internal:7801"
+# api_key_env = "ACE_STEP_API_KEY"
 ```
+
+ACE-Step can require an API key (its `ACESTEP_API_KEY`). `api_key_env` names the variable that holds it; Maio then sends it as `Authorization: Bearer <key>` on every call, and a missing variable stops the start. `just engine` starts ACE-Step with `ACE_STEP_API_KEY` from `.env`. The key never appears in logs.
 
 | Maio needs | `acestep-api` call |
 |-----------------|--------------------|
@@ -294,10 +297,10 @@ The design is the **Shelf** direction on the Claude Design canvas "Maio songs an
 
 - **Look**: dark by default with a light theme; a sun/moon switch in the header, remembered on the device. Unbounded for headings, Albert Sans for text. Each playlist has its own colour (mustard `#E8B04A`, blue `#6FA8DC`, rose `#D9706C`, sage `#7FB89A`, then repeating), used for its shelf tile, its page band and the marks on songs. The player bar is mustard.
 - **Header**: the logo, the Songs and Playlists tabs, the engine line (a green dot when a song can be made; a click opens the engine panel: each engine's state and what to do about it, its version, model, lyrics model, queue, song lengths, voice, speed and licence, and a model switch when more than one model is installed), the theme switch, and an account menu with "Change password" and "Sign out".
-- **Playlists** screen: every playlist as a tile (the "+" tile first), in the shelf's order; a tile opens its playlist page.
+- **Playlists** screen: a "New playlist" button and every playlist as a row like the song list's, in the shelf's order: play, its colour (as on its banner) and name (opens its page), its songs, the live mark and its length.
 - **Icons over text** for actions (play, shuffle, add, more, live, lock, refresh, copy, cancel, remove), each with a tooltip and an accessible label.
 - **Songs** screen:
-  - the shelf: a sideways-scrolling row of playlist tiles, the "+" tile first, then live playlists, then the rest by most recently played;
+  - the shelf: one row of playlist tiles that never scrolls: the "+" tile first, then as many playlists as fit, at most five (live ones first, then by most recently played), and an "All playlists" tile when some are left out; a full shelf ends level with the Make box;
   - "Make a song": a large prompt box and a Make button, settings as icon chips (mood, genre, length, tempo) and a Vocals switch (instrumental by default); turning vocals on shows the lyrics box with language and lyrics writer; every song is a new take: a seed chip shows only when "Make one like this" copied a song's seed, with a button to remove it;
   - "Being made": jobs with progress, time left and cancel;
   - the song list with search: play, title (opens the song's details) and prompt, playlist marks, mood and key, length, add to playlist, and rename or delete.

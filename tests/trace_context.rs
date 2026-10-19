@@ -30,7 +30,7 @@ async fn a_submitted_song_carries_traceparent() {
     let subscriber = tracing_subscriber::registry().with(tracing_opentelemetry::layer().with_tracer(provider.tracer("test")));
     let _guard = tracing::subscriber::set_default(subscriber);
 
-    let engine = HttpEngine::new(EngineConfig { id: "ace-step".into(), url });
+    let engine = HttpEngine::new(EngineConfig { id: "ace-step".into(), url, api_key: None });
     let request = EngineRequest {
         prompt: "calm".into(),
         seconds: 30,

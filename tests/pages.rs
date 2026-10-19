@@ -163,7 +163,7 @@ async fn the_playlists_page_lists_them_behind_sign_in() {
     let (status, _, html) = page(&w, "/playlists", Some(&session)).await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains(r#"href="/playlists" aria-current="page""#), "{html}");
-    assert!(html.contains(r#"New playlist</span>"#), "{html}");
+    assert!(html.contains(r#"New playlist</button>"#), "{html}");
 }
 
 #[tokio::test]

@@ -22,6 +22,26 @@ pub fn order(playlists: &[PlaylistSummary], played: &HashMap<String, f64>) -> Ve
     v
 }
 
+/// At most this many playlists on the Songs screen's shelf; the rest are a click away. Five fill the widest page.
+pub const MAX_SHOWN: usize = 5;
+const NEW_W: f64 = 104.0;
+const TILE_W: f64 = 200.0;
+const GAP: f64 = 12.0;
+
+/// How many of `count` playlists the shelf shows in a row `width` px wide beside "+", and whether it ends with
+/// "All playlists" (when some are left out). Keep the sizes in step with `.tile` in style/main.css.
+pub fn fits(width: f64, count: usize) -> (usize, bool) {
+    let room = |n: usize, all: bool| NEW_W + n as f64 * (GAP + TILE_W) + if all { GAP + NEW_W } else { 0.0 };
+    if count <= MAX_SHOWN && room(count, false) <= width {
+        return (count, false);
+    }
+    let mut n = count.min(MAX_SHOWN);
+    while n > 0 && room(n, true) > width {
+        n -= 1;
+    }
+    (n, true)
+}
+
 /// `items` with the one at `from` moved to `to` (drag to reorder).
 pub fn moved<T: Clone>(items: &[T], from: usize, to: usize) -> Vec<T> {
     let mut v = items.to_vec();
@@ -86,5 +106,17 @@ mod tests {
         assert_eq!(moved(&v, 3, 0), ["d", "a", "b", "c"]);
         assert_eq!(moved(&v, 1, 1), v);
         assert_eq!(moved(&v, 1, 9), ["a", "c", "d", "b"], "past the end means the end");
+    }
+
+    #[test]
+    fn the_shelf_shows_what_fits_and_ends_with_all_playlists_when_some_do_not() {
+        assert_eq!(fits(1000.0, 2), (2, false), "everything fits: no All playlists tile");
+        assert_eq!(fits(1000.0, 10), (3, true), "+, three playlists, All playlists");
+        assert_eq!(fits(300.0, 5), (0, true), "a narrow screen: + and All playlists");
+        assert_eq!(fits(1000.0, 0), (0, false));
+        assert_eq!(MAX_SHOWN, 5);
+        assert_eq!(fits(3000.0, 10), (MAX_SHOWN, true), "at most five, then All playlists");
+        assert_eq!(fits(1352.0, 10), (5, true), "five fit beside + and All playlists on the widest page");
+        assert_eq!(fits(3000.0, MAX_SHOWN), (MAX_SHOWN, false));
     }
 }

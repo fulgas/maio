@@ -151,6 +151,11 @@ pub fn enc(s: &str) -> String {
     s.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect()
 }
 
+/// The query takes the format's name, lower case: mp3, aac, flac, wav, opus.
+pub fn download_url(id: &str, format: crate::domain::DownloadFormat) -> String {
+    format!("{BASE}/songs/{}/download?format={}", enc(id), format.label().to_ascii_lowercase())
+}
+
 pub fn audio_url(id: &str) -> String {
     format!("{BASE}/songs/{}/audio", enc(id))
 }
@@ -284,6 +289,9 @@ pub async fn live(id: &str) -> Result<LiveJson, Failure> {
 pub async fn set_live(id: &str, change: &serde_json::Value) -> Result<LiveJson, Failure> {
     call(Method::PUT, &format!("/playlists/{}/live", enc(id)), Some(change.clone())).await
 }
+pub async fn switch_model(engine: &str, model: &str) -> Result<(), Failure> {
+    call(Method::PUT, &format!("/engines/{}/model", enc(engine)), body(json!({"model": model}))).await
+}
 pub async fn new_key(id: &str) -> Result<LiveJson, Failure> {
     call(Method::POST, &format!("/playlists/{}/live/key", enc(id)), None).await
 }
@@ -337,6 +345,7 @@ mod tests {
     #[test]
     fn audio_url_points_at_the_api() {
         assert_eq!(audio_url("s1"), "/api/v1/songs/s1/audio");
+        assert_eq!(download_url("s1", crate::domain::DownloadFormat::Flac), "/api/v1/songs/s1/download?format=flac");
     }
 
     #[test]

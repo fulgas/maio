@@ -17,6 +17,7 @@ use crate::domain::{
 };
 use serde::Serialize;
 use tokio::sync::{Notify, Semaphore};
+use tracing::Instrument;
 
 use crate::usecases::{
     Error, Result,
@@ -155,7 +156,9 @@ impl Making {
         }
         tracing::info!(job = %job.id, label = %job.label, "job waiting");
         self.ports.notifier.job(&job);
-        tokio::spawn(self.clone().run(job.id.clone(), n));
+        // The job's logs and engine calls share a span, a child of the request that asked for it (SPEC 13).
+        let span = tracing::info_span!("job", job = %job.id);
+        tokio::spawn(self.clone().run(job.id.clone(), n).instrument(span));
         Ok(Accepted { job_id: job.id, eta_s })
     }
 
@@ -181,6 +184,16 @@ impl Making {
     }
 
     /// The music engines as last seen (SPEC 10, `/status`).
+    /// The engine panel's model switch (SPEC 12). The model must be one the engine has installed.
+    pub async fn switch_model(&self, engine: &str, model: &str) -> Result<()> {
+        let i = self.ports.engines.iter().position(|e| e.status().id == engine).ok_or(Rule::NotFound("engine"))?;
+        let installed = self.ports.engines[i].status().info.is_some_and(|info| info.models.iter().any(|m| m == model) || info.models.is_empty());
+        if !installed {
+            return Err(Rule::invalid("unknown_model", format!("{model:?} is not installed in this engine")).into());
+        }
+        self.ports.engines[i].switch_model(model).await.map_err(|e| Rule::invalid("switch_failed", e.to_string()).into())
+    }
+
     pub fn engines(&self) -> Vec<EngineStatus> {
         self.statuses()
     }

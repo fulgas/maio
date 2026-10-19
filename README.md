@@ -1,7 +1,7 @@
 # Maio
 
 Makes songs with music generation models, keeps them in your library, builds playlists from them and plays them.
-Spec: `SPEC.md`. The ACE-Step engine server is the `maio-engine` repo, next to this one.
+Spec: `SPEC.md`. The music engine is ACE-Step 1.5's own `acestep-api`, from the `ACE-Step-1.5` checkout next to this repo (`just engine`).
 
 ## Run
 
@@ -31,3 +31,9 @@ curl -H "Authorization: Bearer $MAIO_API_TOKEN" -H 'content-type: application/js
 `rustup target add wasm32-unknown-unknown`, `cargo install cargo-leptos@0.3.5` and a local `maio.toml`
 with `listen = "127.0.0.1:8080"`). `just test` runs every test and the browser build; `just e2e` drives a real
 browser through every screen against the fake engine (needs Node).
+
+## Traces
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT` (for example `http://localhost:4318`) for Maio and for `just engine`:
+Maio sends traces, metrics and logs over OTLP, and ACE-Step runs under OpenTelemetry's zero-code
+instrumentation, so one trace holds your request, the job and ACE-Step's own spans (SPEC 13).

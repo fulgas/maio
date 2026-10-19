@@ -41,7 +41,7 @@ pending_jobs = 4
 format = "opus"
 bitrate_k = 160
 
-# Music engines, in order of preference. ACE-Step runs on the Mac: `just engine`.
+# Music engines, in order of preference. ACE-Step's acestep-api runs on the Mac: `just engine`.
 [[engine]]
 id = "ace-step"
 url = "http://host.docker.internal:7801"

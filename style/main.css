@@ -33,9 +33,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .top { width: 100%; max-width: 1440px; margin: 0 auto; display: flex; align-items: center; gap: 16px 28px; padding: 20px var(--gutter); flex-wrap: wrap; }
 .logo { font-weight: 800; font-size: 22px; text-decoration: none; }
 .logo span { color: var(--accent); }
-.engine { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
-.engine i { width: 8px; height: 8px; border-radius: 4px; background: var(--faint); }
-.engine.ready i { background: #7FB89A; }
+.engine { margin-left: auto; display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; color: var(--muted); background: none; border: 0; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.engine:hover { background: var(--panel); color: var(--ink); }
+.engine i, .engine-card h3 i { width: 8px; height: 8px; border-radius: 4px; background: var(--faint); flex: none; }
+.engine.ready i, .engine-card.ready h3 i { background: #7FB89A; }
+.engines { position: fixed; inset: 64px 16px auto auto; margin: 0; width: min(360px, calc(100vw - 32px)); padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 8px 24px rgb(0 0 0 / 0.3); }
+.engines h2 { margin: 0 0 12px; font-size: 16px; }
+.engine-card + .engine-card { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.engine-card h3 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.engine-card p { margin: 6px 0; }
+.engine-card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
 /* Room under the content for the fixed player bar (taller when it wraps on phones). */
 .page { flex: 1; width: 100%; max-width: 1440px; margin: 0 auto; padding: 0 var(--gutter) 112px; display: flex; flex-direction: column; gap: 22px; }
 
@@ -83,7 +90,7 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 /* Shelf */
 .shelf { display: flex; gap: 12px; padding: 4px 0 6px; overflow-x: auto; scroll-snap-type: x proximity; }
 .tile { flex: 0 0 auto; width: 200px; height: 104px; padding: 14px 16px; border-radius: 6px; color: var(--on-colour); text-decoration: none; display: flex; flex-direction: column; justify-content: space-between; scroll-snap-align: start; }
-.tile.new { width: 104px; border: 2px dashed var(--line2); background: transparent; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+.tile.new { width: 104px; border: 2px dashed var(--line2); background: transparent; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; }
 .tile-name { font: 700 16px/1.15 Unbounded, sans-serif; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .tile-count { font-size: 13px; font-weight: 600; display: flex; align-items: center; }
 
@@ -104,7 +111,6 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .chip.toggle[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .chip.toggle[aria-pressed="true"] svg { color: var(--bg); }
 .chip.seed { margin-left: auto; border-style: dashed; }
-.chip.seed input { width: 72px; }
 .lyrics { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; }
 .lyrics-side { display: flex; flex-direction: column; gap: 12px; }
 @media (max-width: 720px) {
@@ -158,7 +164,7 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .band-text span { font-size: 15px; font-weight: 600; }
 .band-actions { display: flex; align-items: center; gap: 10px; }
 .band .icon.solid { width: 48px; height: 48px; border-radius: 24px; background: var(--on-colour); color: inherit; }
-.band .icon.solid { color: var(--mustard); }
+.band .icon.solid { color: var(--band, var(--mustard)); }
 .band .icon.big { width: 60px; height: 60px; border-radius: 30px; }
 .band .icon.outline { width: 48px; height: 48px; border: 2px solid var(--on-colour); color: var(--on-colour); }
 .band .icon.solid[aria-pressed="false"] { background: transparent; color: var(--on-colour); border: 2px solid var(--on-colour); }
@@ -199,9 +205,8 @@ body > .thaw-config-provider { background-color: transparent; color: var(--ink);
 /* Near the top of the page, show the caption below; at the right edge, align it to the right so it never runs off-screen. */
 .top [data-tip]:hover::after, .top [data-tip]:focus-visible::after, .shelf [data-tip]:hover::after, .shelf [data-tip]:focus-visible::after { top: calc(100% + 8px); bottom: auto; }
 .top .dropdown [data-tip]::after, .top > .icon[data-tip]::after, .volume [data-tip]::after { left: auto; right: 0; transform: none; }
-.chip.seed .icon { width: 32px; height: 32px; }
-.chip.seed:not(.open) { padding: 0 6px; }
-.chip.seed input { width: 90px; }
+.chip.seed { gap: 4px; padding-right: 4px; }
+.chip.seed .icon { width: 28px; height: 28px; }
 /* Captions at the left edge open to the right. */
 .song > .icon:first-child::after, .track > .grip::after, .tile.new::after { left: 0; transform: none; }
 /* Button chips centre their icon like the label chips do. */
@@ -236,7 +241,21 @@ body > .thaw-config-provider { background-color: transparent; color: var(--ink);
 .in-use { margin-left: auto; font-size: 13px; color: var(--muted); }
 .on-air { color: var(--live); display: inline-flex; }
 .next-label { font-size: 12px; color: var(--muted); }
-.tile .live-mark { margin-left: auto; width: 26px; height: 26px; border-radius: 13px; background: var(--on-colour); color: #FF6B5E; display: grid; place-items: center; }
+.tile .live-mark { margin-left: auto; height: 26px; padding: 0 8px; border-radius: 13px; background: var(--on-colour); color: #FF6B5E; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; }
 @media (max-width: 720px) { .in-use { margin-left: 0; flex-basis: 100%; } }
 /* Copy captions show a whole link: wider, and breaking anywhere. */
 .copy[data-tip]:hover::after, .copy[data-tip]:focus-visible::after { max-width: min(460px, 90vw); word-break: break-all; text-align: left; }
+.engine-model { display: flex; gap: 8px; align-items: center; margin-top: 8px; font-size: 14px; }
+.engine-model select { font: inherit; }
+button.song-title, .track-title button { all: unset; cursor: pointer; font: inherit; color: inherit; }
+button.song-title:hover, .track-title button:hover { text-decoration: underline; }
+button.song-title:focus-visible, .track-title button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 12px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.lyrics-head { margin: 12px 0 6px; font-size: 15px; }
+.lyrics-text { white-space: pre-wrap; font: inherit; max-height: 40vh; overflow: auto; background: var(--bg); padding: 10px 12px; border-radius: 6px; margin: 0; }
+.downloads { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.downloads .chip { text-decoration: none; }
+.downloads-label { align-self: center; color: var(--muted); margin-right: 4px; }
+.engines .queue { margin: -6px 0 12px; color: var(--muted); font-size: 14px; }

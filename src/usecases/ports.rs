@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::domain::{Playlist, PlaylistRef, Song, engine::EngineStatus, job::Job, request::Normalized};
+use crate::domain::{DownloadFormat, Playlist, PlaylistRef, Song, engine::EngineStatus, job::Job, request::Normalized};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -52,6 +52,13 @@ pub trait PlaylistRepository: Send + Sync {
     fn containing(&self, song_id: &str) -> Result<Vec<PlaylistRef>>;
 }
 
+/// A song in a download format: its stored file when the format matches, else a converted copy the caller removes.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Exported {
+    pub path: PathBuf,
+    pub temporary: bool,
+}
+
 pub trait AudioFiles: Send + Sync {
     /// A path for a temporary file, such as an engine's WAV before import.
     fn scratch(&self, name: &str) -> PathBuf;
@@ -61,6 +68,8 @@ pub trait AudioFiles: Send + Sync {
     fn retag(&self, song: &Song) -> Result<()>;
     /// `file` is relative to the data folder, as `Song::file`.
     fn delete(&self, file: &str) -> Result<()>;
+    /// The song in a download format (SPEC 10).
+    fn export(&self, song: &Song, format: DownloadFormat) -> Result<Exported>;
 }
 
 /// A stored audio file, fresh from import.
@@ -182,6 +191,8 @@ pub trait MusicEngine: Send + Sync {
     async fn download(&self, id: &str, to: &Path) -> std::result::Result<(), CallError>;
     /// Cancels a running job or frees a finished one; failures are ignored.
     async fn delete(&self, id: &str);
+    /// Loads another installed model; the engine shows `loading` until it is ready.
+    async fn switch_model(&self, model: &str) -> std::result::Result<(), CallError>;
 }
 
 #[derive(Debug, Clone, PartialEq)]

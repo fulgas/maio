@@ -2,7 +2,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use crate::domain::{Error as Rule, PlaylistRef, Song, song_deletable};
+use std::path::PathBuf;
+
+use crate::domain::{DownloadFormat, Error as Rule, PlaylistRef, Song, download_name, song_deletable};
 use serde::Serialize;
 
 use crate::usecases::{
@@ -28,6 +30,16 @@ pub struct SongPage {
     pub next: Option<String>,
 }
 
+/// A song ready to send in a download format (SPEC 10).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Download {
+    pub path: PathBuf,
+    /// A converted copy: the caller removes it once it has opened it.
+    pub temporary: bool,
+    pub name: String,
+    pub format: DownloadFormat,
+}
+
 pub struct Songs {
     repo: Arc<dyn SongRepository>,
     playlists: Arc<dyn PlaylistRepository>,
@@ -39,6 +51,13 @@ pub struct Songs {
 impl Songs {
     pub fn new(repo: Arc<dyn SongRepository>, playlists: Arc<dyn PlaylistRepository>, files: Arc<dyn AudioFiles>) -> Self {
         Self { repo, playlists, files, edits: Mutex::new(()) }
+    }
+
+    pub fn download(&self, id: &str, format: &str) -> Result<Download> {
+        let format = DownloadFormat::parse(format)?;
+        let song = self.find(id)?;
+        let e = self.files.export(&song, format)?;
+        Ok(Download { path: e.path, temporary: e.temporary, name: download_name(&song.title, format), format })
     }
 
     pub fn total_bytes(&self) -> Result<u64> {

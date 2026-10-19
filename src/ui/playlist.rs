@@ -84,6 +84,7 @@ pub fn PlaylistPage() -> impl IntoView {
         });
     };
     let dragging = RwSignal::new(None::<usize>);
+    let (showing, shown) = (RwSignal::new(false), RwSignal::new(None::<Song>));
     // The live stream's song now and next, from the live strip, for the marks on the rows.
     let on_air = RwSignal::new(None::<(Option<String>, Option<String>)>);
 
@@ -130,7 +131,7 @@ pub fn PlaylistPage() -> impl IntoView {
             <p class="error" role="alert">{text} " " <button type="button" class="more" on:click=move |_| view_res.refetch()>"Try again"</button></p>
         })}
         {move || missing().then(|| view! { <p class="empty">"This playlist does not exist. " <a href="/">"Go to your songs"</a></p> })}
-        <section class="band" aria-labelledby="pl-title" style:background=colour class:hidden=move || !loaded()>
+        <section class="band" aria-labelledby="pl-title" style:background=colour style:--band=colour class:hidden=move || !loaded()>
             <div class="band-text">
                 <h1 id="pl-title">{move || name.get()}</h1>
                 <span>{move || songs.with(|s| format!("{}, {}", format::songs(s.len()), format::length(s.iter().map(|x| x.seconds).sum())))}</span>
@@ -201,7 +202,8 @@ pub fn PlaylistPage() -> impl IntoView {
                                 label={ let (sid, title) = (s.id.clone(), title.clone()); Signal::derive(move || format!("{} {title}", if player.is_playing(&sid) { "Pause" } else { "Play" })) }
                                 on_click={ let sid = s.id.clone(); move || if player.is_current(&sid) { player.toggle() } else { player.play(queue(), i, from()) } }/>
                             <span class="track-title">
-                                {title.clone()}
+                                <button type="button" aria-label=format!("Details for {title}") data-tip="How it was made, its lyrics and downloads"
+                                    on:click={ let s = s.clone(); move |_| { shown.set(Some(s.clone())); showing.set(true); } }>{title.clone()}</button>
                                 {
                                     // Its own closure: the on-air marks change every song, the rows must not be rebuilt.
                                     let sid = s.id.clone();
@@ -235,6 +237,7 @@ pub fn PlaylistPage() -> impl IntoView {
             }}
         </ol>
         <AddSongs open=adding playlist=id/>
+        <crate::ui::details::SongDetails open=showing song=shown/>
         <Dialog open=renaming>
             <DialogSurface><DialogBody>
                 <DialogTitle>"Rename playlist"</DialogTitle>

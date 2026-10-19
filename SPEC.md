@@ -48,7 +48,7 @@ Maio is written as a hexagon: a core that knows nothing about HTTP, SQLite, ffmp
 - **Application** (`app`): one use case per user action (make a song, cancel a job, rename, delete, create a playlist, add, remove, reorder, go live, change visibility, new link). Each use case takes its ports as traits and returns domain results or domain errors.
 - **Ports** (traits owned by the application):
   - `SongRepository`, `PlaylistRepository`: storage.
-  - `MusicEngine`: submit, poll, download, cancel a generation (section 6).
+  - `MusicEngine`: submit, poll, download a generation, switch model (section 6).
   - `TextEngine`: write lyrics, name a song (section 7).
   - `AudioFiles`: import (transcode and normalise), tag, read duration, delete.
   - `LiveStreams`: start, stop and update the live stream of a playlist, report listeners.
@@ -112,7 +112,7 @@ A song is asked for with a prompt and optional settings:
 A request needs `prompt`, `mood`, or both. Maio turns mood, genre, energy and tempo into the engine prompt through a template, picks the first healthy engine in config order that can meet the request (unless `engine` names one; one that cannot meet it gets `422`), and starts a job.
 
 - A job is `waiting`, `making` (with `progress` 0 to 1 and `eta_s`), `done` (with the new song's id), `failed` (with a reason) or `cancelled`. Jobs run one at a time per engine slot, in the order asked. You can cancel a job that is waiting or making.
-- With `vocals` and no `lyrics`: the lyrics come from `lyrics_by`. A text engine is asked first (30 s limit); if it fails, answers empty or times out, ACE-Step writes them (`write_lyrics`), and the job notes the fallback.
+- With `vocals` and no `lyrics`: the lyrics come from `lyrics_by`. A text engine is asked first (30 s limit); if it fails, answers empty or times out, ACE-Step writes them (`/v1/create_sample`, section 6), and the job notes the fallback.
 - Licences: an engine marked `commercial: "no"` is used only with `allow_noncommercial`; otherwise `409 noncommercial_engine`, and the web app asks before resending. An engine marked `"limited"` is allowed, and its licence note travels with the job and the song.
 - Rate limits (`[limits]`): `make` (default `20/10m`) and `pending_jobs` (default 4). Over a limit: `429 rate_limited` with `Retry-After`.
 
@@ -140,86 +140,33 @@ Titles, in layers; each applies only when the one above gives nothing:
 
 Files carry tags: title, artist, genre, BPM, lyrics, and a comment with the engine, seed and licence. A rename rewrites the tags without re-encoding.
 
-## 6. Engine contract
+## 6. The music engine: ACE-Step 1.5
 
-An engine is an HTTP server that wraps one model and exposes the endpoints below. Local models and cloud APIs use the same contract, so Maio has one engine client and no engine-specific code. Wrappers live outside this repo; the ACE-Step one is the `maio-engine` repo, a small Python server (FastAPI).
-
-Config:
+Maio makes music with ACE-Step 1.5, through ACE-Step's own HTTP server, `acestep-api`, run on the Mac (`just engine`, which loads the models at start; it binds `127.0.0.1`, so only this Mac and its containers reach it).
 
 ```toml
 [[engine]]
 id = "ace-step"
-url = "http://host.docker.internal:7801"   # ACE-Step on the Mac host
+url = "http://host.docker.internal:7801"
 ```
 
-Engine order in config is the preference order for automatic choice (section 3). Engines take no token or password. An engine server binds `127.0.0.1`, so only this Mac and its containers reach it (Docker Desktop forwards `host.docker.internal` to the host's loopback). An engine on another machine has no protection of its own, so it belongs only on a network you trust.
-
-### Endpoints
-
-| Method | Path               | Notes |
-|--------|--------------------|-------|
-| GET    | `/info`            | identity, licence, capabilities |
-| GET    | `/health`          | `200 {"status": "ok"}`, or `503 {"status": "loading"}` while the model loads |
-| POST   | `/jobs`            | start a job; `202 {"job_id": "..."}`, or `429` when all slots are busy |
-| GET    | `/jobs/{id}`       | job state |
-| GET    | `/jobs/{id}/audio` | `audio/wav`, only when the job is `done` |
-| DELETE | `/jobs/{id}`       | cancel a running job, or free a finished one |
-
-### `GET /info`
-
-```json
-{
-  "protocol": 1,
-  "id": "ace-step",
-  "name": "ACE-Step",
-  "version": "1.5",
-  "licence": {"name": "MIT", "commercial": "yes", "url": "https://...", "note": ""},
-  "capabilities": {"min_seconds": 10, "max_seconds": 600, "vocals": true, "tempo": true, "concurrency": 1},
-  "realtime_factor": 0.43
-}
-```
-
-- `commercial` is `"yes"`, `"limited"` (for example Stable Audio Open's revenue cap; explain in `note`), or `"no"` (for example MusicGen).
-- `realtime_factor` is generation time divided by audio length. It feeds `eta_s` and tells playout how early to start a job.
-- Maio reads `/info` at startup and again whenever an engine comes back from `down`. If `protocol` is not one Maio knows, the engine is marked `incompatible` and never used.
-
-### `POST /jobs`
-
-```json
-{"request": {"prompt": "calm ambient electronica, soft pads, 70 bpm, instrumental",
-             "seconds": 180, "bpm": 70, "vocals": false, "lyrics": null, "seed": 1234,
-             "vocal_language": "en", "write_lyrics": false}}
-```
-
-Maio has already resolved mood and tempo into `prompt` and `bpm`, and it never sends a request outside the declared capabilities. The engine still checks them and answers `422` if a request breaks them.
-
-### `GET /jobs/{id}`
-
-```json
-{"job_id": "...", "state": "running", "progress": 0.4}
-```
-
-```json
-{"job_id": "...", "state": "done", "seconds": 179.8, "seed": 1234, "lyrics": "...",
- "metas": {"bpm": 92, "key": "C major", "time_signature": "4"}}
-```
-
-`lyrics` and `metas` are optional; an engine reports them when it knows them.
-
-```json
-{"job_id": "...", "state": "failed", "error": {"code": "oom", "message": "...", "retryable": false}}
-```
-
-`state` is `queued`, `running`, `done`, `failed` or `cancelled`. Maio polls every 2 s while a job runs.
+| Maio needs | `acestep-api` call |
+|-----------------|--------------------|
+| health, loaded models | `GET /health` (`models_initialized`, `loaded_model`, `loaded_lm_model`) |
+| queue | `GET /v1/stats` |
+| installed models | `GET /v1/model_inventory` |
+| make a song | `POST /release_task`: prompt, lyrics (`[Instrumental]` for none), duration, bpm, seed with `use_random_seed: false`, `batch_size: 1`, `audio_format: "wav"` |
+| status, lyrics, bpm, key, time signature | `POST /query_result` |
+| the audio | `GET /v1/audio?path=…` (the path `query_result` names) |
+| lyrics written by ACE-Step | `POST /v1/create_sample` before `release_task` |
+| switch model | `POST /v1/init` (section 12, the engine panel) |
 
 ### Lifecycle
 
-- When a job is `done`, Maio downloads the audio, then sends `DELETE /jobs/{id}`. The engine may drop finished jobs that nobody fetched after 1 hour.
-- Maio checks `/health` every 30 s and marks an engine `down` after 3 failures. While an engine is `down`, Maio keeps checking and does not send it jobs.
-- A connection error or a vanished job during a run counts as `retryable: true`. Maio retries once on the next healthy engine that can meet the request, then marks the queue entry `failed`.
-- The engine never touches the library. Maio transcodes, normalises and stores the file.
-
-A cloud engine is a small server that calls the vendor API and returns the downloaded audio from `/jobs/{id}/audio`. Its licence block records that vendor's terms.
+- Health: checked at start and every 30 s. `up` when the models are initialised, `loading` before, `down` after 3 failed checks in a row, `incompatible` when the URL answers but not as `acestep-api`.
+- Progress and stage come from ACE-Step (`query_result`); a song waiting in ACE-Step's own queue shows as waiting. An id ACE-Step answers with an empty result (lost in a restart) fails the job as lost, and it is tried once more on another engine when there is one.
+- ACE-Step can neither cancel nor delete a task. Cancelling a song being made stops Maio waiting for it; ACE-Step finishes it, nobody fetches it, and ACE-Step's own cleanup removes the file.
+- A song with no change for `engine_stall_s` fails, and is tried once more on another engine when there is one.
 
 ## 7. Text engines
 
@@ -265,6 +212,7 @@ A playlist goes live with a switch. While live:
 | DELETE | `/session` | sign out |
 | POST | `/me/password` | `{"current","new"}` |
 | GET | `/status` | engines (music and text) with health, live playlists, disk usage, moods and genres |
+| PUT | `/engines/{id}/model` | `{"model"}`: load another installed model (ACE-Step's `/v1/init`); `204` |
 | GET | `/events` | server-sent events: `job`, `song`, `playlist`, `live` |
 | POST | `/songs` | a song request (section 5); `202 {"job_id", "eta_s"}` |
 | GET | `/jobs` | jobs waiting or making |
@@ -274,6 +222,7 @@ A playlist goes live with a switch. While live:
 | PATCH | `/songs/{id}` | `{"title"}`; `title_source = "person"`, tags rewritten |
 | DELETE | `/songs/{id}` | only when in no playlist |
 | GET | `/songs/{id}/audio` | the file, with range requests |
+| GET | `/songs/{id}/download?format=` | `mp3`, `aac`, `flac`, `wav` or `opus`: the song with its tags, as an attachment named after its title; the stored format is sent as it is |
 | GET | `/playlists` | all playlists with song counts, length and live state |
 | POST | `/playlists` | `{"name"}` |
 | GET | `/playlists/{id}` | the playlist and its songs in order |
@@ -344,23 +293,25 @@ default_language = "en"
 The design is the **Shelf** direction on the Claude Design canvas "Maio songs and playlists" (https://claude.ai/artifact/3ompMaRTUNVrNBvQLSYDS8, row C).
 
 - **Look**: dark by default with a light theme; a sun/moon switch in the header, remembered on the device. Unbounded for headings, Albert Sans for text. Each playlist has its own colour (mustard `#E8B04A`, blue `#6FA8DC`, rose `#D9706C`, sage `#7FB89A`, then repeating), used for its shelf tile, its page band and the marks on songs. The player bar is mustard.
-- **Header**: the logo, the Songs and Playlists tabs, the engine line, the theme switch, and an account menu with "Change password" and "Sign out".
+- **Header**: the logo, the Songs and Playlists tabs, the engine line (a green dot when a song can be made; a click opens the engine panel: each engine's state and what to do about it, its version, model, lyrics model, queue, song lengths, voice, speed and licence, and a model switch when more than one model is installed), the theme switch, and an account menu with "Change password" and "Sign out".
 - **Playlists** screen: every playlist as a tile (the "+" tile first), in the shelf's order; a tile opens its playlist page.
 - **Icons over text** for actions (play, shuffle, add, more, live, lock, refresh, copy, cancel, remove), each with a tooltip and an accessible label.
 - **Songs** screen:
   - the shelf: a sideways-scrolling row of playlist tiles, the "+" tile first, then live playlists, then the rest by most recently played;
-  - "Make a song": a large prompt box and a Make button, settings as icon chips (mood, genre, length, tempo, seed) and a Vocals switch (instrumental by default); turning vocals on shows the lyrics box with language and lyrics writer;
+  - "Make a song": a large prompt box and a Make button, settings as icon chips (mood, genre, length, tempo) and a Vocals switch (instrumental by default); turning vocals on shows the lyrics box with language and lyrics writer; every song is a new take: a seed chip shows only when "Make one like this" copied a song's seed, with a button to remove it;
   - "Being made": jobs with progress, time left and cancel;
-  - the song list with search: play, title and prompt, playlist marks, mood and key, length, add to playlist, and rename or delete.
+  - the song list with search: play, title (opens the song's details) and prompt, playlist marks, mood and key, length, add to playlist, and rename or delete.
+- **Song details** (from a song's title, on the Songs screen and a playlist page): everything the song carries (section 5): what it was described as, mood, genre, energy, length, tempo, key, time signature, voice, seed, engine, who wrote the lyrics and the title, licence, when it was made; its lyrics; downloads in MP3, AAC, FLAC, WAV and Opus; and "Make one like this", which fills the Make form with its settings and seed.
 - **Playlist** page: a coloured band with the name and length and icon buttons (play, shuffle, add songs, more); the live strip under it (live switch with listener count, public or private, stream shuffle, new link, a copy button per address, streams in use); the songs, full width, with drag to reorder, play, the song on the live stream marked, and remove.
 - **Player bar** on every screen: current song and playlist, shuffle, previous, play and pause, next, repeat, seek bar, volume.
 - **Sign in** and **change password** screens.
 - Every screen works from 360 px wide, with visible keyboard focus and text contrast of at least 4.5:1.
+- Asset file names carry a hash of their content and are cached for good, so a new release is never hidden behind a cached old file.
 
 ## 13. Logs, traces and metrics
 
 - **Logs** go to stdout as text, or JSON with `log_format = "json"`; `RUST_LOG` filters them (default `info`). They name jobs, songs, playlists and engines by id; they never contain a password, the API token, a session id, an API key or a request header.
-- **OpenTelemetry**: with `OTEL_EXPORTER_OTLP_ENDPOINT` set (the standard OpenTelemetry variables apply; `OTEL_SERVICE_NAME` defaults to `maio`), traces, metrics and logs also go out over OTLP/HTTP. Every API request is a span; each job's log lines carry its id.
+- **OpenTelemetry**: with `OTEL_EXPORTER_OTLP_ENDPOINT` set (the standard OpenTelemetry variables apply; `OTEL_SERVICE_NAME` defaults to `maio`), traces, metrics and logs also go out over OTLP/HTTP. Every API request is a span; each job is a `job` span under the request that asked for it, and its log lines carry its id. Calls to ACE-Step carry the W3C `traceparent` header; `just engine` runs ACE-Step under OpenTelemetry's zero-code instrumentation when `OTEL_EXPORTER_OTLP_ENDPOINT` is set (service `ace-step`), so its spans join the same trace.
 - **Metrics**: `http.server.request.duration` by route, method and status; `maio.jobs` by outcome (`done`, `failed`, `cancelled`); `maio.engine.up` per music engine.
 - On Ctrl-C or SIGTERM Maio stops taking requests and flushes what it has not exported yet.
 

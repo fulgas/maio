@@ -7,8 +7,8 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use crate::domain::Song;
-use crate::usecases::ports::{AudioFiles, Imported};
+use crate::domain::{DownloadFormat, Song};
+use crate::usecases::ports::{AudioFiles, Exported, Imported};
 use anyhow::{Context, Result, bail, ensure};
 
 /// `[storage] format` (SPEC 11).
@@ -160,6 +160,37 @@ impl AudioFiles for Ffmpeg {
         write_tags(&song_path(&self.data_dir, &song.file)?, &tags(song))
     }
 
+    /// The stored file when it is already in `format`, else a converted copy in `tmp/` with the song's tags (SPEC 10).
+    fn export(&self, song: &Song, format: DownloadFormat) -> Result<Exported> {
+        let src = song_path(&self.data_dir, &song.file)?;
+        ensure!(src.is_file(), "song {} has no file at {}", song.id, song.file);
+        if src.extension().and_then(|e| e.to_str()) == Some(format.extension()) {
+            return Ok(Exported { path: src, temporary: false });
+        }
+        static N: AtomicUsize = AtomicUsize::new(0);
+        let dst = self.scratch(&format!("export-{}-{}-{}.{}", song.id, std::process::id(), N.fetch_add(1, Ordering::SeqCst), format.extension()));
+        fs::create_dir_all(dst.parent().expect("scratch files sit in tmp/")).context("making the tmp folder")?;
+        let (codec, container): (&[&str], &str) = match format {
+            DownloadFormat::Mp3 => (&["-c:a", "libmp3lame", "-b:a", "192k", "-id3v2_version", "3"], "mp3"),
+            DownloadFormat::Aac => (&["-c:a", "aac", "-b:a", "192k"], "ipod"),
+            DownloadFormat::Flac => (&["-c:a", "flac"], "flac"),
+            DownloadFormat::Wav => (&["-c:a", "pcm_s16le"], "wav"),
+            DownloadFormat::Opus => (&["-c:a", "libopus", "-b:a", "160k"], "ogg"),
+        };
+        let target = if format == DownloadFormat::Opus { "-metadata:s:a:0" } else { "-metadata" };
+        let mut cmd = Command::new("ffmpeg");
+        cmd.args(["-hide_banner", "-v", "error", "-y", "-i"]).arg(&src).args(["-map", "0:a", "-map_metadata", "-1"]).args(codec);
+        for (k, v) in tags(song) {
+            cmd.arg(target).arg(format!("{k}={v}"));
+        }
+        cmd.args(["-f", container]).arg(&dst);
+        if let Err(e) = run(&mut cmd, "ffmpeg export") {
+            let _ = fs::remove_file(&dst);
+            return Err(e);
+        }
+        Ok(Exported { path: dst, temporary: true })
+    }
+
     fn delete(&self, file: &str) -> Result<()> {
         match fs::remove_file(song_path(&self.data_dir, file)?) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e).with_context(|| format!("deleting {file}")),
@@ -303,5 +334,50 @@ mod tests {
             assert!(files.retag(&Song { file: bad.into(), ..song("s1") }).is_err(), "{bad}");
         }
         assert!(dir.path().join("keep.txt").exists());
+    }
+
+    fn stored(dir: &Path) -> (Ffmpeg, Song) {
+        let f = Ffmpeg::new(dir, StoreFormat::Opus, 160).unwrap();
+        let wav = dir.join("in.wav");
+        tone(&wav, 2);
+        let imported = f.import(&wav, "s1").unwrap();
+        let song = Song { file: imported.file, title: "Soft Static".into(), ..song("s1") };
+        (f, song)
+    }
+
+    #[test]
+    fn exports_convert_with_tags_and_the_stored_format_is_sent_as_it_is() {
+        let dir = tempfile::tempdir().unwrap();
+        let (f, song) = stored(dir.path());
+        for (format, codec) in
+            [(DownloadFormat::Mp3, "mp3"), (DownloadFormat::Aac, "aac"), (DownloadFormat::Flac, "flac"), (DownloadFormat::Wav, "pcm_s16le")]
+        {
+            let e = f.export(&song, format).unwrap();
+            assert!(e.temporary, "{format:?} is converted");
+            assert_eq!(probe(&e.path, "stream=codec_name"), codec);
+            assert_eq!(tags(&e.path).get("title").map(String::as_str), Some("Soft Static"), "{format:?} keeps the title");
+            std::fs::remove_file(&e.path).unwrap();
+        }
+        let same = f.export(&song, DownloadFormat::Opus).unwrap();
+        assert!(!same.temporary);
+        assert_eq!(same.path, dir.path().join(&song.file));
+    }
+
+    #[test]
+    fn two_exports_never_share_a_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let (f, song) = stored(dir.path());
+        let (a, b) = (f.export(&song, DownloadFormat::Mp3).unwrap(), f.export(&song, DownloadFormat::Mp3).unwrap());
+        assert_ne!(a.path, b.path);
+    }
+
+    #[test]
+    fn a_missing_file_answers_an_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = Ffmpeg::new(dir.path(), StoreFormat::Opus, 160).unwrap();
+        let gone = Song { file: "songs/gone.opus".into(), ..song("gone") };
+        assert!(f.export(&gone, DownloadFormat::Mp3).is_err());
+        assert!(f.export(&gone, DownloadFormat::Opus).is_err(), "the stored format too: no file, no download");
+        assert!(std::fs::read_dir(dir.path().join("tmp")).map_or(true, |d| d.count() == 0), "no half-written file left");
     }
 }

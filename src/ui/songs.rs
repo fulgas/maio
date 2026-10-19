@@ -8,13 +8,13 @@ use thaw::{
 };
 
 use crate::{
-    domain::job::JobState,
+    domain::{Song, job::JobState},
     ui::{
         api::{self, Failure, PlaylistSummary, SongView, Status},
         events::Changes,
         format,
         icons::{Icon, IconButton, Svg},
-        make::{LANGUAGES, LENGTHS, MakeForm, TEMPOS},
+        make::{LANGUAGES, LENGTHS, MakeForm},
         menu::Dropdown,
         player::Player,
         queue::QSong,
@@ -99,15 +99,16 @@ fn Shelf(playlists: Playlists, #[prop(optional)] grid: bool) -> impl IntoView {
     };
     view! {
         <section class="shelf" class:grid=grid aria-label="Your playlists">
-            <button type="button" class="tile new" aria-label="New playlist" data-tip="Make a new playlist" on:click=move |_| open.set(true)>
-                <Svg icon=Icon::Add size=28/>
+            // Words, not captions: the shelf's scrolling row would cut a caption off.
+            <button type="button" class="tile new" on:click=move |_| open.set(true)>
+                <Svg icon=Icon::Add size=28/><span>"New playlist"</span>
             </button>
             <For each=tiles key=|(_, p)| (p.id.clone(), p.name.clone(), p.songs, p.live.on) children=move |(colour, p)| view! {
                 <a class="tile" href=format!("/playlists/{}", p.id) style:background=colour>
                     <span class="tile-name">{p.name.clone()}</span>
                     <span class="tile-count">
                         {format::songs(p.songs)}
-                        {p.live.on.then(|| view! { <span class="live-mark" role="img" aria-label="Live" data-tip="Live: streaming now"><Svg icon=Icon::Live size=16/></span> })}
+                        {p.live.on.then(|| view! { <span class="live-mark"><Svg icon=Icon::Live size=16/>"Live"</span> })}
                     </span>
                 </a>
             }/>
@@ -135,12 +136,35 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
     let (seconds, tempo, seed) = (RwSignal::new(f.seconds), RwSignal::new(f.tempo), RwSignal::new(f.seed));
     let (vocals, lyrics, language, lyrics_by) =
         (RwSignal::new(false), RwSignal::new(String::new()), RwSignal::new(String::new()), RwSignal::new(String::new()));
-    let picking = RwSignal::new(false);
+    let energy = RwSignal::new(String::new());
+    // "Make one like this" hands a form over; take it, and bring the prompt into view.
+    let draft = expect_context::<crate::ui::make::Draft>();
+    let prompt_box = NodeRef::<leptos::html::Textarea>::new();
+    Effect::new(move |_| {
+        let Some(f) = draft.0.get() else { return };
+        draft.0.set(None);
+        prompt.set(f.prompt);
+        mood.set(f.mood);
+        genre.set(f.genre);
+        energy.set(f.energy);
+        seconds.set(f.seconds);
+        tempo.set(f.tempo);
+        seed.set(f.seed);
+        vocals.set(f.vocals);
+        lyrics.set(f.lyrics);
+        language.set(f.language);
+        lyrics_by.set(f.lyrics_by);
+        if let Some(t) = prompt_box.get() {
+            t.scroll_into_view();
+            let _ = t.focus();
+        }
+    });
     let (error, ask_noncommercial, busy) = (RwSignal::new(None::<String>), RwSignal::new(false), RwSignal::new(false));
     let form = move || MakeForm {
         prompt: prompt.get_untracked(),
         mood: mood.get_untracked(),
         genre: genre.get_untracked(),
+        energy: energy.get_untracked(),
         seconds: seconds.get_untracked(),
         tempo: tempo.get_untracked(),
         seed: seed.get_untracked(),
@@ -161,6 +185,7 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
                 Ok(_) => {
                     error.set(None);
                     prompt.set(String::new());
+                    seed.set(String::new()); // a copied seed is for one song
                     if let Ok(open) = api::jobs().await {
                         c.jobs.update(|jobs| {
                             open.into_iter().for_each(|j| {
@@ -190,7 +215,7 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
             </div>
             <div class="make-row">
                 <label class="prompt"><span class="sr">"What it sounds like"</span>
-                    <textarea rows="3" maxlength="500" bind:value=prompt
+                    <textarea rows="3" maxlength="500" bind:value=prompt node_ref=prompt_box
                         placeholder="Warm Rhodes and soft rain on the window, slow brushed drums, a late night in an empty office"></textarea>
                 </label>
                 <button type="submit" class="make-button" aria-label="Make the song" data-tip="Make a song from this description" disabled=move || busy.get()>
@@ -205,23 +230,17 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
                         {LENGTHS.iter().map(|(s, l)| view! { <option value=s.to_string()>{*l}</option> }).collect_view()}
                     </select>
                 </label>
-                <Chip icon=Icon::Tempo label="Tempo" value=tempo options=Signal::derive(|| TEMPOS.iter().map(|(v, l)| (v.to_string(), l.to_string())).collect())/>
+                <Chip icon=Icon::Tempo label="Tempo" value=tempo options=Signal::derive(move || crate::ui::make::tempo_options(&tempo.get()))/>
                 <button type="button" class="chip toggle" aria-pressed=move || vocals.get().to_string() data-tip=move || if vocals.get() { "Sung, with lyrics. Press for an instrumental" } else { "Instrumental. Press to add vocals and lyrics" } on:click=move |_| vocals.update(|v| *v = !*v)>
                     <Svg icon=Icon::Mic size=18/>{move || if vocals.get() { "Vocals" } else { "Instrumental" }}
                 </button>
-                // The dice alone means a random seed; it opens a field only for someone who wants a fixed one.
-                <span class="chip seed" class:open=move || picking.get() || !seed.with(String::is_empty)>
-                    <IconButton icon=Icon::Seed class="bare" size=18 on_click=move || picking.update(|p| *p = !*p)
-                        label=Signal::derive(move || seed.with(|s| if s.trim().is_empty() {
-                            "Random seed: every song comes out different. Press to set one and make the same song again".to_string()
-                        } else {
-                            format!("Seed {}: the same seed and settings make the same song", s.trim())
-                        }))/>
-                    <Show when=move || picking.get() || !seed.with(String::is_empty)>
-                        <input aria-label="Seed" inputmode="numeric" placeholder="seed" bind:value=seed
-                            on:blur=move |_| if seed.with(|s| s.trim().is_empty()) { picking.set(false) }/>
-                    </Show>
-                </span>
+                // A seed shows only when "Make one like this" copied it; without one, every song is a new take.
+                <Show when=move || !seed.with(|s| s.trim().is_empty())>
+                    <span class="chip seed" data-tip="The seed of the song you copied: with the same settings it comes out the same. Remove it for a new take">
+                        <span>{move || format!("Seed {}", seed.get())}</span>
+                        <IconButton icon=Icon::Cancel class="bare" size=16 label="Remove the seed: make a new take".to_string() on_click=move || seed.set(String::new())/>
+                    </span>
+                </Show>
             </div>
             <Show when=move || vocals.get()>
                 <div class="lyrics">
@@ -372,6 +391,8 @@ fn SongList(playlists: Playlists) -> impl IntoView {
             }
         });
     };
+    // One details panel for the list; `shown` is the song it shows.
+    let (showing, shown) = (RwSignal::new(false), RwSignal::new(None::<Song>));
     // Rename and delete share one dialog each; `target` is the song they act on.
     let target = RwSignal::new(None::<(String, String)>);
     let (renaming, deleting, title) = (RwSignal::new(false), RwSignal::new(false), RwSignal::new(String::new()));
@@ -446,8 +467,13 @@ fn SongList(playlists: Playlists) -> impl IntoView {
                         }
                     };
                     let on_more = {
-                        let (id, name) = (id.clone(), name.clone());
+                        let (id, name, song) = (id.clone(), name.clone(), s.song.clone());
                         move |key: String| {
+                            if key == "details" {
+                                shown.set(Some(song.clone()));
+                                showing.set(true);
+                                return;
+                            }
                             target.set(Some((id.clone(), name.clone())));
                             if key == "rename" {
                                 title.set(name.clone());
@@ -458,7 +484,7 @@ fn SongList(playlists: Playlists) -> impl IntoView {
                         }
                     };
                     let items: Vec<(String, String)> = lists.iter().map(|p| (p.id.clone(), p.name.clone())).collect();
-                    let (add_label, more_label) = (format!("Add {name} to a playlist"), format!("Rename or delete {name}"));
+                    let (add_label, more_label) = (format!("Add {name} to a playlist"), format!("Details, rename or delete {name}"));
                     let subtitle = if s.song.prompt.is_empty() { s.song.mood.clone().unwrap_or_default() } else { s.song.prompt.clone() };
                     view! {
                         <div class="song" role="listitem">
@@ -467,7 +493,8 @@ fn SongList(playlists: Playlists) -> impl IntoView {
                                 label={ let (id, name) = (id.clone(), name.clone()); Signal::derive(move || format!("{} {name}", if player.is_playing(&id) { "Pause" } else { "Play" })) }
                                 on_click={ let id = id.clone(); move || if player.is_current(&id) { player.toggle() } else { player.play(queue.clone(), i, None) } }/>
                             <span class="song-main">
-                                <span class="song-title">{name}</span>
+                                <button type="button" class="song-title" aria-label=format!("Details for {name}") data-tip="How it was made, its lyrics and downloads"
+                                    on:click={ let s = s.song.clone(); move |_| { shown.set(Some(s.clone())); showing.set(true); } }>{name.clone()}</button>
                                 <span class="song-prompt">{subtitle}</span>
                             </span>
                             <span class="marks" data-tip=format::in_playlists(&s.playlists) aria-label=format::in_playlists(&s.playlists)>
@@ -477,7 +504,7 @@ fn SongList(playlists: Playlists) -> impl IntoView {
                             <span class="len">{format::clock(s.song.seconds)}</span>
                             <Dropdown icon=Icon::AddTo label=add_label items on_select=on_add empty="Make a playlist first, with + on the shelf."/>
                             <Dropdown icon=Icon::More label=more_label class="muted" size=18 on_select=on_more
-                                items=vec![("rename".into(), "Rename".into()), ("delete".into(), "Delete".into())]/>
+                                items=vec![("details".into(), "Details".into()), ("rename".into(), "Rename".into()), ("delete".into(), "Delete".into())]/>
                         </div>
                     }
                 }).collect_view().into_any()
@@ -486,6 +513,7 @@ fn SongList(playlists: Playlists) -> impl IntoView {
         <Show when=move || next.get().is_some()>
             <button type="button" class="more" on:click=load_more>"Show more songs"</button>
         </Show>
+        <crate::ui::details::SongDetails open=showing song=shown/>
         <Dialog open=renaming>
             <DialogSurface><DialogBody>
                 <DialogTitle>"Rename song"</DialogTitle>

@@ -5,7 +5,7 @@ use crate::usecases::{Accepted, SongPage, SongView, ports::SongSort};
 use axum::{
     Json,
     extract::{Path, Request, State},
-    http::StatusCode,
+    http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use serde::Deserialize;
@@ -76,5 +76,60 @@ pub async fn audio(State(app): State<Shared>, _me: Me, Path(id): Path<String>, r
     match ServeFile::new(app.data_dir.join(&view.song.file)).oneshot(req).await {
         Ok(res) => Ok(res.into_response()),
         Err(never) => match never {},
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DownloadQuery {
+    format: String,
+}
+
+/// The song in a format, as an attachment named after its title (SPEC 10). A converted copy is removed as soon as
+/// it is open: the open file is sent in full while its name is already gone (Unix).
+pub async fn download(
+    State(app): State<Shared>,
+    _me: Me,
+    Path(id): Path<String>,
+    Params(q): Params<DownloadQuery>,
+    req: Request,
+) -> Result<Response, ApiError> {
+    let d = blocking(&app, move |a| a.songs.download(&id, &q.format)).await?;
+    let res = match ServeFile::new(&d.path).oneshot(req).await {
+        Ok(res) => res,
+        Err(never) => match never {},
+    };
+    if d.temporary {
+        let _ = std::fs::remove_file(&d.path);
+    }
+    if res.status() == axum::http::StatusCode::NOT_FOUND {
+        // The file went between export and sending: an API error, never an empty "attachment".
+        return Err(ApiError::not_found("the song's file is missing"));
+    }
+    let mut res = res.into_response();
+    let h = res.headers_mut();
+    h.insert(header::CONTENT_TYPE, HeaderValue::from_static(d.format.content_type()));
+    if let Ok(v) = HeaderValue::from_str(&content_disposition(&d.name)) {
+        h.insert(header::CONTENT_DISPOSITION, v);
+    }
+    Ok(res)
+}
+
+/// `attachment` with an ASCII name for old clients and the real one, percent-encoded, for the rest (RFC 6266).
+fn content_disposition(name: &str) -> String {
+    let ascii: String = name.chars().map(|c| if c.is_ascii() && !c.is_ascii_control() && c != '"' && c != '\\' { c } else { '_' }).collect();
+    let encoded: String =
+        name.bytes().map(|b| if b.is_ascii_alphanumeric() || b"-._~".contains(&b) { (b as char).to_string() } else { format!("%{b:02X}") }).collect();
+    format!("attachment; filename=\"{ascii}\"; filename*=UTF-8''{encoded}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::content_disposition;
+
+    #[test]
+    fn content_disposition_keeps_unicode() {
+        assert_eq!(content_disposition("東京.mp3"), "attachment; filename=\"__.mp3\"; filename*=UTF-8''%E6%9D%B1%E4%BA%AC.mp3");
+        assert_eq!(content_disposition("a\"b.wav"), "attachment; filename=\"a_b.wav\"; filename*=UTF-8''a%22b.wav");
     }
 }

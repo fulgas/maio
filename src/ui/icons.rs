@@ -23,7 +23,6 @@ pub enum Icon {
     Genre,
     Length,
     Tempo,
-    Seed,
     Mic,
     AddTo,
     Volume,
@@ -64,10 +63,6 @@ fn shape(icon: Icon) -> (bool, &'static str) {
         Genre => (false, r#"<path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>"#),
         Length => (false, r#"<path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2"/>"#),
         Tempo => (false, r#"<path d="M8 21h8l-2-15h-4zM12 6l5-3M9.5 14h5"/>"#),
-        Seed => (
-            false,
-            r#"<rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.2" fill="currentColor"/>"#,
-        ),
         Mic => (false, r#"<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>"#),
         AddTo => (false, r#"<path d="M3 6h12M3 12h12M3 18h7M18 14v7M14.5 17.5h7"/>"#),
         Volume => (false, r#"<path d="M4 10v4h4l5 4V6L8 10H4z"/><path d="M16.5 9a4 4 0 0 1 0 6"/>"#),

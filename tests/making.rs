@@ -31,23 +31,28 @@ fn tone(path: &Path, secs: u32) {
     assert!(ok, "ffmpeg makes a test tone");
 }
 
-/// An engine that finishes every job at once and hands back `wav`.
+/// A fake `acestep-api` that finishes every song at once and hands back `wav`.
 async fn serve_engine(wav: Vec<u8>) -> String {
+    let wrap = |data: serde_json::Value| Json(json!({"data": data, "code": 200, "error": null}));
     let app = Router::new()
-        .route("/health", get(|| async { Json(json!({"status": "ok"})) }))
         .route(
-            "/info",
-            get(|| async {
-                Json(json!({"protocol": 1, "id": "ace-step", "name": "ACE-Step", "version": "1.5",
-                    "licence": {"name": "MIT", "commercial": "yes"},
-                    "capabilities": {"min_seconds": 10, "max_seconds": 600, "vocals": true, "tempo": true, "concurrency": 1},
-                    "realtime_factor": 0.1}))
+            "/health",
+            get(move || async move {
+                wrap(json!({"status": "ok", "service": "ACE-Step API", "version": "1.0", "models_initialized": true,
+                    "loaded_model": "acestep-v15-turbo", "loaded_lm_model": null}))
             }),
         )
-        .route("/jobs", post(|| async { (axum::http::StatusCode::ACCEPTED, Json(json!({"job_id": "j1"}))) }))
-        .route("/jobs/{id}", get(|| async { Json(json!({"job_id": "j1", "state": "done", "seconds": 20.0, "seed": 3})) }).delete(|| async {}))
+        .route("/release_task", post(move || async move { wrap(json!({"task_id": "t1", "status": "queued"})) }))
         .route(
-            "/jobs/{id}/audio",
+            "/query_result",
+            post(move || async move {
+                let result = json!([{"file": "/v1/audio?path=t1", "lyrics": "[Instrumental]", "seed_value": "3",
+                    "metas": {"duration": 20.0, "bpm": 70}}]);
+                wrap(json!([{"task_id": "t1", "status": 1, "result": result.to_string()}]))
+            }),
+        )
+        .route(
+            "/v1/audio",
             get(move || {
                 let wav = wav.clone();
                 async move { wav }

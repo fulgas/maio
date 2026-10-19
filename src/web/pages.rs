@@ -26,14 +26,20 @@ use crate::{
 /// for a plain `cargo` build, such as the tests. Leptos reads an empty name instead of failing, hence the check.
 pub fn options() -> LeptosOptions {
     let from_env = std::env::var_os("LEPTOS_OUTPUT_NAME").is_some() || option_env!("LEPTOS_OUTPUT_NAME").is_some();
-    match get_configuration(None) {
+    let mut opts = match get_configuration(None) {
         Ok(c) if from_env => c.leptos_options,
         _ => LeptosOptions::builder().output_name("maio").site_root("target/site").env(Env::PROD).build(),
+    };
+    // Built by cargo-leptos with hash-files: the names are hashed even when this binary runs without its variables.
+    if option_env!("LEPTOS_HASH_FILES") == Some("true") {
+        opts.hash_files = true;
     }
+    opts
 }
 
 pub fn router(app: Shared) -> Router<Shared> {
     let opts = options();
+    let hashed = opts.hash_files;
     let site = PathBuf::from(opts.site_root.as_ref());
     let pages = Router::new()
         .leptos_routes(&opts, generate_route_list(App), {
@@ -42,13 +48,15 @@ pub fn router(app: Shared) -> Router<Shared> {
         })
         .layer(middleware::from_fn_with_state(app, guard))
         .with_state(opts);
-    Router::new()
-        .nest_service("/pkg", ServeDir::new(site.join("pkg")))
-        .nest_service("/fonts", ServeDir::new(site.join("fonts")))
-        .merge(pages)
-        .fallback(|| async {
-            (StatusCode::NOT_FOUND, Html(r#"<!doctype html><title>Not found</title><p>There is nothing here. <a href="/">Go to your songs</a></p>"#))
-        })
+    // Hashed names never change content, so they are kept for good; unhashed ones must be checked every time.
+    let cache = if hashed { "public, max-age=31536000, immutable" } else { "no-cache" };
+    let pkg = Router::new().fallback_service(ServeDir::new(site.join("pkg"))).layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static(cache),
+    ));
+    Router::new().nest("/pkg", pkg).nest_service("/fonts", ServeDir::new(site.join("fonts"))).merge(pages).fallback(|| async {
+        (StatusCode::NOT_FOUND, Html(r#"<!doctype html><title>Not found</title><p>There is nothing here. <a href="/">Go to your songs</a></p>"#))
+    })
 }
 
 /// Signed out: only `/sign-in`. Signed in: everything but `/sign-in`.

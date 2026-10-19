@@ -143,3 +143,65 @@ async fn an_open_event_stream_ends_when_the_server_stops() {
     let ended = tokio::time::timeout(Duration::from_secs(2), axum::body::to_bytes(res.into_body(), usize::MAX)).await;
     assert!(ended.is_ok(), "the stream must end, or a graceful shutdown waits for ever");
 }
+
+#[tokio::test]
+async fn the_engine_panel_can_switch_ace_steps_model() {
+    let w = world();
+    let s = sign_in(&w).await;
+    let (status, _, _) = send(&w, browser("PUT", "/api/v1/engines/ace-step/model", Some(&s), Some(json!({"model": "acestep-v15-base"})))).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    assert_eq!(*w.engine.switched.lock().unwrap(), ["acestep-v15-base"]);
+    let (status, _, body) = send(&w, browser("PUT", "/api/v1/engines/nope/model", Some(&s), Some(json!({"model": "x"})))).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+}
+
+#[tokio::test]
+async fn a_song_downloads_as_an_attachment_named_after_its_title() {
+    let w = world();
+    w.songs.insert(&Song { title: "Soft Static".into(), ..song("s1") }).unwrap();
+    let res = w.router.clone().oneshot(script("GET", "/api/v1/songs/s1/download?format=mp3", None)).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.headers()[header::CONTENT_TYPE], "audio/mpeg");
+    assert_eq!(res.headers()[header::CONTENT_DISPOSITION], "attachment; filename=\"Soft Static.mp3\"; filename*=UTF-8''Soft%20Static.mp3");
+    let body = axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap();
+    assert_eq!(&body[..], b"s1 as mp3");
+}
+
+#[tokio::test]
+async fn a_converted_download_leaves_no_file_behind() {
+    let w = world();
+    w.songs.insert(&song("s1")).unwrap();
+    let res = w.router.clone().oneshot(script("GET", "/api/v1/songs/s1/download?format=wav", None)).await.unwrap();
+    let _ = axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap();
+    let left = std::fs::read_dir(std::env::temp_dir())
+        .unwrap()
+        .flatten()
+        .filter(|e| {
+            e.file_name().to_string_lossy().contains(&format!("maio-test-{}-", std::process::id()))
+                && e.file_name().to_string_lossy().ends_with("s1.wav")
+        })
+        .count();
+    assert_eq!(left, 0);
+}
+
+#[tokio::test]
+async fn a_bad_format_or_an_unknown_song_answers_in_the_error_format() {
+    let w = world();
+    w.songs.insert(&song("s1")).unwrap();
+    let (status, _, body) = send(&w, script("GET", "/api/v1/songs/s1/download?format=ogg", None)).await;
+    assert_eq!((status, body["error"]["code"].as_str()), (StatusCode::UNPROCESSABLE_ENTITY, Some("bad_format")));
+    let (status, _, _) = send(&w, script("GET", "/api/v1/songs/nope/download?format=mp3", None)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn a_file_gone_before_it_is_sent_answers_an_api_error_not_an_attachment() {
+    let w = world();
+    w.songs.insert(&song("s1")).unwrap();
+    w.files.vanished.store(true, Ordering::SeqCst);
+    let res = w.router.clone().oneshot(script("GET", "/api/v1/songs/s1/download?format=opus", None)).await.unwrap();
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert!(res.headers().get(header::CONTENT_DISPOSITION).is_none(), "no attachment for a missing file");
+    let body: Value = serde_json::from_slice(&axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap()).unwrap();
+    assert!(body["error"]["code"].is_string(), "{body}");
+}

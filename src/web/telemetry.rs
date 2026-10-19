@@ -65,6 +65,8 @@ pub fn init(format: LogFormat) -> Result<Telemetry> {
         .with_batch_exporter(LogExporter::builder().with_http().build().context("making the OTLP log exporter")?)
         .build();
     global::set_meter_provider(metrics.clone());
+    // W3C trace context on outgoing calls, so ACE-Step's spans join ours (SPEC 13).
+    global::set_text_map_propagator(opentelemetry_sdk::propagation::TraceContextPropagator::new());
     tracing_subscriber::registry()
         .with(stdout.with_filter(filter()))
         .with(tracing_opentelemetry::layer().with_tracer(traces.tracer("maio")).with_filter(exported()))

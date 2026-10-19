@@ -111,10 +111,88 @@ pub fn song_deletable(in_playlists: Vec<PlaylistRef>) -> Result<(), Error> {
     if in_playlists.is_empty() { Ok(()) } else { Err(Error::SongInPlaylist(in_playlists)) }
 }
 
+/// A format a song downloads in (SPEC 10, `GET /songs/{id}/download`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DownloadFormat {
+    Mp3,
+    Aac,
+    Flac,
+    Wav,
+    Opus,
+}
+
+impl DownloadFormat {
+    pub const ALL: [Self; 5] = [Self::Mp3, Self::Aac, Self::Flac, Self::Wav, Self::Opus];
+
+    pub fn parse(s: &str) -> Result<Self, Error> {
+        Self::ALL
+            .into_iter()
+            .find(|f| f.label().eq_ignore_ascii_case(s))
+            .ok_or_else(|| Error::invalid("bad_format", "format is mp3, aac, flac, wav or opus"))
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Mp3 => "MP3",
+            Self::Aac => "AAC",
+            Self::Flac => "FLAC",
+            Self::Wav => "WAV",
+            Self::Opus => "Opus",
+        }
+    }
+
+    pub fn extension(self) -> &'static str {
+        match self {
+            Self::Mp3 => "mp3",
+            Self::Aac => "m4a",
+            Self::Flac => "flac",
+            Self::Wav => "wav",
+            Self::Opus => "opus",
+        }
+    }
+
+    pub fn content_type(self) -> &'static str {
+        match self {
+            Self::Mp3 => "audio/mpeg",
+            Self::Aac => "audio/mp4",
+            Self::Flac => "audio/flac",
+            Self::Wav => "audio/wav",
+            Self::Opus => "audio/ogg",
+        }
+    }
+}
+
+/// A download's file name: the title without characters file systems refuse, at most 100 characters.
+pub fn download_name(title: &str, format: DownloadFormat) -> String {
+    let kept: String = title.chars().filter(|c| !c.is_control() && !r#"/\:*?"<>|"#.contains(*c)).collect();
+    let words = kept.split_whitespace().collect::<Vec<_>>().join(" ");
+    let base: String = words.trim_matches(|c: char| c == '.' || c.is_whitespace()).chars().take(100).collect();
+    format!("{}.{}", if base.is_empty() { "song" } else { &base }, format.extension())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::domain::{Error, PlaylistRef, testing::song};
+
+    #[test]
+    fn download_formats_parse_and_name_their_files() {
+        assert_eq!(DownloadFormat::parse("mp3"), Ok(DownloadFormat::Mp3));
+        assert_eq!(DownloadFormat::parse("FLAC"), Ok(DownloadFormat::Flac));
+        assert_eq!(DownloadFormat::parse("ogg").unwrap_err().code(), "bad_format");
+        assert_eq!(DownloadFormat::Aac.extension(), "m4a");
+        assert_eq!(DownloadFormat::Opus.content_type(), "audio/ogg");
+        assert_eq!(DownloadFormat::ALL.len(), 5);
+    }
+
+    #[test]
+    fn download_names_are_safe() {
+        assert_eq!(download_name("Soft Static", DownloadFormat::Mp3), "Soft Static.mp3");
+        assert_eq!(download_name("AC/DC: Live?  \"Now\"", DownloadFormat::Wav), "ACDC Live Now.wav");
+        assert_eq!(download_name("東京の夜", DownloadFormat::Flac), "東京の夜.flac");
+        assert_eq!(download_name(" ..// ", DownloadFormat::Opus), "song.opus");
+        assert!(download_name(&"x".repeat(300), DownloadFormat::Mp3).chars().count() <= 104);
+    }
 
     #[test]
     fn a_rename_is_a_person_title_trimmed() {

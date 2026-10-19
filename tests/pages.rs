@@ -4,6 +4,7 @@ mod common;
 
 use axum::http::{StatusCode, header};
 use common::{page, sign_in, world};
+use tower::ServiceExt;
 
 #[tokio::test]
 async fn pages_send_strangers_to_sign_in() {
@@ -106,7 +107,7 @@ async fn songs_screen_has_shelf_make_and_search() {
     let (_, _, html) = page(&w, "/", Some(&session)).await;
     for text in [
         r#"aria-label="Your playlists""#,
-        r#"aria-label="New playlist""#,
+        r#"New playlist</span>"#,
         "Make a song",
         "What it sounds like",
         r#"aria-label="Make the song""#,
@@ -162,7 +163,7 @@ async fn the_playlists_page_lists_them_behind_sign_in() {
     let (status, _, html) = page(&w, "/playlists", Some(&session)).await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains(r#"href="/playlists" aria-current="page""#), "{html}");
-    assert!(html.contains(r#"aria-label="New playlist""#), "{html}");
+    assert!(html.contains(r#"New playlist</span>"#), "{html}");
 }
 
 #[tokio::test]
@@ -173,4 +174,12 @@ async fn play_waits_for_a_song() {
     let (_, _, html) = page(&w, "/", Some(&session)).await;
     assert!(html.contains(r#"aria-label="Play: pick a song first""#), "{html}");
     assert!(html.contains("disabled"), "{html}");
+}
+
+#[tokio::test]
+async fn unhashed_assets_are_checked_every_time() {
+    // A plain `cargo` build has no hashed names: a cached file must never hide a new one.
+    let w = world();
+    let res = w.router.clone().oneshot(axum::http::Request::get("/pkg/maio.css").body(axum::body::Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(res.headers()[axum::http::header::CACHE_CONTROL], "no-cache");
 }

@@ -4,7 +4,6 @@
 set dotenv-load := true
 
 ace_root := env("ACE_ROOT", home_directory() / "Projects/fulgas/ACE-Step-1.5")
-engine_root := env("ENGINE_ROOT", home_directory() / "Projects/fulgas/maio-engine")
 engine_port := "7801"
 
 # Start the stack, then run ACE-Step in this terminal; Ctrl-C stops the engine and the stack.
@@ -20,13 +19,22 @@ stack:
     docker compose up -d --build
     @echo "Maio on http://localhost:8080"
 
-# Run the ACE-Step engine in the foreground.
+# Run ACE-Step 1.5's own API server in the foreground (models load on first start).
 engine:
-    cd "{{engine_root}}" && uv run --extra ace-step maio-engine --backend ace-step --ace-root "{{ace_root}}" --port {{engine_port}}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{ace_root}}"
+    # Load the models at start: acestep-api otherwise waits for the first song, and Maio waits for the models.
+    export ACESTEP_NO_INIT=false ACESTEP_API_HOST=127.0.0.1 ACESTEP_API_PORT={{engine_port}} ACESTEP_DEVICE=mps ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-1.7B ACESTEP_LM_BACKEND=pt
+    if [ -n "${OTEL_EXPORTER_OTLP_ENDPOINT:-}" ]; then
+        export OTEL_SERVICE_NAME="${OTEL_SERVICE_NAME_ACE:-ace-step}" OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+        exec uv run --with opentelemetry-distro --with opentelemetry-exporter-otlp --with opentelemetry-instrumentation-fastapi opentelemetry-instrument acestep-api
+    fi
+    exec uv run acestep-api
 
-# Run the fake engine instead (sine tones, no GPU), for trying things quickly.
+# Run the fake ACE-Step instead (sine tones, no GPU), for trying things quickly.
 fake:
-    cd "{{engine_root}}" && uv run maio-engine --backend fake --port {{engine_port}}
+    node e2e/fake-ace.mjs {{engine_port}}
 
 # Stop the stack.
 stop:
@@ -52,8 +60,9 @@ e2e:
     set -euo pipefail
     cargo leptos build
     rm -rf target/e2e-data
-    (cd "{{engine_root}}" && exec uv run maio-engine --backend fake --port {{engine_port}}) & engine=$!
-    for _ in $(seq 120); do curl -sf -o /dev/null http://127.0.0.1:{{engine_port}}/health && break; sleep 0.5; done
+    # Its own port, so a real ACE-Step on {{engine_port}} never answers the tests.
+    node e2e/fake-ace.mjs 7811 & engine=$!
+    for _ in $(seq 120); do curl -sf -o /dev/null http://127.0.0.1:7811/health && break; sleep 0.5; done
     LEPTOS_ENV=PROD MAIO_ADMIN_USER=smoke MAIO_ADMIN_PASSWORD=smoke-password-1 target/debug/maio e2e/maio.toml & server=$!
     trap 'kill $engine $server 2>/dev/null || true' EXIT
     for _ in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:8099/sign-in && break; sleep 0.5; done

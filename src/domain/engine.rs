@@ -1,10 +1,8 @@
-//! The engine contract's model (SPEC 6) and the choice of engine (SPEC 5).
+//! The music engine's model: ACE-Step 1.5 as Maio sees it (SPEC 6), and the choice of engine (SPEC 5).
 
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{Commercial, Error, Licence, request::Normalized};
-
-pub const PROTOCOL: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Caps {
@@ -18,7 +16,6 @@ pub struct Caps {
 /// `GET /info` (SPEC 6).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EngineInfo {
-    pub protocol: u32,
     pub id: String,
     pub name: String,
     pub version: String,
@@ -26,6 +23,18 @@ pub struct EngineInfo {
     pub capabilities: Caps,
     /// Generation time divided by audio length.
     pub realtime_factor: f32,
+    /// The DiT model ACE-Step has loaded, the planning (lyrics) model if loaded, and every DiT model installed.
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub lm_model: Option<String>,
+    #[serde(default)]
+    pub models: Vec<String>,
+    /// Songs waiting and being made inside ACE-Step right now.
+    #[serde(default)]
+    pub queued: u32,
+    #[serde(default)]
+    pub running: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

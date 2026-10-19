@@ -2,6 +2,7 @@
 //! It talks to Maio only through the JSON API (SPEC 10), like any script.
 
 pub mod api;
+mod details;
 mod events;
 pub mod format;
 mod frame;
@@ -19,7 +20,7 @@ mod store;
 mod theme;
 
 use leptos::prelude::*;
-use leptos_meta::{Stylesheet, Title, provide_meta_context};
+use leptos_meta::{Title, provide_meta_context};
 use leptos_router::{
     components::{Route, Router, Routes},
     path,
@@ -32,9 +33,9 @@ pub fn App() -> impl IntoView {
     let themes = theme::provide();
     events::provide();
     player::provide();
+    provide_context(make::Draft(RwSignal::new(None)));
     view! {
         <Title text="Maio"/>
-        <Stylesheet id="main" href="/pkg/maio.css"/>
         <ConfigProvider theme=themes.thaw>
             <ToasterProvider>
                 <Router>
@@ -61,7 +62,7 @@ pub(crate) fn say(toaster: thaw::ToasterInjection, text: String, intent: thaw::T
 /// The whole HTML document around the app (server only).
 #[cfg(feature = "ssr")]
 pub fn shell(options: LeptosOptions) -> impl IntoView {
-    use leptos_meta::MetaTags;
+    use leptos_meta::{HashedStylesheet, MetaTags};
     view! {
         <thaw::ssr::SSRMountStyleProvider>
             <!DOCTYPE html>
@@ -71,6 +72,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
                     <script inner_html=theme::BOOT></script>
                     <AutoReload options=options.clone()/>
+                    <HashedStylesheet options=options.clone() id="leptos"/>
                     <HydrationScripts options/>
                     <MetaTags/>
                 </head>

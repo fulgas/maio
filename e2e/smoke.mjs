@@ -42,6 +42,16 @@ async function makeSong(prompt, seconds) {
   await page.getByRole("button", { name: "Make the song" }).click();
 }
 
+await check("asset names carry a hash and are cached for good", async () => {
+  const html = await (await page.request.get(base + "/sign-in")).text();
+  const css = html.match(/\/pkg\/maio\.[A-Za-z0-9_-]+\.css/);
+  assert.ok(css, "a hashed stylesheet link");
+  assert.match(html, /\/pkg\/maio\.[A-Za-z0-9_-]+\.js/, "a hashed script");
+  const res = await page.request.get(base + css[0]);
+  assert.equal(res.status(), 200);
+  assert.match(res.headers()["cache-control"] ?? "", /immutable/);
+});
+
 await check("the e2e config is committed, not ignored", async () => {
   let ignored = true;
   try { execSync("git check-ignore -q e2e/maio.toml", { cwd: ".." }); } catch { ignored = false; }
@@ -81,11 +91,39 @@ await check("a taller prompt box leaves the Make button its size", async () => {
 
 step("make a song with a long prompt");
 await page.locator(".engine.ready").waitFor({ timeout: 60_000 });
+
+await check("the engine line opens a panel that says what each engine is doing", async () => {
+  await page.locator(".engine").click();
+  const panel = page.getByRole("region", { name: "Engines" });
+  await panel.waitFor();
+  const text = await panel.innerText();
+  assert.match(text, /ACE-Step 1\.5/);
+  assert.match(text, /Ready to make songs\./);
+  assert.match(text, /Model acestep-v15-turbo/);
+  await page.keyboard.press("Escape");
+  await panel.waitFor({ state: "hidden" });
+});
+
 await makeSong(longPrompt, 30);
 await page.getByRole("heading", { name: "Being made" }).waitFor();
 const firstSong = page.locator(".song").first();
 await firstSong.waitFor({ timeout: 120_000 });
 const title = (await firstSong.locator(".song-title").textContent()).trim();
+
+await check("a song's title opens its details, with downloads and Make one like this", async () => {
+  await page.getByRole("button", { name: `Details for ${title}` }).first().click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByText("Described as").waitFor();
+  const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("link", { name: "Download as MP3" }).click()]);
+  assert.match(download.suggestedFilename(), /\.mp3$/);
+  await dialog.getByRole("button", { name: "Make one like this" }).click();
+  await dialog.waitFor({ state: "hidden" });
+  assert.equal(await page.getByLabel("What it sounds like").inputValue(), longPrompt);
+  await page.locator(".chip.seed").waitFor();
+  await page.getByRole("button", { name: "Remove the seed: make a new take" }).click();
+  assert.equal(await page.locator(".chip.seed").count(), 0);
+  await page.getByLabel("What it sounds like").fill("");
+});
 
 await check("a double click on Make starts one song", async () => {
   const posts = [];
@@ -130,6 +168,10 @@ await check("keyboard focus shows on the mustard player bar", async () => {
 });
 
 step("make a playlist and add two songs");
+await check("the shelf says what its tiles do in words: its scrolling row would cut a caption off", async () => {
+  assert.match(await page.locator(".tile.new").innerText(), /New playlist/);
+  assert.equal(await page.locator(".shelf [data-tip]").count(), 0);
+});
 await page.getByRole("button", { name: "New playlist" }).click();
 await page.getByRole("dialog").getByRole("textbox").fill("Smoke test list");
 await page.getByRole("button", { name: "Create" }).click();
@@ -159,6 +201,16 @@ await check("the Playlists tab lists the playlist", async () => {
 
 step("the player kept its song across pages");
 await page.locator(".now-title", { hasText: title }).waitFor();
+
+await check("a playlist's play button takes the band's colour", async () => {
+  const ok = await page.evaluate(() => {
+    const band = document.querySelector(".band");
+    const play = band.querySelector(".icon.solid.big");
+    if (!band.style.getPropertyValue("--band")) return "the band sets no --band colour";
+    return getComputedStyle(play).color === getComputedStyle(band).backgroundColor || `${getComputedStyle(play).color} vs ${getComputedStyle(band).backgroundColor}`;
+  });
+  assert.equal(ok, true);
+});
 
 await check("the playlist's Play turns to Pause while it plays", async () => {
   await page.getByRole("button", { name: "Play Smoke test list" }).click();

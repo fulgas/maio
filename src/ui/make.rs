@@ -1,6 +1,6 @@
 //! The Make form (SPEC 5, 12): what the person picked, turned into a song request.
 
-use crate::domain::request::{SongRequest, Tempo, TempoWord};
+use crate::domain::request::{Energy, SongRequest, Tempo, TempoWord};
 
 /// The length chip: (seconds, label).
 pub const LENGTHS: [(u32, &str); 7] = [(30, "0:30"), (60, "1:00"), (120, "2:00"), (180, "3:00"), (240, "4:00"), (300, "5:00"), (600, "10:00")];
@@ -35,6 +35,8 @@ pub struct MakeForm {
     pub prompt: String,
     pub mood: String,
     pub genre: String,
+    /// Not a chip: only "Make one like this" sets it, from a song made through the API.
+    pub energy: String,
     pub seconds: u32,
     pub tempo: String,
     pub seed: String,
@@ -50,6 +52,7 @@ impl Default for MakeForm {
             prompt: String::new(),
             mood: String::new(),
             genre: String::new(),
+            energy: String::new(),
             seconds: 180,
             tempo: String::new(),
             seed: String::new(),
@@ -84,15 +87,20 @@ impl MakeForm {
             },
         };
         let seed = match self.seed.trim() {
-            "" | "random" => None,
-            s => Some(s.parse::<i64>().map_err(|_| "The seed is a whole number, or empty for a random one.".to_string())?),
+            "" => None,
+            s => Some(s.parse::<i64>().map_err(|_| "The seed is a whole number.".to_string())?),
         };
         let v = self.vocals;
         Ok(SongRequest {
             prompt,
             mood,
             genre: some(&self.genre),
-            energy: None,
+            energy: match self.energy.as_str() {
+                "low" => Some(Energy::Low),
+                "medium" => Some(Energy::Medium),
+                "high" => Some(Energy::High),
+                _ => None,
+            },
             seconds: Some(self.seconds),
             tempo,
             vocals: v.then_some(true),
@@ -105,6 +113,40 @@ impl MakeForm {
         })
     }
 }
+
+/// What "Make one like this" puts in the form (SPEC 12): the song's settings, its words and its seed.
+impl MakeForm {
+    pub fn from_song(s: &crate::domain::Song) -> Self {
+        let nearest =
+            LENGTHS.iter().min_by(|a, b| (f64::from(a.0) - s.seconds).abs().total_cmp(&(f64::from(b.0) - s.seconds).abs())).map_or(180, |l| l.0);
+        Self {
+            prompt: s.prompt.clone(),
+            mood: s.mood.clone().unwrap_or_default(),
+            genre: s.genre.clone().unwrap_or_default(),
+            energy: s.energy.clone().unwrap_or_default(),
+            seconds: nearest,
+            tempo: s.bpm.filter(|b| (40..=220).contains(b)).map(|b| b.to_string()).unwrap_or_default(),
+            seed: s.seed.to_string(),
+            vocals: s.vocals,
+            lyrics: if s.vocals { s.lyrics.clone().unwrap_or_default() } else { String::new() },
+            language: if s.vocals { s.vocal_language.clone().unwrap_or_default() } else { String::new() },
+            lyrics_by: String::new(),
+        }
+    }
+}
+
+/// The tempo chip's choices, plus the current bpm when it is not one of them.
+pub fn tempo_options(current: &str) -> Vec<(String, String)> {
+    let mut v: Vec<(String, String)> = TEMPOS.iter().map(|(v, l)| (v.to_string(), l.to_string())).collect();
+    if !current.is_empty() && !v.iter().any(|(x, _)| x == current) {
+        v.push((current.to_string(), format!("{current} bpm")));
+    }
+    v
+}
+
+/// A form for the Make box to take up: "Make one like this" sets it, the Make box empties it.
+#[derive(Clone, Copy)]
+pub struct Draft(pub leptos::prelude::RwSignal<Option<MakeForm>>);
 
 #[cfg(test)]
 mod tests {
@@ -144,12 +186,54 @@ mod tests {
     }
 
     #[test]
-    fn seed_is_random_or_a_whole_number() {
-        let with = |s: &str| MakeForm { seed: s.into(), ..form() }.request(false);
-        assert_eq!(with("").unwrap().seed, None);
-        assert_eq!(with("random").unwrap().seed, None);
-        assert_eq!(with(" 42 ").unwrap().seed, Some(42));
-        assert_eq!(with("4.2"), Err("The seed is a whole number, or empty for a random one.".into()));
+    fn an_empty_seed_is_a_new_take_and_a_copied_one_is_kept() {
+        assert_eq!(form().request(false).unwrap().seed, None);
+        assert_eq!(MakeForm { seed: " 42 ".into(), ..form() }.request(false).unwrap().seed, Some(42));
+    }
+
+    fn made() -> crate::domain::Song {
+        crate::domain::Song {
+            prompt: "warm pads".into(),
+            mood: Some("calm".into()),
+            genre: Some("lo-fi".into()),
+            energy: Some("low".into()),
+            seconds: 179.8,
+            bpm: Some(93),
+            seed: 1234,
+            vocals: false,
+            ..crate::domain::testing::song("s1")
+        }
+    }
+
+    #[test]
+    fn from_song_copies_the_settings_and_the_seed() {
+        let f = MakeForm::from_song(&made());
+        assert_eq!((f.prompt.as_str(), f.mood.as_str(), f.genre.as_str(), f.energy.as_str()), ("warm pads", "calm", "lo-fi", "low"));
+        assert_eq!(f.seconds, 180, "the nearest length chip");
+        assert_eq!(f.tempo, "93");
+        assert_eq!(f.seed, "1234");
+        let r = f.request(false).unwrap();
+        assert_eq!(r.seed, Some(1234));
+        assert_eq!(r.energy, Some(crate::domain::request::Energy::Low));
+    }
+
+    #[test]
+    fn from_song_keeps_the_words_sung_and_works_for_a_mood_only_song() {
+        let sung = crate::domain::Song { vocals: true, lyrics: Some("[verse]\nhi".into()), vocal_language: Some("pt".into()), ..made() };
+        let f = MakeForm::from_song(&sung);
+        assert!(f.vocals);
+        assert_eq!((f.lyrics.as_str(), f.language.as_str()), ("[verse]\nhi", "pt"));
+        let mood_only = crate::domain::Song { prompt: String::new(), bpm: None, seconds: 41.0, ..made() };
+        let f = MakeForm::from_song(&mood_only);
+        assert_eq!((f.tempo.as_str(), f.seconds), ("", 30));
+        assert!(f.request(false).is_ok(), "a mood alone is a valid request");
+    }
+
+    #[test]
+    fn tempo_options_include_a_bpm_that_is_not_a_chip() {
+        let opts = tempo_options("93");
+        assert!(opts.iter().any(|(v, l)| v == "93" && l == "93 bpm"));
+        assert_eq!(tempo_options("90").len(), TEMPOS.len(), "a chip value adds nothing");
     }
 
     #[test]

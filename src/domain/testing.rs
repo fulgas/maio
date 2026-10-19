@@ -60,12 +60,16 @@ pub fn normalized() -> Normalized {
 /// An engine that makes 10 to 600 s, with vocals, one job at a time, at half real time.
 pub fn engine_info(id: &str, commercial: Commercial) -> EngineInfo {
     EngineInfo {
-        protocol: 1,
         id: id.into(),
         name: id.into(),
         version: "1".into(),
         licence: Licence { name: "MIT".into(), commercial, note: String::new() },
         capabilities: Caps { min_seconds: 10, max_seconds: 600, vocals: true, tempo: true, concurrency: 1 },
         realtime_factor: 0.5,
+        model: "acestep-v15-turbo".into(),
+        lm_model: None,
+        models: vec![],
+        queued: 0,
+        running: 0,
     }
 }

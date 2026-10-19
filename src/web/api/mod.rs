@@ -1,5 +1,6 @@
 //! The JSON API under `/api/v1` (SPEC 10): everything the web app does, a script can do.
 
+mod engines;
 mod events;
 mod live;
 mod playlists;
@@ -11,7 +12,7 @@ use axum::{
     Json, Router,
     extract::{FromRequest, FromRequestParts, Query, Request},
     http::request::Parts,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
 };
 use serde::de::DeserializeOwned;
 
@@ -25,10 +26,12 @@ pub fn router(app: Shared) -> Router {
         .route("/session", post(session::sign_in).delete(session::sign_out))
         .route("/me/password", post(session::change_password))
         .route("/status", get(status::status))
+        .route("/engines/{id}/model", put(engines::switch_model))
         .route("/events", get(events::events))
         .route("/songs", get(songs::list).post(songs::make))
         .route("/songs/{id}", get(songs::get).patch(songs::rename).delete(songs::delete))
         .route("/songs/{id}/audio", get(songs::audio))
+        .route("/songs/{id}/download", get(songs::download))
         .route("/jobs", get(songs::jobs))
         .route("/jobs/{id}", delete(songs::cancel))
         .route("/playlists", get(playlists::list).post(playlists::create))

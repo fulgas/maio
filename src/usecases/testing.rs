@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::domain::{
-    Commercial, Playlist, PlaylistRef, Song,
+    Commercial, DownloadFormat, Playlist, PlaylistRef, Song,
     engine::{EngineStatus, Health},
     job::Job,
     request::Normalized,
@@ -18,8 +18,8 @@ use anyhow::{Result, anyhow, bail};
 use async_trait::async_trait;
 
 use crate::usecases::ports::{
-    AccountStore, AudioFiles, CallError, Clock, EngineRequest, Ids, Imported, MusicEngine, Notifier, Passwords, PlaylistRepository, RemoteError,
-    RemoteJob, SongName, SongQuery, SongRepository, SongSort, TextEngine,
+    AccountStore, AudioFiles, CallError, Clock, EngineRequest, Exported, Ids, Imported, MusicEngine, Notifier, Passwords, PlaylistRepository,
+    RemoteError, RemoteJob, SongName, SongQuery, SongRepository, SongSort, TextEngine,
 };
 
 #[derive(Default)]
@@ -123,6 +123,9 @@ pub struct MemFiles {
     pub deleted: Mutex<Vec<String>>,
     /// Makes `retag` fail, to test what happens after import.
     pub fail_retag: AtomicBool,
+    pub exported: Mutex<Vec<String>>,
+    /// Makes `export` hand back a stored file that is no longer there.
+    pub vanished: AtomicBool,
 }
 
 impl AudioFiles for MemFiles {
@@ -142,6 +145,16 @@ impl AudioFiles for MemFiles {
         }
         self.retagged.lock().unwrap().push(song.title.clone());
         Ok(())
+    }
+
+    fn export(&self, song: &Song, format: DownloadFormat) -> Result<Exported> {
+        self.exported.lock().unwrap().push(format!("{} as {}", song.id, format.extension()));
+        if self.vanished.load(Ordering::SeqCst) {
+            return Ok(Exported { path: self.scratch("gone.opus"), temporary: false });
+        }
+        let path = self.scratch(&format!("{}.{}", song.id, format.extension()));
+        std::fs::write(&path, format!("{} as {}", song.id, format.extension()))?;
+        Ok(Exported { path, temporary: true })
     }
 
     fn delete(&self, file: &str) -> Result<()> {
@@ -222,6 +235,8 @@ pub struct FakeEngine {
     pub hold: AtomicBool,
     pub submitted: Mutex<Vec<EngineRequest>>,
     pub deleted: Mutex<Vec<String>>,
+    /// Models the engine panel asked it to load.
+    pub switched: Mutex<Vec<String>>,
 }
 
 impl FakeEngine {
@@ -235,6 +250,7 @@ impl FakeEngine {
             hold: AtomicBool::new(false),
             submitted: Mutex::default(),
             deleted: Mutex::default(),
+            switched: Mutex::default(),
         }
     }
 }
@@ -281,6 +297,11 @@ impl MusicEngine for FakeEngine {
 
     async fn delete(&self, id: &str) {
         self.deleted.lock().unwrap().push(id.into());
+    }
+
+    async fn switch_model(&self, model: &str) -> std::result::Result<(), CallError> {
+        self.switched.lock().unwrap().push(model.to_string());
+        Ok(())
     }
 }
 

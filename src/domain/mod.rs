@@ -15,7 +15,7 @@ pub mod titles;
 
 pub use error::{Error, PlaylistRef};
 pub use playlist::{Live, LiveChange, MAX_NAME, Playlist, Visibility};
-pub use song::{Commercial, Licence, MAX_TITLE, Song, TitleSource, song_deletable};
+pub use song::{Commercial, DownloadFormat, Licence, MAX_TITLE, Song, TitleSource, download_name, song_deletable};
 
 pub type SongId = String;
 pub type PlaylistId = String;

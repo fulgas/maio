@@ -1,4 +1,4 @@
-# The smoke test's server: its own port and data, the fake engine.
+# The smoke test's server: its own port and data, the fake acestep-api (e2e/fake-ace.mjs).
 listen = "127.0.0.1:8099"
 data_dir = "target/e2e-data"
 moods = ["calm", "dreamy"]
@@ -6,7 +6,7 @@ genres = ["ambient"]
 
 [[engine]]
 id = "fake"
-url = "http://127.0.0.1:7801"
+url = "http://127.0.0.1:7811"
 
 [lyrics]
 default_engine = "ace-step"

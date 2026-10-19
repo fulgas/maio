@@ -1,66 +1,36 @@
 listen = "0.0.0.0:8080"
 data_dir = "/data"
-lookahead = 2
-crossfade_s = 6.0
-no_repeat = 20
-retention_days = 7
-# Radios in total, main included (SPEC 10).
-max_radios = 4
 # Set to true when Maio is served over HTTPS (marks the session cookie Secure).
 secure_cookies = false
+# Behind a reverse proxy that changes Host, the address browsers use (sign-in and changes check it).
+# public_origin = "https://music.example"
+# Log lines on stdout: "text" or "json". RUST_LOG filters them (default info).
+log_format = "text"
 moods = ["calm", "focused", "upbeat", "playful", "tense", "dreamy", "melancholy", "triumphant"]
 genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic"]
+# A job whose engine shows no progress for this long fails, and is tried once more on another engine.
+engine_stall_s = 600
 
-# Rate limits for every signed-in person. Defaults shown.
-# station limits how often a person switches the playlist on air.
-# limits = { queue = "20/10m", generate = "20/10m", station = "10/1h", write = "60/1m", pending_jobs = 4 }
+# Songs asked for per window, and jobs waiting or making at once.
+[limits]
+make = "20/10m"
+pending_jobs = 4
 
-# Playlist sizes: the default for a new playlist, and the largest anyone can set.
-[playlists]
-max_tracks = 50
-max_tracks_limit = 500
-
-# How tracks are kept on disk. format: opus (default), flac, mp3 or aac.
-# max_gb is the crate's budget; 0 means no budget.
+# How songs are kept: opus (default), flac, mp3 or aac.
 [storage]
 format = "opus"
 bitrate_k = 160
-max_gb = 20
 
-# The MediaMTX service in compose.yaml: anyone can pull every radio over RTSP, SRT and RTMP.
-# publish and api are as seen from Maio's container; host and the ports are what listeners use.
-[relay]
-enabled = true
-publish = "rtsp://mediamtx:8554"
-api = "http://mediamtx:9997"
-host = "localhost"
-rtsp_port = 8555
-srt_port = 8891
-rtmp_port = 1936
-
-[serve]
-mp3 = true
-aac = true
-hls = true
-
-
+# Music engines, in order of preference. ACE-Step runs on the Mac: `just engine`.
 [[engine]]
 id = "ace-step"
 url = "http://host.docker.internal:7801"
-token_env = "MAIO_ACE_STEP_TOKEN"
-
-# Push to a MediaMTX on the host through its published port.
-# [[output]]
-# kind = "rtsp"
-# url = "rtsp://host.docker.internal:8554/music"
-# codec = "opus"
-# radio = "main"  # which radio it carries
 
 # Text engines write lyrics and titles, never music. Leave them out to use ACE-Step's own lyrics and word-list titles.
 # [[text_engine]]
 # id = "claude"
 # kind = "anthropic"
-# model = "claude-haiku-4-5"
+# model = "claude-haiku-4-5-20251001"
 # api_key_env = "ANTHROPIC_API_KEY"
 #
 # [[text_engine]]

@@ -63,14 +63,16 @@ Principles, enforced in review:
 - **YAGNI**: nothing for a second user, a second engine kind or a future feature until this spec asks for it.
 - **Clean code**: names from this spec's vocabulary (song, playlist, live, prompt), small functions, no dead code, errors as typed domain errors mapped to HTTP status codes at the edge.
 
-Workspace layout:
+Code layout: one crate, `maio`, with one module per layer. A layer uses only the layers above it; `tests/layers.rs` fails the build otherwise.
 
 ```
-crates/
+src/
   domain/      types and rules; no dependencies beyond serde
-  app/         use cases and port traits; depends on domain
-  adapters/    sqlite, engines, text engines, ffmpeg, live, relay; implement app's ports
+  usecases/    use cases and port traits; uses domain
+  adapters/    sqlite, engines, text engines, ffmpeg, live, relay; implement the ports in usecases
   web/         Leptos SSR app, server functions, JSON API, axum server; wires everything
+  main.rs      the maio binary
+tests/         tests through the public API of each layer
 ```
 
 ## 4. Signing in
@@ -352,6 +354,13 @@ The design is the **Shelf** direction on the Claude Design canvas "Maio songs an
 - **Sign in** and **change password** screens.
 - Every screen works from 360 px wide, with visible keyboard focus and text contrast of at least 4.5:1.
 
-## 13. Removed from v0
+## 13. Logs, traces and metrics
+
+- **Logs** go to stdout as text, or JSON with `log_format = "json"`; `RUST_LOG` filters them (default `info`). They name jobs, songs, playlists and engines by id; they never contain a password, the API token, a session id, an API key or a request header.
+- **OpenTelemetry**: with `OTEL_EXPORTER_OTLP_ENDPOINT` set (the standard OpenTelemetry variables apply; `OTEL_SERVICE_NAME` defaults to `maio`), traces, metrics and logs also go out over OTLP/HTTP. Every API request is a span; each job's log lines carry its id.
+- **Metrics**: `http.server.request.duration` by route, method and status; `maio.jobs` by outcome (`done`, `failed`, `cancelled`); `maio.engine.up` per music engine.
+- On Ctrl-C or SIGTERM Maio stops taking requests and flushes what it has not exported yet.
+
+## 14. Removed from v0
 
 Radios and the radio dial, stations, the queue and its sides, asking for a song to play next on a radio, history and "Just played", favourites and Kept, the built-in Crate, Kept and Requests playlists, smart and generative playlists, users, roles and the admin flag, the storage budget and the retention sweep. The v0 database is not migrated.

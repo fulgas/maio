@@ -1,58 +1,72 @@
-use std::time::Duration;
+//! The `maio` binary: reads the config, starts logging and telemetry, serves the API on port 8080,
+//! and stops cleanly on Ctrl-C or SIGTERM.
 
-use maio::{api, config, engine, state::AppState, store::Store};
+use std::{net::SocketAddr, path::PathBuf};
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt::init();
-    let path = std::env::args().nth(1).unwrap_or_else(|| "maio.toml".into());
-    let cfg = config::load(&path)?;
-    std::fs::create_dir_all(&cfg.data_dir)?;
-    let store = Store::open(&cfg.data_dir.join("maio.db"))?;
-    maio::users::ensure_admin(&store, |k| std::env::var(k).ok())?;
-    maio::storage::backfill(&store);
-    let state = AppState::new(cfg, store)?;
-    for e in &state.engines {
-        tokio::spawn(engine::health_loop(e.clone()));
+use anyhow::Context;
+use maio::web::config::Config;
+
+fn main() -> anyhow::Result<()> {
+    let path = PathBuf::from(std::env::args().nth(1).unwrap_or_else(|| "maio.toml".into()));
+    let cfg = maio::web::config::load(&path, env)?;
+    let telemetry = maio::web::telemetry::init(cfg.log_format)?;
+    let served = tokio::runtime::Runtime::new().context("starting the async runtime")?.block_on(serve(cfg));
+    if let Err(e) = &served {
+        tracing::error!("Maio stopped: {e:#}");
     }
-    for t in &state.text_engines {
-        tokio::spawn(maio::text::health_loop(t.clone()));
-    }
-    tokio::spawn(retention_loop(state.clone()));
-    if state.cfg.relay.enabled {
-        tokio::spawn(maio::relay::watch(state.clone()));
-    }
-    for o in &state.cfg.outputs {
-        if state.radio(&o.radio).is_none() {
-            tracing::warn!(radio = %o.radio, "an output names a radio that does not exist yet; it starts when that radio is created");
+    telemetry.shutdown();
+    served
+}
+
+fn env(key: &str) -> Option<String> {
+    std::env::var(key).ok().filter(|v| !v.is_empty())
+}
+
+async fn serve(cfg: Config) -> anyhow::Result<()> {
+    let app = maio::web::start(&cfg, (env("MAIO_ADMIN_USER"), env("MAIO_ADMIN_PASSWORD")))?;
+    let listener = tokio::net::TcpListener::bind(&cfg.listen).await.with_context(|| format!("listening on {}", cfg.listen))?;
+    tracing::info!(listen = %cfg.listen, "Maio is up");
+    let mut stopping = app.stopping.subscribe();
+    let signal = {
+        let app = app.clone();
+        async move {
+            stopped().await;
+            tracing::info!("stopping");
+            app.stop();
         }
+    };
+    let server = axum::serve(listener, maio::web::router(app).into_make_service_with_connect_info::<SocketAddr>()).with_graceful_shutdown(signal);
+    // Docker kills after 10 s; stop waiting for slow requests (an audio download) before that, so telemetry still flushes.
+    let deadline = async move {
+        let _ = stopping.wait_for(|s| *s).await;
+        tokio::time::sleep(std::time::Duration::from_secs(7)).await;
+    };
+    tokio::select! {
+        served = server => served?,
+        () = deadline => tracing::warn!("open requests did not finish in time; stopping anyway"),
     }
-    for r in state.radios() {
-        maio::radio::start(&state, &r);
-    }
-    let listener = tokio::net::TcpListener::bind(&state.cfg.listen).await?;
-    tracing::info!("listening on {}", state.cfg.listen);
-    axum::serve(listener, api::router(state).into_make_service_with_connect_info::<std::net::SocketAddr>()).await?;
+    tracing::info!("Maio stopped");
     Ok(())
 }
 
-/// Daily retention sweep (SPEC 6): deletes old tracks that are not favourites and not queued or playing.
-async fn retention_loop(state: AppState) {
-    loop {
-        if state.cfg.retention_days > 0 {
-            let keep = state.busy_track_ids();
-            match state.store.expired(state.cfg.retention_days, &keep) {
-                Ok(list) => {
-                    for (id, file) in list {
-                        let _ = tokio::fs::remove_file(&file).await;
-                        if let Err(e) = state.store.mark_deleted(&id) {
-                            tracing::warn!("retention: {e}");
-                        }
-                    }
-                }
-                Err(e) => tracing::warn!("retention: {e}"),
+/// Ctrl-C, or SIGTERM from `docker compose stop`.
+async fn stopped() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    #[cfg(unix)]
+    let term = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut s) => {
+                s.recv().await;
             }
+            Err(_) => std::future::pending::<()>().await,
         }
-        tokio::time::sleep(Duration::from_secs(24 * 3600)).await;
+    };
+    #[cfg(not(unix))]
+    let term = std::future::pending::<()>();
+    tokio::select! {
+        () = ctrl_c => {}
+        () = term => {}
     }
 }

@@ -36,7 +36,6 @@ stop:
 logs:
     docker compose logs -f maio
 
-# Every test: Rust and the web helpers (the engine tests live in its own repo).
+# Every test (needs ffmpeg and ffprobe on PATH; the engine's tests live in its own repo).
 test:
     cargo test
-    node --test web/tests/*.test.mjs

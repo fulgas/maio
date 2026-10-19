@@ -10,3 +10,4 @@ __pycache__/
 /target
 maio.toml
 .idea/
+maio.toml.*

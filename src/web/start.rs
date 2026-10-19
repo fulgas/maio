@@ -1,0 +1,75 @@
+//! Builds the app from config with the real adapters, and starts the engines' health checks.
+
+use std::sync::Arc;
+
+use crate::adapters::{
+    engine::{self, HttpEngine},
+    ffmpeg::Ffmpeg,
+    passwords::Argon2Passwords,
+    sqlite::{Db, SqliteAccount, SqlitePlaylists, SqliteSongs},
+    system::{RandomIds, SystemClock},
+    text::{self, HttpTextEngine},
+};
+use anyhow::{Context, Result};
+use crate::usecases::{
+    Account, Making, MakingPorts, Playlists, Songs,
+    ports::{MusicEngine, TextEngine},
+};
+
+use crate::web::{
+    config::Config,
+    events::Events,
+    metrics::Metrics,
+    state::{App, Shared},
+};
+
+/// `admin` is `MAIO_ADMIN_USER` and `MAIO_ADMIN_PASSWORD`, needed only while there is no account.
+pub fn start(cfg: &Config, admin: (Option<String>, Option<String>)) -> Result<Shared> {
+    std::fs::create_dir_all(&cfg.data_dir).with_context(|| format!("creating {}", cfg.data_dir.display()))?;
+    let db = Arc::new(Db::open(&cfg.data_dir.join("library.db"))?);
+    let (songs, playlists) = (Arc::new(SqliteSongs(db.clone())), Arc::new(SqlitePlaylists(db.clone())));
+    let files = Arc::new(Ffmpeg::new(&cfg.data_dir, cfg.store_format(), cfg.storage.bitrate_k)?);
+    let meter = opentelemetry::global::meter("maio");
+    let metrics = Arc::new(Metrics::new(&meter));
+    let (ids, clock, events) = (Arc::new(RandomIds), Arc::new(SystemClock), Arc::new(Events::new(metrics.clone())));
+
+    let account = Account::new(Arc::new(SqliteAccount(db)), Arc::new(Argon2Passwords), ids.clone(), clock.clone(), cfg.api_token.clone());
+    account.ensure(admin.0.as_deref(), admin.1.as_deref())?;
+
+    let engines: Vec<Arc<HttpEngine>> = cfg.engine_configs().into_iter().map(|c| Arc::new(HttpEngine::new(c))).collect();
+    for e in &engines {
+        tokio::spawn(engine::watch(e.clone()));
+    }
+    let text_engines: Vec<Arc<HttpTextEngine>> = cfg.text_engine_configs().into_iter().map(|c| Arc::new(HttpTextEngine::new(c))).collect();
+    for t in &text_engines {
+        tokio::spawn(text::watch(t.clone()));
+    }
+    let making = Making::new(
+        MakingPorts {
+            engines: engines.into_iter().map(|e| e as Arc<dyn MusicEngine>).collect(),
+            text_engines: text_engines.into_iter().map(|t| t as Arc<dyn TextEngine>).collect(),
+            songs: songs.clone(),
+            files: files.clone(),
+            ids: ids.clone(),
+            clock: clock.clone(),
+            notifier: events.clone(),
+        },
+        cfg.make_settings(),
+    );
+    metrics.watch_engines(&meter, making.clone());
+
+    Ok(Arc::new(App {
+        account,
+        songs: Songs::new(songs.clone(), playlists.clone(), files),
+        playlists: Playlists::new(playlists, songs, ids, clock),
+        making,
+        events,
+        moods: cfg.moods.clone(),
+        genres: cfg.genres.clone(),
+        data_dir: cfg.data_dir.clone(),
+        secure_cookies: cfg.secure_cookies,
+        public_origin: cfg.public_origin.clone(),
+        metrics,
+        stopping: tokio::sync::watch::channel(false).0,
+    }))
+}

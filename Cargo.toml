@@ -3,31 +3,53 @@ name = "maio"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "maio"
+path = "src/main.rs"
+
+[features]
+# The fakes in domain::testing and usecases::testing, for the tests in tests/.
+testing = []
+
 [dependencies]
-anyhow = "1.0.104"
+anyhow = "1"
 argon2 = "0.5"
-axum = { version = "0.8", features = ["macros"] }
-bytes = "1.12.1"
-chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
-futures = "0.3.34"
+async-trait = "0.1"
+axum = "0.8"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+futures = "0.3"
+opentelemetry = "0.33"
+opentelemetry-appender-tracing = "0.33"
+opentelemetry-otlp = "0.33"
+opentelemetry_sdk = "0.33"
 rand = "0.9"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
-rusqlite = { version = "0.40.2", features = ["bundled"] }
-serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.154"
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 sha2 = "0.10"
-tokio = { version = "1.53.3", features = ["full"] }
-tokio-stream = { version = "0.1.19", features = ["sync"] }
-toml = "1.1.8"
-tower = { version = "0.5.3", features = ["util"] }
-tower-http = { version = "0.7.1", features = ["fs"] }
-tracing = "0.1.44"
-tracing-subscriber = "0.3.23"
-ulid = "3.0.0"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+toml = "1"
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.7", features = ["fs", "trace"] }
+tracing = "0.1"
+tracing-opentelemetry = "0.34"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+ulid = "3"
 
 [dev-dependencies]
-tempfile = "3.27.0"
+maio = { path = ".", features = ["testing"] }
+opentelemetry_sdk = { version = "0.33", features = ["testing"] }
+serde_json = "1"
+tempfile = "3"
 
-[workspace]
-members = [".", "crates/domain", "crates/app", "crates/adapters"]
-resolver = "3"
+[lints.clippy]
+correctness = { level = "deny", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+perf = { level = "warn", priority = -1 }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true

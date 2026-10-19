@@ -1,22 +1,8 @@
-pub mod accounts;
-pub mod api;
-pub mod auth;
-pub mod config;
-pub mod engine;
-pub mod error;
-pub mod icy;
-pub mod jobs;
-pub mod media;
-pub mod outputs;
-pub mod playlists;
-pub mod playout;
-pub mod queue;
-pub mod radio;
-pub mod relay;
-pub mod request;
-pub mod state;
-pub mod storage;
-pub mod store;
-pub mod text;
-pub mod titles;
-pub mod users;
+//! Maio, one crate in four layers (SPEC 3). Each layer may use only the ones above it:
+//! `domain` (rules, no I/O) ← `usecases` (use cases and ports) ← `adapters` (SQLite, engines, ffmpeg) ← `web` (API, config, telemetry).
+//! `tests/layers.rs` keeps it that way.
+
+pub mod adapters;
+pub mod domain;
+pub mod usecases;
+pub mod web;

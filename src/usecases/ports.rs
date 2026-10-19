@@ -252,3 +252,33 @@ mod tests {
         assert!(!j.error.unwrap().retryable, "retryable defaults to false");
     }
 }
+
+/// A song as a live stream needs it: what to show, the file to decode (relative to the data folder), its length.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LiveSong {
+    pub id: String,
+    pub title: String,
+    #[serde(skip)]
+    pub file: String,
+    /// Its length, so the mixer knows when to start the crossfade without decoding it all first.
+    #[serde(skip)]
+    pub seconds: f64,
+}
+
+/// What a live playlist plays now and next, and how many listen (HTTP listeners plus relay readers).
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct OnAir {
+    pub now: Option<LiveSong>,
+    pub next: Option<LiveSong>,
+    pub listeners: usize,
+}
+
+/// The live streams (SPEC 9): one per live playlist.
+pub trait LiveStreams: Send + Sync {
+    /// Starts the playlist's stream, or brings a running one up to date: its songs in order, shuffle,
+    /// visibility and key. A changed address disconnects the listeners on the old one.
+    fn play(&self, playlist: &Playlist, songs: &[LiveSong]);
+    /// Off air: its encoders stop and its listeners are disconnected.
+    fn stop(&self, id: &str);
+    fn on_air(&self, id: &str) -> Option<OnAir>;
+}

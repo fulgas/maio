@@ -47,6 +47,11 @@ impl Events {
         self.send("song", json!({"id": id, "deleted": deleted}));
     }
 
+    /// A playlist went on or off air, or its live settings changed.
+    pub fn live_changed(&self, id: &str) {
+        self.send("live", json!({"id": id}));
+    }
+
     pub fn playlist_changed(&self, id: &str, deleted: bool) {
         self.send("playlist", json!({"id": id, "deleted": deleted}));
     }

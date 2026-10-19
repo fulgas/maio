@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::adapters::{
     engine::{self, HttpEngine},
     ffmpeg::Ffmpeg,
+    live::{Stations, StationsConfig, relay},
     passwords::Argon2Passwords,
     sqlite::{Db, SqliteAccount, SqlitePlaylists, SqliteSongs},
     system::{RandomIds, SystemClock},
@@ -12,7 +13,7 @@ use crate::adapters::{
 };
 use crate::usecases::{
     Account, Making, MakingPorts, Playlists, Songs,
-    ports::{MusicEngine, TextEngine},
+    ports::{Ids, MusicEngine, TextEngine},
 };
 use anyhow::{Context, Result};
 
@@ -58,10 +59,27 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
     );
     metrics.watch_engines(&meter, making.clone());
 
-    Ok(Arc::new(App {
+    let relay = cfg.relay.enabled.then(|| relay::Target {
+        publish: cfg.relay.publish.clone(),
+        api: cfg.relay.api.clone(),
+        host: cfg.relay.host.clone(),
+        rtsp_port: cfg.relay.rtsp_port,
+        srt_port: cfg.relay.srt_port,
+        rtmp_port: cfg.relay.rtmp_port,
+        secret: ids.secret(),
+    });
+    let stations = Stations::new(StationsConfig {
+        data_dir: cfg.data_dir.clone(),
+        crossfade_s: cfg.crossfade_s,
+        mp3: cfg.serve.mp3,
+        aac: cfg.serve.aac,
+        hls: cfg.serve.hls,
+        relay: relay.clone(),
+    });
+    let app = Arc::new(App {
         account,
         songs: Songs::new(songs.clone(), playlists.clone(), files),
-        playlists: Playlists::new(playlists, songs, ids, clock),
+        playlists: Playlists::new(playlists, songs, ids.clone(), clock, stations.clone(), cfg.max_live),
         making,
         events,
         moods: cfg.moods.clone(),
@@ -71,5 +89,11 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         public_origin: cfg.public_origin.clone(),
         metrics,
         stopping: tokio::sync::watch::channel(false).0,
-    }))
+        stations,
+        serve: cfg.serve.clone(),
+        relay,
+    });
+    // Playlists that were live before a restart go back on air.
+    app.playlists.resume()?;
+    Ok(app)
 }

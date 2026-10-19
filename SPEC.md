@@ -352,7 +352,7 @@ The design is the **Shelf** direction on the Claude Design canvas "Maio songs an
   - "Make a song": a large prompt box and a Make button, settings as icon chips (mood, genre, length, tempo, seed) and a Vocals switch (instrumental by default); turning vocals on shows the lyrics box with language and lyrics writer;
   - "Being made": jobs with progress, time left and cancel;
   - the song list with search: play, title and prompt, playlist marks, mood and key, length, add to playlist, and rename or delete.
-- **Playlist** page: a coloured band with the name and length and icon buttons (play, shuffle, add songs, more); the live strip under it (live switch with listener count, public or private, stream shuffle, new link, a copy button per address, streams in use; arrives with Live); the songs, full width, with drag to reorder, play, the song on the live stream marked, and remove.
+- **Playlist** page: a coloured band with the name and length and icon buttons (play, shuffle, add songs, more); the live strip under it (live switch with listener count, public or private, stream shuffle, new link, a copy button per address, streams in use); the songs, full width, with drag to reorder, play, the song on the live stream marked, and remove.
 - **Player bar** on every screen: current song and playlist, shuffle, previous, play and pause, next, repeat, seek bar, volume.
 - **Sign in** and **change password** screens.
 - Every screen works from 360 px wide, with visible keyboard focus and text contrast of at least 4.5:1.

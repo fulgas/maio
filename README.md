@@ -11,6 +11,8 @@ Spec: `SPEC.md`. The ACE-Step engine server is the `maio-engine` repo, next to t
    `just fake` runs a fake engine (sine tones, no GPU) instead of ACE-Step.
 3. Open http://localhost:8080 and sign in. Everything the web app does, the API at http://localhost:8080/api/v1
    does too (SPEC 10).
+4. Press **Live** on a playlist to stream it: the strip shows MP3, AAC and HLS links (and RTSP, SRT, RTMP through
+   MediaMTX), whether it is public or private, and who is listening.
 
 ## Scripts
 

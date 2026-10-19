@@ -10,6 +10,26 @@ moods = ["calm", "focused", "upbeat", "playful", "tense", "dreamy", "melancholy"
 genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic"]
 # A job whose engine shows no progress for this long fails, and is tried once more on another engine.
 engine_stall_s = 600
+# At most this many playlists live at once: each runs its own encoders.
+max_live = 4
+# The crossfade between songs on a live stream, in seconds.
+crossfade_s = 6.0
+
+# The HTTP streams a live playlist offers.
+[serve]
+mp3 = true
+aac = true
+hls = true
+
+# MediaMTX relays live playlists over RTSP, SRT and RTMP (compose.yaml runs it). `host` is what listeners use.
+[relay]
+enabled = true
+publish = "rtsp://mediamtx:8554"
+api = "http://mediamtx:9997"
+host = "localhost"
+rtsp_port = 8555
+srt_port = 8891
+rtmp_port = 1936
 
 # Songs asked for per window, and jobs waiting or making at once.
 [limits]

@@ -8,6 +8,7 @@ use axum::{
     body::Body,
     http::{HeaderMap, Request, StatusCode, header, request::Builder},
 };
+use maio::adapters::live::{Stations, StationsConfig, relay};
 use maio::adapters::sqlite::{Db, SqlitePlaylists, SqliteSongs};
 use maio::domain::limits::Rate;
 use maio::usecases::{
@@ -28,6 +29,7 @@ pub struct World {
     pub files: Arc<MemFiles>,
     pub songs: Arc<SqliteSongs>,
     pub playlists: Arc<SqlitePlaylists>,
+    pub stations: Arc<Stations>,
     pub dir: tempfile::TempDir,
 }
 
@@ -57,6 +59,8 @@ pub fn world_behind_proxy() -> World {
 
 fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -> World {
     let dir = tempfile::tempdir().unwrap();
+    let stations =
+        Stations::new(StationsConfig { data_dir: dir.path().to_path_buf(), crossfade_s: 0.5, mp3: true, aac: true, hls: false, relay: None });
     let metrics = Arc::new(maio::web::metrics::Metrics::new(meter));
     let db = Arc::new(Db::open_in_memory().unwrap());
     let (songs, playlists) = (Arc::new(SqliteSongs(db.clone())), Arc::new(SqlitePlaylists(db)));
@@ -91,7 +95,7 @@ fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -
     let app = Arc::new(App {
         account,
         songs: Songs::new(songs.clone(), playlists.clone(), files.clone()),
-        playlists: Playlists::new(playlists.clone(), songs.clone(), ids, clock),
+        playlists: Playlists::new(playlists.clone(), songs.clone(), ids, clock, stations.clone(), 2),
         making,
         events,
         moods: vec!["calm".into()],
@@ -101,8 +105,20 @@ fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -
         public_origin,
         metrics,
         stopping: tokio::sync::watch::channel(false).0,
+        stations: stations.clone(),
+        serve: maio::web::config::Serve::default(),
+        // A relay target so the auth hook answers; the stations themselves publish nowhere in tests.
+        relay: Some(relay::Target {
+            publish: "rtsp://mediamtx:8554".into(),
+            api: "http://127.0.0.1:9".into(),
+            host: "localhost".into(),
+            rtsp_port: 8555,
+            srt_port: 8891,
+            rtmp_port: 1936,
+            secret: "test".into(),
+        }),
     });
-    World { router: maio::web::router(app.clone()), app, engine, files, songs, playlists, dir }
+    World { router: maio::web::router(app.clone()), app, engine, files, songs, playlists, stations, dir }
 }
 
 fn with_body(r: Builder, body: Option<Value>) -> Request<Body> {
@@ -149,4 +165,23 @@ pub async fn sign_in(w: &World) -> String {
     assert_eq!(status, StatusCode::NO_CONTENT);
     let cookie = headers[header::SET_COOKIE].to_str().unwrap();
     cookie.split(';').next().unwrap().trim_start_matches("maio_session=").to_string()
+}
+
+/// A real 4-second tone in the library, for live streams to play: writes `songs/{id}.opus`, stores its row, returns its id.
+pub fn tone_song(w: &World, id: &str) -> String {
+    use maio::usecases::ports::SongRepository;
+    std::fs::create_dir_all(w.dir.path().join("songs")).unwrap();
+    let file = format!("songs/{id}.opus");
+    let ok = std::process::Command::new("ffmpeg")
+        .args(["-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=4", "-ac", "2", "-c:a", "libopus"])
+        .arg(w.dir.path().join(&file))
+        .status()
+        .unwrap()
+        .success();
+    assert!(ok, "ffmpeg made the tone");
+    let mut song = maio::domain::testing::song(id);
+    song.file = file;
+    song.seconds = 4.0;
+    w.songs.insert(&song).unwrap();
+    song.id
 }

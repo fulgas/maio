@@ -30,6 +30,8 @@ pub enum Error {
         retry_after_s: u64,
     },
     BadCredentials,
+    /// The playlists already live when one more would pass `max_live`.
+    LiveLimit(Vec<PlaylistRef>),
 }
 
 impl Error {
@@ -47,6 +49,7 @@ impl Error {
             Self::EngineUnavailable => "engine_unavailable",
             Self::RateLimited { .. } => "rate_limited",
             Self::BadCredentials => "bad_credentials",
+            Self::LiveLimit(_) => "live_limit",
         }
     }
 }
@@ -62,6 +65,7 @@ impl fmt::Display for Error {
             Self::EngineUnavailable => f.write_str("no healthy engine can make this request"),
             Self::RateLimited { retry_after_s } => write!(f, "too many requests; try again in {retry_after_s} s"),
             Self::BadCredentials => f.write_str("wrong username or password"),
+            Self::LiveLimit(live) => write!(f, "at most {} playlists can be live at once", live.len()),
         }
     }
 }
@@ -79,5 +83,9 @@ mod tests {
         assert_eq!(Error::SongInPlaylist(vec![]).code(), "song_in_playlist");
         assert_eq!(Error::PlaylistLive.code(), "playlist_live");
         assert_eq!(Error::NotFound("playlist").to_string(), "no such playlist");
+    }
+    #[test]
+    fn live_limit_has_its_code() {
+        assert_eq!(Error::LiveLimit(vec![]).code(), "live_limit");
     }
 }

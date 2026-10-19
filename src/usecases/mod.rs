@@ -12,5 +12,5 @@ pub mod testing;
 pub use account::{Account, SignedIn};
 pub use error::{Error, Result};
 pub use making::{Accepted, MakeSettings, Making, MakingPorts, TextStatus};
-pub use playlists::{PlaylistSummary, PlaylistView, Playlists};
+pub use playlists::{LiveView, PlaylistSummary, PlaylistView, Playlists};
 pub use songs::{DEFAULT_LIMIT, MAX_LIMIT, SongPage, SongView, Songs};

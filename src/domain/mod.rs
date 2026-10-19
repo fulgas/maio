@@ -5,6 +5,7 @@ pub mod engine;
 mod error;
 pub mod job;
 pub mod limits;
+pub mod live;
 mod playlist;
 pub mod request;
 mod song;
@@ -13,7 +14,7 @@ pub mod testing;
 pub mod titles;
 
 pub use error::{Error, PlaylistRef};
-pub use playlist::{Live, MAX_NAME, Playlist, Visibility};
+pub use playlist::{Live, LiveChange, MAX_NAME, Playlist, Visibility};
 pub use song::{Commercial, Licence, MAX_TITLE, Song, TitleSource, song_deletable};
 
 pub type SongId = String;

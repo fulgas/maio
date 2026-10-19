@@ -51,14 +51,14 @@ impl From<Rule> for ApiError {
             Rule::NotFound(_) => StatusCode::NOT_FOUND,
             Rule::Invalid { code: "job_finished", .. } => StatusCode::CONFLICT,
             Rule::Invalid { .. } => StatusCode::UNPROCESSABLE_ENTITY,
-            Rule::SongInPlaylist(_) | Rule::PlaylistLive | Rule::NoncommercialEngine => StatusCode::CONFLICT,
+            Rule::SongInPlaylist(_) | Rule::PlaylistLive | Rule::NoncommercialEngine | Rule::LiveLimit(_) => StatusCode::CONFLICT,
             Rule::EngineUnavailable => StatusCode::SERVICE_UNAVAILABLE,
             Rule::RateLimited { .. } => StatusCode::TOO_MANY_REQUESTS,
             Rule::BadCredentials => StatusCode::UNAUTHORIZED,
         };
         let mut e = Self::new(status, rule.code(), rule.to_string());
         match rule {
-            Rule::SongInPlaylist(playlists) => {
+            Rule::SongInPlaylist(playlists) | Rule::LiveLimit(playlists) => {
                 e.extra.insert("playlists".into(), json!(playlists));
             }
             Rule::RateLimited { retry_after_s } => e.retry_after = Some(retry_after_s),

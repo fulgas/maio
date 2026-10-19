@@ -108,6 +108,33 @@ impl Playlist {
     }
 }
 
+/// A change of live settings (SPEC 10, `PUT /playlists/{id}/live`): what is left out stays as it is.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct LiveChange {
+    pub live: bool,
+    #[serde(default)]
+    pub shuffle: Option<bool>,
+    #[serde(default)]
+    pub visibility: Option<Visibility>,
+}
+
+impl Playlist {
+    pub fn change_live(&mut self, c: &LiveChange) {
+        self.live.on = c.live;
+        if let Some(s) = c.shuffle {
+            self.live.shuffle = s;
+        }
+        if let Some(v) = c.visibility {
+            self.live.visibility = v;
+        }
+    }
+
+    /// A new private key: the old address stops at once (SPEC 9).
+    pub fn new_key(&mut self, key: String) {
+        self.live.key = key;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,5 +216,24 @@ mod tests {
         for v in [Visibility::Public, Visibility::Private] {
             assert_eq!(Visibility::parse(v.as_str()), Some(v));
         }
+    }
+    #[test]
+    fn live_changes_apply_only_what_is_given() {
+        let mut p = Playlist::new("p".into(), "Late", "k".repeat(32), "t".into()).unwrap();
+        p.change_live(&LiveChange { live: true, shuffle: Some(true), visibility: None });
+        assert!(p.live.on && p.live.shuffle);
+        assert_eq!(p.live.visibility, Visibility::Public);
+        p.change_live(&LiveChange { live: true, shuffle: None, visibility: Some(Visibility::Private) });
+        assert!(p.live.shuffle, "shuffle kept");
+        assert_eq!(p.live.visibility, Visibility::Private);
+        p.change_live(&LiveChange { live: false, shuffle: None, visibility: None });
+        assert!(!p.live.on);
+    }
+
+    #[test]
+    fn a_new_key_replaces_the_old() {
+        let mut p = Playlist::new("p".into(), "Late", "a".repeat(32), "t".into()).unwrap();
+        p.new_key("b".repeat(32));
+        assert_eq!(p.live.key, "b".repeat(32));
     }
 }

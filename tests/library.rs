@@ -19,7 +19,14 @@ fn songs_and_playlists_follow_the_rules_over_sqlite() {
     let (song_table, playlist_table) = (Arc::new(SqliteSongs(db.clone())), Arc::new(SqlitePlaylists(db)));
     let files = Arc::new(MemFiles::default());
     let songs = Songs::new(song_table.clone(), playlist_table.clone(), files.clone());
-    let playlists = Playlists::new(playlist_table, song_table.clone(), Arc::new(RandomIds), Arc::new(SystemClock));
+    let playlists = Playlists::new(
+        playlist_table,
+        song_table.clone(),
+        Arc::new(RandomIds),
+        Arc::new(SystemClock),
+        Arc::new(maio::usecases::testing::FakeLive::default()),
+        4,
+    );
     for id in ["a", "b"] {
         song_table.insert(&song(id)).unwrap();
     }

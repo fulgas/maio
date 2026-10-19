@@ -5,10 +5,12 @@ pub mod auth;
 pub mod config;
 pub mod error;
 pub mod events;
+pub mod live;
 pub mod metrics;
 pub mod pages;
 mod start;
 pub mod state;
+pub mod streams;
 pub mod telemetry;
 
 pub use api::router;

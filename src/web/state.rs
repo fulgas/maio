@@ -23,6 +23,11 @@ pub struct App {
     pub metrics: Arc<Metrics>,
     /// Flips to `true` when the server stops, so endless responses (event streams) end and shutdown can finish.
     pub stopping: watch::Sender<bool>,
+    /// The live streams; the stream routes read their bytes.
+    pub stations: Arc<crate::adapters::live::Stations>,
+    pub serve: crate::web::config::Serve,
+    /// MediaMTX, when it relays live playlists; its secret answers the auth hook.
+    pub relay: Option<crate::adapters::live::relay::Target>,
 }
 
 impl App {

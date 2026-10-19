@@ -102,10 +102,13 @@ fn Shelf(playlists: Playlists, #[prop(optional)] grid: bool) -> impl IntoView {
             <button type="button" class="tile new" aria-label="New playlist" data-tip="Make a new playlist" on:click=move |_| open.set(true)>
                 <Svg icon=Icon::Add size=28/>
             </button>
-            <For each=tiles key=|(_, p)| (p.id.clone(), p.name.clone(), p.songs) children=move |(colour, p)| view! {
+            <For each=tiles key=|(_, p)| (p.id.clone(), p.name.clone(), p.songs, p.live.on) children=move |(colour, p)| view! {
                 <a class="tile" href=format!("/playlists/{}", p.id) style:background=colour>
                     <span class="tile-name">{p.name.clone()}</span>
-                    <span class="tile-count">{format::songs(p.songs)}</span>
+                    <span class="tile-count">
+                        {format::songs(p.songs)}
+                        {p.live.on.then(|| view! { <span class="live-mark" role="img" aria-label="Live" data-tip="Live: streaming now"><Svg icon=Icon::Live size=16/></span> })}
+                    </span>
                 </a>
             }/>
         </section>

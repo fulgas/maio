@@ -85,7 +85,7 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .tile { flex: 0 0 auto; width: 200px; height: 104px; padding: 14px 16px; border-radius: 6px; color: var(--on-colour); text-decoration: none; display: flex; flex-direction: column; justify-content: space-between; scroll-snap-align: start; }
 .tile.new { width: 104px; border: 2px dashed var(--line2); background: transparent; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
 .tile-name { font: 700 16px/1.15 Unbounded, sans-serif; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
-.tile-count { font-size: 13px; font-weight: 600; }
+.tile-count { font-size: 13px; font-weight: 600; display: flex; align-items: center; }
 
 /* Make a song */
 .make { display: flex; flex-direction: column; gap: 16px; padding: 22px 24px 20px; border-radius: 8px; background: var(--panel); }
@@ -167,7 +167,7 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .track.here { background: var(--sel); }
 .grip { width: 30px; height: 44px; border: 0; background: transparent; color: var(--faint); cursor: grab; display: grid; place-items: center; }
 .n { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.track-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.track-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 10px; }
 .pick { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; margin-top: 12px; }
 @media (max-width: 720px) {
   .band { padding: 20px 16px; }
@@ -222,3 +222,21 @@ body > .thaw-config-provider { background-color: transparent; color: var(--ink);
 /* The Playlists page: the same tiles, wrapping */
 .shelf.grid { flex-wrap: wrap; overflow-x: visible; }
 @media (max-width: 720px) { .shelf.grid .tile:not(.new) { flex: 1 1 100%; width: auto; } }
+
+/* The live strip (SPEC 12) */
+.band { border-radius: 8px 8px 0 0; }
+.live-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-radius: 0 0 8px 8px; background: var(--panel); margin-top: -22px; }
+.live-switch { height: 44px; padding: 0 16px 0 12px; border: 1px solid var(--line2); border-radius: 22px; background: transparent; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; cursor: pointer; }
+.live-switch.on { background: var(--live); border-color: var(--live); color: #fff; }
+.listeners { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+.listeners strong { color: var(--ink); }
+.live-strip .sep { width: 1px; height: 28px; background: var(--line2); margin: 0 4px; }
+.icon.chipish { background: var(--bg); }
+.copy { height: 40px; padding: 0 12px 0 14px; border: 1px solid var(--line2); border-radius: 20px; background: transparent; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.in-use { margin-left: auto; font-size: 13px; color: var(--muted); }
+.on-air { color: var(--live); display: inline-flex; }
+.next-label { font-size: 12px; color: var(--muted); }
+.tile .live-mark { margin-left: auto; width: 26px; height: 26px; border-radius: 13px; background: var(--on-colour); color: #FF6B5E; display: grid; place-items: center; }
+@media (max-width: 720px) { .in-use { margin-left: 0; flex-basis: 100%; } }
+/* Copy captions show a whole link: wider, and breaking anywhere. */
+.copy[data-tip]:hover::after, .copy[data-tip]:focus-visible::after { max-width: min(460px, 90vw); word-break: break-all; text-align: left; }

@@ -211,6 +211,62 @@ await check("Escape closes a menu and puts focus back on its button", async () =
   assert.match(focused, /^Account/);
 });
 
+await check("going live streams the playlist and counts its listener", async () => {
+  await page.getByRole("switch", { name: /Go live/ }).click();
+  await page.getByRole("switch", { name: /Live stream on/ }).waitFor({ timeout: 5_000 });
+  const mp3 = await page.getByRole("button", { name: "Copy the MP3 link" }).getAttribute("data-tip");
+  assert.match(mp3, /^https?:\/\/[^/]+\/live\/.+\/stream\.mp3$/, "the caption shows the whole link that gets copied");
+  const got = await page.evaluate(async (url) => {
+    const r = await fetch(url);
+    const reader = r.body.getReader();
+    const { value } = await reader.read();
+    window.__liveReader = reader; // keep listening
+    return { type: r.headers.get("content-type"), bytes: value.length };
+  }, mp3);
+  assert.equal(got.type, "audio/mpeg");
+  assert.ok(got.bytes > 0);
+  await page.locator(".listeners strong", { hasText: "1" }).waitFor({ timeout: 8_000 });
+});
+
+await check("going private moves the stream to a private link", async () => {
+  const before = await page.getByRole("button", { name: "Copy the MP3 link" }).getAttribute("data-tip");
+  await page.getByRole("button", { name: /Make private/ }).click();
+  await page.getByRole("button", { name: /Private: only people with the link/ }).waitFor({ timeout: 5_000 });
+  const after = await page.getByRole("button", { name: "Copy the MP3 link" }).getAttribute("data-tip");
+  assert.match(after, /^https?:\/\/[^/]+\/listen\//);
+  assert.equal(await page.evaluate(async (u) => (await fetch(u)).status, before), 404);
+});
+
+await check("the 5 s live refresh keeps keyboard focus where it is", async () => {
+  await page.evaluate(() => { document.querySelector(".track").__kept = 1; document.querySelector(".live-switch").__kept = 1; });
+  await page.locator(".grip").first().focus();
+  await page.waitForTimeout(6_000);
+  assert.ok(await page.evaluate(() => document.activeElement?.classList.contains("grip")), "focus stays on the song's grip");
+  assert.ok(await page.evaluate(() => document.querySelector(".track").__kept === 1), "the song rows are not rebuilt");
+  assert.ok(await page.evaluate(() => document.querySelector(".live-switch").__kept === 1), "the live strip is not rebuilt");
+  await page.getByRole("button", { name: /The stream plays in/ }).focus();
+  await page.waitForTimeout(6_000);
+  const focused = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
+  assert.match(focused, /The stream plays in/, "focus stays in the live strip");
+});
+
+await check("copy works without navigator.clipboard (plain http) and says when it fails", async () => {
+  await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true }));
+  await page.getByRole("button", { name: "Copy the MP3 link" }).click();
+  await page.getByText("MP3 link copied.").waitFor({ timeout: 5_000 });
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new Error("denied")) }, configurable: true });
+    document.execCommand = () => false;
+  });
+  await page.getByRole("button", { name: "Copy the AAC link" }).click();
+  await page.getByText(/Could not copy the AAC link/).waitFor({ timeout: 5_000 });
+});
+
+await check("off air stops the stream", async () => {
+  await page.getByRole("switch", { name: /Live stream on/ }).click();
+  await page.getByRole("switch", { name: /Go live/ }).waitFor({ timeout: 5_000 });
+});
+
 await check("a wrong current password says so and stays on the page", async () => {
   await page.getByRole("button", { name: /^Account/ }).click();
   await page.getByRole("button", { name: "Change password", exact: true }).click();

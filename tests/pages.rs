@@ -126,7 +126,7 @@ async fn playlist_page_renders_its_frame() {
     let (status, _, html) = page(&w, "/playlists/p1", Some(&session)).await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains(r#"aria-label="Songs in play order""#), "{html}");
-    assert!(!html.contains("Live stream"), "the live strip arrives with Live (plan 4)");
+    assert!(html.contains(r#"aria-label="Live stream""#), "the live strip: {html}");
 }
 
 #[tokio::test]

@@ -28,6 +28,11 @@ pub enum Icon {
     AddTo,
     Volume,
     Muted,
+    Live,
+    Lock,
+    Listeners,
+    Refresh,
+    Copy,
     Grip,
 }
 
@@ -67,6 +72,14 @@ fn shape(icon: Icon) -> (bool, &'static str) {
         AddTo => (false, r#"<path d="M3 6h12M3 12h12M3 18h7M18 14v7M14.5 17.5h7"/>"#),
         Volume => (false, r#"<path d="M4 10v4h4l5 4V6L8 10H4z"/><path d="M16.5 9a4 4 0 0 1 0 6"/>"#),
         Muted => (false, r#"<path d="M4 10v4h4l5 4V6L8 10H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>"#),
+        Live => (
+            false,
+            r#"<circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/>"#,
+        ),
+        Lock => (false, r#"<path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5z"/>"#),
+        Listeners => (false, r#"<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/>"#),
+        Refresh => (false, r#"<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/>"#),
+        Copy => (false, r#"<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>"#),
         Grip => (
             true,
             r#"<circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/>"#,

@@ -15,10 +15,12 @@ pub struct Changes {
     /// Bumped when songs change; resources that list songs track it.
     pub songs: RwSignal<u32>,
     pub playlists: RwSignal<u32>,
+    /// Bumped when a playlist's live state changes.
+    pub live: RwSignal<u32>,
 }
 
 pub fn provide() -> Changes {
-    let c = Changes { jobs: RwSignal::new(vec![]), songs: RwSignal::new(0), playlists: RwSignal::new(0) };
+    let c = Changes { jobs: RwSignal::new(vec![]), songs: RwSignal::new(0), playlists: RwSignal::new(0), live: RwSignal::new(0) };
     provide_context(c);
     Effect::new(move |_| connect(c)); // effects run only in the browser, once here
     c
@@ -66,6 +68,7 @@ fn connect(c: Changes) {
     );
     listen("song", Box::new(move |_| c.songs.update(|n| *n += 1)));
     listen("playlist", Box::new(move |_| c.playlists.update(|n| *n += 1)));
+    listen("live", Box::new(move |_| c.live.update(|n| *n += 1)));
     // On first connect and every reconnect: reload what may have been missed.
     let first = std::rc::Rc::new(std::cell::Cell::new(true));
     listen(
@@ -75,6 +78,7 @@ fn connect(c: Changes) {
             if !first.replace(false) {
                 c.songs.update(|n| *n += 1);
                 c.playlists.update(|n| *n += 1);
+                c.live.update(|n| *n += 1);
             }
             leptos::task::spawn_local(async move {
                 if let Ok(open) = api::jobs().await {

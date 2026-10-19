@@ -66,3 +66,18 @@ async fn search_with_reserved_characters() {
     assert_eq!(status, 200, "{body}");
     let _: SongPage = fits(body);
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn live_fits() {
+    let w = world();
+    let song = common::tone_song(&w, "s1");
+    let (_, _, p) = send(&w, script("POST", "/api/v1/playlists", Some(json!({"name": "Late"})))).await;
+    let id = p["id"].as_str().unwrap().to_string();
+    send(&w, script("POST", &format!("/api/v1/playlists/{id}/songs"), Some(json!({"song_ids": [song]})))).await;
+    let (_, _, live) = send(&w, script("PUT", &format!("/api/v1/playlists/{id}/live"), Some(json!({"live": true})))).await;
+    let live: maio::ui::api::LiveJson = fits(live);
+    assert!(live.live);
+    assert!(live.addresses.unwrap().mp3.unwrap().ends_with("/stream.mp3"));
+    let (_, _, off) = send(&w, script("GET", &format!("/api/v1/playlists/{id}/live"), None)).await;
+    let _: maio::ui::api::LiveJson = fits(off);
+}

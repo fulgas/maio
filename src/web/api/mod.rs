@@ -1,6 +1,7 @@
 //! The JSON API under `/api/v1` (SPEC 10): everything the web app does, a script can do.
 
 mod events;
+mod live;
 mod playlists;
 mod session;
 mod songs;
@@ -34,15 +35,20 @@ pub fn router(app: Shared) -> Router {
         .route("/playlists/{id}", get(playlists::get).patch(playlists::rename).delete(playlists::delete))
         .route("/playlists/{id}/songs", post(playlists::add).put(playlists::reorder))
         .route("/playlists/{id}/songs/{song_id}", delete(playlists::remove))
+        .route("/playlists/{id}/live", get(live::get).put(live::set))
+        .route("/playlists/{id}/live/key", post(live::new_key))
         .route_layer(axum::middleware::from_fn_with_state(app.metrics.clone(), crate::web::metrics::record))
         .fallback(|| async { ApiError::not_found("no such API path") });
     Router::new()
         .nest("/api/v1", api)
+        .merge(crate::web::streams::router())
         .merge(crate::web::pages::router(app.clone()))
         .layer(
             // A span per request at INFO, so the default filter keeps it (tower-http makes them at DEBUG).
             tower_http::trace::TraceLayer::new_for_http()
-                .make_span_with(tower_http::trace::DefaultMakeSpan::new().level(tracing::Level::INFO))
+                .make_span_with(
+                    |req: &axum::http::Request<_>| tracing::info_span!("request", method = %req.method(), path = %logged_path(req.uri().path())),
+                )
                 .on_response(tower_http::trace::DefaultOnResponse::new().level(tracing::Level::INFO)),
         )
         .with_state(app)
@@ -80,4 +86,25 @@ pub async fn blocking<T: Send + 'static>(app: &Shared, f: impl FnOnce(&App) -> c
             ApiError::internal()
         })?
         .map_err(ApiError::from)
+}
+
+/// The request path as logged: a private listen key is a password, so it never reaches the logs.
+fn logged_path(path: &str) -> std::borrow::Cow<'_, str> {
+    match path.strip_prefix("/listen/").and_then(|rest| rest.split_once('/')) {
+        Some((_, tail)) => format!("/listen/***/{tail}").into(),
+        None => path.into(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::logged_path;
+
+    #[test]
+    fn listen_keys_are_hidden_in_logged_paths() {
+        assert_eq!(logged_path("/listen/abcdefsecret/stream.mp3"), "/listen/***/stream.mp3");
+        assert_eq!(logged_path("/listen/abcdefsecret/hls/index.m3u8"), "/listen/***/hls/index.m3u8");
+        assert_eq!(logged_path("/live/p1/stream.mp3"), "/live/p1/stream.mp3");
+        assert_eq!(logged_path("/api/v1/songs"), "/api/v1/songs");
+    }
 }

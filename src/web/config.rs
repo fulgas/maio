@@ -43,6 +43,18 @@ pub struct Config {
     /// A job whose engine shows no change for this long fails, and is retried once elsewhere.
     #[serde(default = "default_stall")]
     pub engine_stall_s: u64,
+    /// At most this many playlists live at once (SPEC 1): each runs its own encoders.
+    #[serde(default = "default_max_live")]
+    pub max_live: usize,
+    /// The equal-power crossfade between songs on a live stream, in seconds.
+    #[serde(default = "default_crossfade")]
+    pub crossfade_s: f32,
+    /// Which HTTP streams live playlists offer.
+    #[serde(default)]
+    pub serve: Serve,
+    /// MediaMTX, which relays live playlists over RTSP, SRT and RTMP.
+    #[serde(default)]
+    pub relay: Relay,
     #[serde(default)]
     pub storage: Storage,
     #[serde(rename = "engine", default)]
@@ -86,6 +98,57 @@ pub enum Format {
     Flac,
     Mp3,
     Aac,
+}
+
+fn default_max_live() -> usize {
+    4
+}
+
+fn default_crossfade() -> f32 {
+    6.0
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct Serve {
+    pub mp3: bool,
+    pub aac: bool,
+    pub hls: bool,
+}
+
+impl Default for Serve {
+    fn default() -> Self {
+        Self { mp3: true, aac: true, hls: true }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct Relay {
+    pub enabled: bool,
+    /// Where Maio publishes, inside the compose network.
+    pub publish: String,
+    /// MediaMTX's control API, for reader counts and kicks.
+    pub api: String,
+    /// The host listeners use in the relay addresses.
+    pub host: String,
+    pub rtsp_port: u16,
+    pub srt_port: u16,
+    pub rtmp_port: u16,
+}
+
+impl Default for Relay {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            publish: "rtsp://mediamtx:8554".into(),
+            api: "http://mediamtx:9997".into(),
+            host: "localhost".into(),
+            rtsp_port: 8555,
+            srt_port: 8891,
+            rtmp_port: 1936,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -193,6 +256,8 @@ pub fn parse(text: &str, env: impl Fn(&str) -> Option<String>) -> Result<Config>
     Rate::parse(&cfg.limits.make).map_err(anyhow::Error::msg).context("[limits] make")?;
     ensure!(cfg.limits.pending_jobs >= 1, "[limits] pending_jobs must be at least 1");
     ensure!(cfg.engine_stall_s >= 1, "engine_stall_s must be at least 1");
+    ensure!(cfg.max_live >= 1, "max_live must be at least 1");
+    ensure!((0.0..=30.0).contains(&cfg.crossfade_s), "crossfade_s must be 0 to 30 seconds");
     if let Some(origin) = &mut cfg.public_origin {
         *origin = origin.trim_end_matches('/').to_string();
         let rest = origin.strip_prefix("https://").or_else(|| origin.strip_prefix("http://"));
@@ -343,5 +408,15 @@ mod tests {
         assert_eq!(cfg.public_origin.as_deref(), Some("https://music.example"));
         assert!(error(&format!("public_origin = \"music.example\"\n{MINIMAL}")).contains("public_origin"));
         assert!(error(&format!("public_origin = \"https://music.example/app\"\n{MINIMAL}")).contains("public_origin"));
+    }
+
+    #[test]
+    fn live_settings_have_defaults_and_limits() {
+        let cfg = parse(MINIMAL, no_env).unwrap();
+        assert_eq!((cfg.max_live, cfg.crossfade_s), (4, 6.0));
+        assert!(cfg.serve.mp3 && cfg.serve.aac && cfg.serve.hls);
+        assert!(!cfg.relay.enabled);
+        assert!(error(&format!("max_live = 0\n{MINIMAL}")).contains("max_live"));
+        assert!(error(&format!("crossfade_s = 31.0\n{MINIMAL}")).contains("crossfade_s"));
     }
 }

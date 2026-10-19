@@ -378,3 +378,25 @@ impl Passwords for PlainPasswords {
         self.dummy_checks.fetch_add(1, Ordering::SeqCst);
     }
 }
+
+/// Records what the use cases ask of the live streams.
+#[derive(Default)]
+pub struct FakeLive {
+    pub calls: Mutex<Vec<String>>,
+    pub on_air: Mutex<std::collections::HashMap<String, crate::usecases::ports::OnAir>>,
+}
+
+impl crate::usecases::ports::LiveStreams for FakeLive {
+    fn play(&self, p: &crate::domain::Playlist, songs: &[crate::usecases::ports::LiveSong]) {
+        let ids: Vec<&str> = songs.iter().map(|s| s.id.as_str()).collect();
+        self.calls.lock().unwrap().push(format!("play {} [{}] {}", p.id, ids.join(","), p.live.visibility.as_str()));
+    }
+
+    fn stop(&self, id: &str) {
+        self.calls.lock().unwrap().push(format!("stop {id}"));
+    }
+
+    fn on_air(&self, id: &str) -> Option<crate::usecases::ports::OnAir> {
+        self.on_air.lock().unwrap().get(id).cloned()
+    }
+}

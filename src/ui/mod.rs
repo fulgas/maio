@@ -6,6 +6,7 @@ mod events;
 pub mod format;
 mod frame;
 mod icons;
+mod live;
 pub mod make;
 mod menu;
 mod player;

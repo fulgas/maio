@@ -84,6 +84,8 @@ pub fn PlaylistPage() -> impl IntoView {
         });
     };
     let dragging = RwSignal::new(None::<usize>);
+    // The live stream's song now and next, from the live strip, for the marks on the rows.
+    let on_air = RwSignal::new(None::<(Option<String>, Option<String>)>);
 
     // Band actions: rename, delete, add songs.
     let (renaming, deleting, adding, new_name) = (RwSignal::new(false), RwSignal::new(false), RwSignal::new(false), RwSignal::new(String::new()));
@@ -149,6 +151,7 @@ pub fn PlaylistPage() -> impl IntoView {
                     items=vec![("rename".into(), "Rename".into()), ("delete".into(), "Delete".into())]/>
             </div>
         </section>
+        <crate::ui::live::LiveStrip playlist=id on_air/>
         <ol class="tracks" aria-label="Songs in play order">
             {move || {
                 let list = songs.get();
@@ -197,7 +200,22 @@ pub fn PlaylistPage() -> impl IntoView {
                                 icon={ let sid = s.id.clone(); Signal::derive(move || if player.is_playing(&sid) { Icon::Pause } else { Icon::Play }) }
                                 label={ let (sid, title) = (s.id.clone(), title.clone()); Signal::derive(move || format!("{} {title}", if player.is_playing(&sid) { "Pause" } else { "Play" })) }
                                 on_click={ let sid = s.id.clone(); move || if player.is_current(&sid) { player.toggle() } else { player.play(queue(), i, from()) } }/>
-                            <span class="track-title">{title.clone()}</span>
+                            <span class="track-title">
+                                {title.clone()}
+                                {
+                                    // Its own closure: the on-air marks change every song, the rows must not be rebuilt.
+                                    let sid = s.id.clone();
+                                    move || {
+                                    let (now, next) = on_air.get().unwrap_or_default();
+                                    let on = now.as_deref() == Some(sid.as_str());
+                                    let soon = next.as_deref() == Some(sid.as_str());
+                                    view! {
+                                        {on.then(|| view! { <span class="on-air" role="img" aria-label="On the live stream now" data-tip="On the live stream now"><Svg icon=Icon::Live size=16/></span> })}
+                                        {soon.then(|| view! { <span class="next-label">"next"</span> })}
+                                    }
+                                    }
+                                }
+                            </span>
                             <span class="meta">{format::meta(&s)}</span>
                             <span class="meta bpm">{s.bpm.map(|b| format!("{b} bpm")).unwrap_or_default()}</span>
                             <span class="len">{format::clock(s.seconds)}</span>

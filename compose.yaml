@@ -10,6 +10,7 @@ services:
     env_file: .env
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # MediaMTX reaches back at http://maio:8080/relay/auth (mediamtx.yml).
     depends_on:
       - mediamtx
     restart: unless-stopped

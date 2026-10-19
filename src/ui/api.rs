@@ -125,6 +125,14 @@ impl Failure {
                 };
                 format!("Remove it from {list} first.")
             }
+            "live_limit" => {
+                let names: Vec<&str> = self.playlists.iter().map(|p| p.name.as_str()).collect();
+                let list = match names.as_slice() {
+                    [rest @ .., last] if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
+                    _ => names.join(""),
+                };
+                format!("{} {list} {} live now.", sentence(&self.message), if names.len() == 1 { "is" } else { "are" })
+            }
             "rate_limited" => {
                 let wait = self.retry_after.map_or_else(
                     || "a moment".to_string(),
@@ -236,6 +244,50 @@ pub async fn remove_song(id: &str, song_id: &str) -> Result<Playlist, Failure> {
     call(Method::DELETE, &format!("/playlists/{}/songs/{}", enc(id), enc(song_id)), None).await
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct OnAirJson {
+    pub now: Option<LiveSongJson>,
+    pub next: Option<LiveSongJson>,
+    pub listeners: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct LiveSongJson {
+    pub id: String,
+    pub title: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Default)]
+pub struct Addresses {
+    pub mp3: Option<String>,
+    pub aac: Option<String>,
+    pub hls: Option<String>,
+    pub rtsp: Option<String>,
+    pub srt: Option<String>,
+    pub rtmp: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct LiveJson {
+    pub live: bool,
+    pub shuffle: bool,
+    pub visibility: crate::domain::Visibility,
+    pub on_air: Option<OnAirJson>,
+    pub live_count: usize,
+    pub max_live: usize,
+    pub addresses: Option<Addresses>,
+}
+
+pub async fn live(id: &str) -> Result<LiveJson, Failure> {
+    call(Method::GET, &format!("/playlists/{}/live", enc(id)), None).await
+}
+pub async fn set_live(id: &str, change: &serde_json::Value) -> Result<LiveJson, Failure> {
+    call(Method::PUT, &format!("/playlists/{}/live", enc(id)), Some(change.clone())).await
+}
+pub async fn new_key(id: &str) -> Result<LiveJson, Failure> {
+    call(Method::POST, &format!("/playlists/{}/live/key", enc(id)), None).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -285,5 +337,15 @@ mod tests {
     #[test]
     fn audio_url_points_at_the_api() {
         assert_eq!(audio_url("s1"), "/api/v1/songs/s1/audio");
+    }
+
+    #[test]
+    fn the_live_limit_names_the_live_playlists() {
+        let f = Failure::parse(
+            409,
+            r#"{"error":{"code":"live_limit","message":"at most 2 playlists can be live at once","playlists":[{"id":"a","name":"Late"},{"id":"b","name":"Run"}]}}"#,
+            None,
+        );
+        assert_eq!(f.text(), "At most 2 playlists can be live at once. Late and Run are live now.");
     }
 }

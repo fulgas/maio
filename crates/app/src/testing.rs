@@ -1,19 +1,35 @@
 //! In-memory ports for tests, here and in the web layer.
 
-use std::sync::{
-    Mutex,
-    atomic::{AtomicUsize, Ordering},
+use std::{
+    path::{Path, PathBuf},
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
 };
 
-use anyhow::Result;
-use domain::{Playlist, PlaylistRef, Song};
+use anyhow::{Result, anyhow, bail};
+use async_trait::async_trait;
+use domain::{
+    Commercial, Playlist, PlaylistRef, Song,
+    engine::{EngineStatus, Health},
+    job::Job,
+    request::Normalized,
+};
 
-use crate::ports::{AudioFiles, Clock, Ids, PlaylistRepository, SongQuery, SongRepository, SongSort};
+use crate::ports::{
+    AudioFiles, CallError, Clock, EngineRequest, Ids, Imported, MusicEngine, Notifier, PlaylistRepository, RemoteError, RemoteJob, SongName,
+    SongQuery, SongRepository, SongSort, TextEngine,
+};
 
 #[derive(Default)]
 pub struct MemSongs(pub Mutex<Vec<Song>>);
 
 impl SongRepository for MemSongs {
+    fn title_taken(&self, title: &str) -> Result<bool> {
+        Ok(self.0.lock().unwrap().iter().any(|s| s.title == title))
+    }
+
     fn insert(&self, song: &Song) -> Result<()> {
         self.0.lock().unwrap().push(song.clone());
         Ok(())
@@ -95,15 +111,31 @@ impl PlaylistRepository for MemPlaylists {
     }
 }
 
-/// Records what it was asked to do.
+/// Records what it was asked to do; `import` makes no file.
 #[derive(Default)]
 pub struct MemFiles {
+    pub imported: Mutex<Vec<String>>,
     pub retagged: Mutex<Vec<String>>,
     pub deleted: Mutex<Vec<String>>,
+    /// Makes `retag` fail, to test what happens after import.
+    pub fail_retag: AtomicBool,
 }
 
 impl AudioFiles for MemFiles {
+    fn scratch(&self, name: &str) -> PathBuf {
+        static N: AtomicUsize = AtomicUsize::new(0);
+        std::env::temp_dir().join(format!("maio-test-{}-{}-{name}", std::process::id(), N.fetch_add(1, Ordering::SeqCst)))
+    }
+
+    fn import(&self, _wav: &Path, song_id: &str) -> Result<Imported> {
+        self.imported.lock().unwrap().push(song_id.to_string());
+        Ok(Imported { file: format!("songs/{song_id}.opus"), seconds: 179.5, bytes: 2000 })
+    }
+
     fn retag(&self, song: &Song) -> Result<()> {
+        if self.fail_retag.load(Ordering::SeqCst) {
+            bail!("tagging failed");
+        }
         self.retagged.lock().unwrap().push(song.title.clone());
         Ok(())
     }
@@ -120,6 +152,10 @@ impl Clock for FixedClock {
     fn now(&self) -> String {
         self.0.to_string()
     }
+
+    fn epoch_s(&self) -> u64 {
+        1_000_000
+    }
 }
 
 /// `id1`, `id2`, ...; keys are the same number padded to 32 characters.
@@ -133,5 +169,141 @@ impl Ids for SeqIds {
 
     fn key(&self) -> String {
         format!("{:0>32}", self.0.fetch_add(1, Ordering::SeqCst) + 1)
+    }
+
+    fn seed(&self) -> i64 {
+        1234
+    }
+}
+
+#[derive(Default)]
+pub struct MemNotifier {
+    pub jobs: Mutex<Vec<Job>>,
+    pub songs: Mutex<Vec<Song>>,
+}
+
+impl Notifier for MemNotifier {
+    fn job(&self, job: &Job) {
+        self.jobs.lock().unwrap().push(job.clone());
+    }
+
+    fn song(&self, song: &Song) {
+        self.songs.lock().unwrap().push(song.clone());
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Outcome {
+    Done,
+    Failed { retryable: bool },
+    /// The engine forgets the job (`404`).
+    Lost,
+    /// `POST /jobs` is refused.
+    Rejected,
+}
+
+/// An engine that finishes every job on the first poll, unless told otherwise.
+pub struct FakeEngine {
+    pub status: Mutex<EngineStatus>,
+    pub outcome: Mutex<Outcome>,
+    /// Lyrics a finished job reports, as ACE-Step does when it wrote them.
+    pub lyrics: Mutex<Option<String>>,
+    /// While set, every job stays running at 0.5.
+    pub hold: AtomicBool,
+    pub submitted: Mutex<Vec<EngineRequest>>,
+    pub deleted: Mutex<Vec<String>>,
+}
+
+impl FakeEngine {
+    /// Healthy, MIT, 10 to 600 s, vocals, one slot, half real time.
+    pub fn up(id: &str) -> Self {
+        let info = domain::testing::engine_info(id, Commercial::Yes);
+        Self {
+            status: Mutex::new(EngineStatus { id: id.into(), info: Some(info), health: Health::Up }),
+            outcome: Mutex::new(Outcome::Done),
+            lyrics: Mutex::new(None),
+            hold: AtomicBool::new(false),
+            submitted: Mutex::default(),
+            deleted: Mutex::default(),
+        }
+    }
+}
+
+#[async_trait]
+impl MusicEngine for FakeEngine {
+    fn status(&self) -> EngineStatus {
+        self.status.lock().unwrap().clone()
+    }
+
+    async fn submit(&self, request: &EngineRequest) -> std::result::Result<String, CallError> {
+        if *self.outcome.lock().unwrap() == Outcome::Rejected {
+            return Err(CallError::Rejected("422: bad request".into()));
+        }
+        let mut submitted = self.submitted.lock().unwrap();
+        submitted.push(request.clone());
+        Ok(format!("remote{}", submitted.len()))
+    }
+
+    async fn job(&self, id: &str) -> std::result::Result<RemoteJob, CallError> {
+        let running = RemoteJob { job_id: id.into(), state: "running".into(), progress: 0.5, ..Default::default() };
+        if self.hold.load(Ordering::SeqCst) {
+            return Ok(running);
+        }
+        let seed = self.submitted.lock().unwrap().last().map(|r| r.seed);
+        let outcome = *self.outcome.lock().unwrap();
+        match outcome {
+            Outcome::Done => {
+                let lyrics = self.lyrics.lock().unwrap().clone();
+                Ok(RemoteJob { state: "done".into(), progress: 1.0, seconds: Some(179.8), seed, lyrics, ..running })
+            }
+            Outcome::Failed { retryable } => {
+                let error = RemoteError { code: "oom".into(), message: "out of memory".into(), retryable };
+                Ok(RemoteJob { state: "failed".into(), error: Some(error), ..running })
+            }
+            Outcome::Lost => Err(CallError::NotFound),
+            Outcome::Rejected => unreachable!("a rejected job is never submitted"),
+        }
+    }
+
+    async fn download(&self, _id: &str, to: &Path) -> std::result::Result<(), CallError> {
+        std::fs::write(to, b"RIFF").map_err(|e| CallError::Transport(e.to_string()))
+    }
+
+    async fn delete(&self, id: &str) {
+        self.deleted.lock().unwrap().push(id.into());
+    }
+}
+
+/// A text engine with canned answers; `None` answers fail, `hang` never answers.
+pub struct FakeText {
+    pub id: String,
+    pub healthy: bool,
+    pub lyrics: Option<String>,
+    pub title: Option<SongName>,
+    pub hang: bool,
+}
+
+#[async_trait]
+impl TextEngine for FakeText {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn healthy(&self) -> bool {
+        self.healthy
+    }
+
+    async fn write_lyrics(&self, _n: &Normalized) -> Result<String> {
+        if self.hang {
+            std::future::pending::<()>().await;
+        }
+        self.lyrics.clone().ok_or_else(|| anyhow!("no lyrics"))
+    }
+
+    async fn name_song(&self, _n: &Normalized, _lyrics: Option<&str>) -> Result<SongName> {
+        if self.hang {
+            std::future::pending::<()>().await;
+        }
+        self.title.clone().ok_or_else(|| anyhow!("no title"))
     }
 }

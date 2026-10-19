@@ -31,3 +31,41 @@ pub fn song(id: &str) -> Song {
         created_at: "2026-10-16T12:00:00Z".into(),
     }
 }
+
+use crate::{
+    engine::{Caps, EngineInfo},
+    request::Normalized,
+};
+
+/// A checked request for a calm instrumental of 180 s.
+pub fn normalized() -> Normalized {
+    Normalized {
+        engine_prompt: "calm mood, instrumental".into(),
+        prompt: None,
+        mood: Some("calm".into()),
+        genre: None,
+        energy: None,
+        seconds: 180,
+        bpm: None,
+        vocals: false,
+        lyrics: None,
+        vocal_language: "en".into(),
+        lyrics_by: "ace-step".into(),
+        engine: None,
+        seed: 7,
+        allow_noncommercial: false,
+    }
+}
+
+/// An engine that makes 10 to 600 s, with vocals, one job at a time, at half real time.
+pub fn engine_info(id: &str, commercial: Commercial) -> EngineInfo {
+    EngineInfo {
+        protocol: 1,
+        id: id.into(),
+        name: id.into(),
+        version: "1".into(),
+        licence: Licence { name: "MIT".into(), commercial, note: String::new() },
+        capabilities: Caps { min_seconds: 10, max_seconds: 600, vocals: true, tempo: true, concurrency: 1 },
+        realtime_factor: 0.5,
+    }
+}

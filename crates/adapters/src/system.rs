@@ -9,6 +9,10 @@ impl Clock for SystemClock {
     fn now(&self) -> String {
         chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
     }
+
+    fn epoch_s(&self) -> u64 {
+        chrono::Utc::now().timestamp().max(0) as u64
+    }
 }
 
 pub struct RandomIds;
@@ -21,6 +25,10 @@ impl Ids for RandomIds {
 
     fn key(&self) -> String {
         rand::rng().sample_iter(&Alphanumeric).take(32).map(char::from).collect()
+    }
+
+    fn seed(&self) -> i64 {
+        rand::random::<u32>() as i64
     }
 }
 
@@ -44,5 +52,11 @@ mod tests {
         assert_eq!(key.len(), 32);
         assert!(key.bytes().all(|c| c.is_ascii_alphanumeric()), "{key}");
         assert_ne!(key, RandomIds.key());
+    }
+
+    #[test]
+    fn epoch_seconds_and_seeds_are_in_range() {
+        assert!(SystemClock.epoch_s() > 1_700_000_000);
+        assert!((0..=u32::MAX as i64).contains(&RandomIds.seed()));
     }
 }

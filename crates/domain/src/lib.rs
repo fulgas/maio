@@ -1,7 +1,12 @@
 //! Maio's core: songs, playlists and their rules (SPEC 1, 3). No I/O, no async.
 
+pub mod engine;
 mod error;
+pub mod job;
+pub mod limits;
 mod playlist;
+pub mod request;
+pub mod titles;
 mod song;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;

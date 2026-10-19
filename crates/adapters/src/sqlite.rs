@@ -143,6 +143,10 @@ fn like_pattern(text: &str) -> String {
 }
 
 impl SongRepository for SqliteSongs {
+    fn title_taken(&self, title: &str) -> Result<bool> {
+        Ok(self.0.conn().prepare("SELECT 1 FROM songs WHERE title = ?1")?.exists([title])?)
+    }
+
     fn insert(&self, song: &Song) -> Result<()> {
         self.put(song)
     }
@@ -379,6 +383,14 @@ mod song_tests {
         assert_eq!(ids(db.search(&query(None, SongSort::Title)).unwrap()), ["b", "a", "c"]);
         let page = SongQuery { q: None, sort: SongSort::Newest, limit: 1, offset: 1 };
         assert_eq!(ids(db.search(&page).unwrap()), ["c"]);
+    }
+
+    #[test]
+    fn a_title_is_taken_once_a_song_has_it() {
+        let db = songs();
+        db.insert(&song("a")).unwrap();
+        assert!(db.title_taken("Song a").unwrap());
+        assert!(!db.title_taken("song a").unwrap(), "exact title, as word titles are made");
     }
 }
 

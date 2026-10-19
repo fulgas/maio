@@ -58,6 +58,7 @@ impl Commercial {
 pub struct Licence {
     pub name: String,
     pub commercial: Commercial,
+    #[serde(default)]
     pub note: String,
 }
 

@@ -19,6 +19,11 @@ pub enum Error {
     /// The playlists that still hold the song.
     SongInPlaylist(Vec<PlaylistRef>),
     PlaylistLive,
+    /// Only non-commercial engines could make it, and the request did not allow them.
+    NoncommercialEngine,
+    /// No healthy engine can make the request now.
+    EngineUnavailable,
+    RateLimited { retry_after_s: u64 },
 }
 
 impl Error {
@@ -32,6 +37,9 @@ impl Error {
             Self::Invalid { code, .. } => code,
             Self::SongInPlaylist(_) => "song_in_playlist",
             Self::PlaylistLive => "playlist_live",
+            Self::NoncommercialEngine => "noncommercial_engine",
+            Self::EngineUnavailable => "engine_unavailable",
+            Self::RateLimited { .. } => "rate_limited",
         }
     }
 }
@@ -43,6 +51,9 @@ impl fmt::Display for Error {
             Self::Invalid { message, .. } => f.write_str(message),
             Self::SongInPlaylist(p) => write!(f, "the song is in {} playlist(s); remove it from them first", p.len()),
             Self::PlaylistLive => f.write_str("the playlist is live; take it off air first"),
+            Self::NoncommercialEngine => f.write_str("only a non-commercial engine can make this; resend with allow_noncommercial"),
+            Self::EngineUnavailable => f.write_str("no healthy engine can make this request"),
+            Self::RateLimited { retry_after_s } => write!(f, "too many requests; try again in {retry_after_s} s"),
         }
     }
 }

@@ -1,0 +1,4 @@
+# Matches the code as written: long lines, compact small items. Leptos view! macros are left as they are.
+edition = "2024"
+max_width = 150
+use_small_heuristics = "Max"

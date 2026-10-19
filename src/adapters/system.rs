@@ -28,7 +28,7 @@ impl Ids for RandomIds {
     }
 
     fn seed(&self) -> i64 {
-        rand::random::<u32>() as i64
+        i64::from(rand::random::<u32>())
     }
 
     fn secret(&self) -> String {

@@ -28,7 +28,7 @@ pub struct EngineInfo {
     pub realtime_factor: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Health {
     Unknown,
@@ -39,7 +39,7 @@ pub enum Health {
 }
 
 /// One configured engine as Maio last saw it; `id` is its config id.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EngineStatus {
     pub id: String,
     pub info: Option<EngineInfo>,
@@ -51,8 +51,9 @@ pub fn can_serve(info: &EngineInfo, n: &Normalized) -> bool {
 }
 
 /// Generation time from the realtime factor, plus 30 s to download and import.
+/// The factor comes from the engine: the float-to-int cast saturates (NaN and negatives give 0), and so does the sum.
 pub fn eta_s(info: &EngineInfo, seconds: u32) -> u32 {
-    (info.realtime_factor * seconds as f32) as u32 + 30
+    ((info.realtime_factor * seconds as f32) as u32).saturating_add(30)
 }
 
 /// The first healthy engine in config order that can meet the request, or the one the request names (SPEC 5).
@@ -96,7 +97,8 @@ mod tests {
 
     #[test]
     fn the_first_healthy_engine_in_order_is_chosen() {
-        let engines = [engine("down", Commercial::Yes, Health::Down), engine("a", Commercial::Yes, Health::Up), engine("b", Commercial::Yes, Health::Up)];
+        let engines =
+            [engine("down", Commercial::Yes, Health::Down), engine("a", Commercial::Yes, Health::Up), engine("b", Commercial::Yes, Health::Up)];
         assert_eq!(choose(&engines, &normalized(), &[]), Ok(1));
         assert_eq!(choose(&engines, &normalized(), &["a".into()]), Ok(2), "excluded after a failure");
     }
@@ -141,6 +143,18 @@ mod tests {
     #[test]
     fn eta_is_generation_time_plus_thirty_seconds() {
         assert_eq!(eta_s(&engine_info("a", Commercial::Yes), 180), 120);
+    }
+
+    #[test]
+    fn an_engine_reporting_a_silly_realtime_factor_cannot_overflow_the_eta() {
+        // The factor comes from the engine's /info: untrusted.
+        let mut info = engine_info("a", Commercial::Yes);
+        info.realtime_factor = f32::MAX;
+        assert_eq!(eta_s(&info, 600), u32::MAX);
+        info.realtime_factor = -5.0;
+        assert_eq!(eta_s(&info, 600), 30);
+        info.realtime_factor = f32::NAN;
+        assert_eq!(eta_s(&info, 600), 30);
     }
 
     #[test]

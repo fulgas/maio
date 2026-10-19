@@ -12,9 +12,9 @@ use crate::adapters::{
     ffmpeg::StoreFormat,
     text::{TextEngineConfig, TextKind},
 };
-use anyhow::{Context, Result, ensure};
-use crate::usecases::MakeSettings;
 use crate::domain::{limits::Rate, request::valid_language};
+use crate::usecases::MakeSettings;
+use anyhow::{Context, Result, ensure};
 use serde::Deserialize;
 
 pub const API_TOKEN_ENV: &str = "MAIO_API_TOKEN";
@@ -196,7 +196,10 @@ pub fn parse(text: &str, env: impl Fn(&str) -> Option<String>) -> Result<Config>
     if let Some(origin) = &mut cfg.public_origin {
         *origin = origin.trim_end_matches('/').to_string();
         let rest = origin.strip_prefix("https://").or_else(|| origin.strip_prefix("http://"));
-        ensure!(rest.is_some_and(|r| !r.is_empty() && !r.contains('/')), "public_origin is an origin such as \"https://music.example\", with no path");
+        ensure!(
+            rest.is_some_and(|r| !r.is_empty() && !r.contains('/')),
+            "public_origin is an origin such as \"https://music.example\", with no path"
+        );
     }
     cfg.api_token = env(API_TOKEN_ENV);
     if let Some(token) = &cfg.api_token {
@@ -306,7 +309,10 @@ mod tests {
         assert!(error(&format!("{MINIMAL}[limits]\npending_jobs = 0\n")).contains("pending_jobs"));
         assert!(error(&format!("{MINIMAL}[[text_engine]]\nid = \"local\"\nkind = \"openai\"\nmodel = \"m\"\n")).contains("needs a url"));
         assert!(error(&format!("{MINIMAL}[[text_engine]]\nid = \"ace-step\"\nkind = \"anthropic\"\nmodel = \"m\"\n")).contains("ace-step"));
-        assert!(error(&format!("{MINIMAL}[[text_engine]]\nid = \"c\"\nkind = \"anthropic\"\nmodel = \"m\"\napi_key_env = \"NOPE\"\n")).contains("NOPE is not set"));
+        assert!(
+            error(&format!("{MINIMAL}[[text_engine]]\nid = \"c\"\nkind = \"anthropic\"\nmodel = \"m\"\napi_key_env = \"NOPE\"\n"))
+                .contains("NOPE is not set")
+        );
     }
 
     #[test]

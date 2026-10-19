@@ -5,12 +5,12 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use anyhow::{Context, bail};
 use crate::domain::{
     Error as Rule,
     account::{REMEMBER_S, SESSION_S, SIGN_IN_FAILS, SIGN_IN_WINDOW_S, valid_password, valid_username},
     limits::Failures,
 };
+use anyhow::{Context, bail};
 
 use crate::usecases::{
     Result,
@@ -46,7 +46,13 @@ fn same_bytes(a: &[u8], b: &[u8]) -> bool {
 }
 
 impl Account {
-    pub fn new(store: Arc<dyn AccountStore>, passwords: Arc<dyn Passwords>, ids: Arc<dyn Ids>, clock: Arc<dyn Clock>, api_token: Option<String>) -> Self {
+    pub fn new(
+        store: Arc<dyn AccountStore>,
+        passwords: Arc<dyn Passwords>,
+        ids: Arc<dyn Ids>,
+        clock: Arc<dyn Clock>,
+        api_token: Option<String>,
+    ) -> Self {
         Self { store, passwords, ids, clock, api_token, fails: Mutex::default(), checks: Mutex::default() }
     }
 
@@ -278,7 +284,13 @@ mod tests {
 
     #[test]
     fn parallel_guesses_still_get_only_five_tries() {
-        let account = Account::new(Arc::new(MemAccount::default()), Arc::new(SlowPasswords(PlainPasswords::default())), Arc::new(SeqIds::default()), Arc::new(FixedClock("t")), None);
+        let account = Account::new(
+            Arc::new(MemAccount::default()),
+            Arc::new(SlowPasswords(PlainPasswords::default())),
+            Arc::new(SeqIds::default()),
+            Arc::new(FixedClock("t")),
+            None,
+        );
         account.ensure(Some("me"), Some("correct horse")).unwrap();
         let wrong = std::thread::scope(|s| {
             let tries: Vec<_> = (0..20).map(|_| s.spawn(|| account.sign_in("me", "wrong password", false, None))).collect();

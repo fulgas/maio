@@ -8,10 +8,10 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Context, Result, bail};
-use crate::usecases::ports::{SongName, TextEngine};
-use async_trait::async_trait;
 use crate::domain::{MAX_TITLE, request::Normalized, titles::trim_to};
+use crate::usecases::ports::{SongName, TextEngine};
+use anyhow::{Context, Result, bail};
+use async_trait::async_trait;
 use serde_json::{Value, json};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,7 +32,8 @@ pub struct TextEngineConfig {
 }
 
 const LYRICS_SYSTEM: &str = "You write song lyrics. Reply with the lyrics only: plain text, sections marked [verse] and [chorus] (and [bridge] if it helps), no title, no notes, no quotes around them.";
-const TITLE_SYSTEM: &str = "You name songs. Reply with JSON only, no other text: {\"title\": \"at most 60 characters\", \"description\": \"one sentence about the song\"}.";
+const TITLE_SYSTEM: &str =
+    "You name songs. Reply with JSON only, no other text: {\"title\": \"at most 60 characters\", \"description\": \"one sentence about the song\"}.";
 
 /// The structured fields in words. Never the engine prompt Maio built.
 fn fields(n: &Normalized) -> String {
@@ -122,7 +123,9 @@ impl HttpTextEngine {
         }
         let v: Value = res.json().await.context("reading the text engine's reply")?;
         let text = match self.cfg.kind {
-            TextKind::Anthropic => v["content"].as_array().map(|blocks| blocks.iter().filter(|b| b["type"] == "text").filter_map(|b| b["text"].as_str()).collect::<String>()),
+            TextKind::Anthropic => v["content"]
+                .as_array()
+                .map(|blocks| blocks.iter().filter(|b| b["type"] == "text").filter_map(|b| b["text"].as_str()).collect::<String>()),
             TextKind::Openai => v["choices"][0]["message"]["content"].as_str().map(str::to_string),
         };
         text.map(|t| strip_thinking(&t)).context("the text engine's reply had no text")
@@ -181,13 +184,13 @@ impl TextEngine for HttpTextEngine {
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use crate::domain::testing::normalized;
     use axum::{
         Json, Router,
         extract::State,
         http::{HeaderMap, StatusCode},
         routing::post,
     };
-    use crate::domain::testing::normalized;
     use serde_json::{Value, json};
 
     use super::*;
@@ -227,7 +230,13 @@ mod tests {
     }
 
     fn openai(url: String, key: &str) -> HttpTextEngine {
-        HttpTextEngine::new(TextEngineConfig { id: "local".into(), kind: TextKind::Openai, model: "qwen3-8b".into(), url: Some(url), api_key: Some(key.into()) })
+        HttpTextEngine::new(TextEngineConfig {
+            id: "local".into(),
+            kind: TextKind::Openai,
+            model: "qwen3-8b".into(),
+            url: Some(url),
+            api_key: Some(key.into()),
+        })
     }
 
     #[tokio::test]
@@ -247,7 +256,9 @@ mod tests {
     #[tokio::test]
     async fn anthropic_names_songs() {
         let seen = Seen::default();
-        let url = serve(seen.clone(), json!({"content": [{"type": "text", "text": "{\"title\": \"Night Bus\", \"description\": \"A slow ride home.\"}"}]})).await;
+        let url =
+            serve(seen.clone(), json!({"content": [{"type": "text", "text": "{\"title\": \"Night Bus\", \"description\": \"A slow ride home.\"}"}]}))
+                .await;
         let e = HttpTextEngine::new(TextEngineConfig {
             id: "claude".into(),
             kind: TextKind::Anthropic,
@@ -282,7 +293,11 @@ mod tests {
     fn titles_from_engine_replies() {
         let name = |t: &str, d: &str| Some(SongName { title: t.into(), description: d.into() });
         assert_eq!(parse_title(r#"{"title": "Night Bus", "description": "A slow ride home."}"#), name("Night Bus", "A slow ride home."));
-        assert_eq!(parse_title("Sure! ```json\n{\"title\":\"X\",\"description\":\"two\nlines\"}\n```"), name("X", "two lines"), "one line, fences ignored");
+        assert_eq!(
+            parse_title("Sure! ```json\n{\"title\":\"X\",\"description\":\"two\nlines\"}\n```"),
+            name("X", "two lines"),
+            "one line, fences ignored"
+        );
         assert_eq!(parse_title(&format!(r#"{{"title": "{}", "description": "d"}}"#, "a".repeat(90))).unwrap().title.chars().count(), 60);
         assert_eq!(parse_title(r#"{"title": "  ", "description": "d"}"#), None);
         assert_eq!(parse_title("no json here"), None);

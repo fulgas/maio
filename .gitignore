@@ -11,3 +11,6 @@ __pycache__/
 maio.toml
 .idea/
 maio.toml.*
+/e2e/node_modules
+/target/e2e-data
+!e2e/maio.toml

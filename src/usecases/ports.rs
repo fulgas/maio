@@ -5,9 +5,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::domain::{Playlist, PlaylistRef, Song, engine::EngineStatus, job::Job, request::Normalized};
 use anyhow::Result;
 use async_trait::async_trait;
-use crate::domain::{Playlist, PlaylistRef, Song, engine::EngineStatus, job::Job, request::Normalized};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

@@ -36,6 +36,26 @@ stop:
 logs:
     docker compose logs -f maio
 
-# Every test (needs ffmpeg and ffprobe on PATH; the engine's tests live in its own repo).
+# The web app with live reload: rebuilds server and browser on save (needs a local maio.toml).
+dev:
+    cargo leptos watch
+
+# Every test (needs ffmpeg and ffprobe on PATH; the engine's tests live in its own repo), plus the browser build.
 test:
+    cargo fmt --check
     cargo test
+    cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+
+# A real browser through every screen: builds the site, runs the fake engine and a throwaway server, runs e2e/smoke.mjs.
+e2e:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cargo leptos build
+    rm -rf target/e2e-data
+    (cd "{{engine_root}}" && exec uv run maio-engine --backend fake --port {{engine_port}}) & engine=$!
+    for _ in $(seq 120); do curl -sf -o /dev/null http://127.0.0.1:{{engine_port}}/health && break; sleep 0.5; done
+    LEPTOS_ENV=PROD MAIO_ADMIN_USER=smoke MAIO_ADMIN_PASSWORD=smoke-password-1 target/debug/maio e2e/maio.toml & server=$!
+    trap 'kill $engine $server 2>/dev/null || true' EXIT
+    for _ in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:8099/sign-in && break; sleep 0.5; done
+    cd e2e && npm install --silent && npx playwright install chromium >/dev/null
+    E2E_USER=smoke E2E_PASSWORD=smoke-password-1 node smoke.mjs

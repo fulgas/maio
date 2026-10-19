@@ -27,7 +27,7 @@ async fn the_server_boots_from_a_config_file_and_keeps_its_account() {
     let cfg = maio::web::config::load(&path, |_| None).unwrap();
 
     assert!(maio::web::start(&cfg, (None, None)).is_err(), "no account and no admin env: refuse to start");
-    let app = maio::web::start(&cfg, (Some("me".into()), Some("correct horse".into()))).unwrap();
+    let app = maio::web::start(&cfg, (Some("me"), Some("correct horse"))).unwrap();
     assert!(dir.path().join("data/library.db").exists() && dir.path().join("data/songs").is_dir());
     let res = maio::web::router(app).oneshot(sign_in()).await.unwrap();
     assert_eq!(res.status(), StatusCode::NO_CONTENT);

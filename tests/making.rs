@@ -2,22 +2,22 @@
 
 use std::{path::Path, process::Command, sync::Arc, time::Duration};
 
+use axum::{
+    Json, Router,
+    routing::{get, post},
+};
 use maio::adapters::{
     engine::{EngineConfig, HttpEngine},
     ffmpeg::{Ffmpeg, StoreFormat},
     sqlite::{Db, SqliteSongs},
     system::{RandomIds, SystemClock},
 };
+use maio::domain::{job::JobState, limits::Rate, request::SongRequest};
 use maio::usecases::{
     MakeSettings, Making, MakingPorts,
     ports::{MusicEngine, SongRepository},
     testing::MemNotifier,
 };
-use axum::{
-    Json, Router,
-    routing::{get, post},
-};
-use maio::domain::{job::JobState, limits::Rate, request::SongRequest};
 use serde_json::json;
 
 fn tone(path: &Path, secs: u32) {
@@ -92,7 +92,8 @@ async fn a_prompt_becomes_a_tagged_opus_song_in_the_library() {
         },
     );
 
-    let accepted = making.make(&SongRequest { prompt: Some("warm pads".into()), mood: Some("calm".into()), seconds: Some(20), ..Default::default() }).unwrap();
+    let accepted =
+        making.make(&SongRequest { prompt: Some("warm pads".into()), mood: Some("calm".into()), seconds: Some(20), ..Default::default() }).unwrap();
     let mut job = making.job(&accepted.job_id).unwrap();
     for _ in 0..1500 {
         if !job.state.is_open() {

@@ -7,10 +7,10 @@ pub mod job;
 pub mod limits;
 mod playlist;
 pub mod request;
-pub mod titles;
 mod song;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
+pub mod titles;
 
 pub use error::{Error, PlaylistRef};
 pub use playlist::{Live, MAX_NAME, Playlist, Visibility};

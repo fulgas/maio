@@ -1,9 +1,9 @@
 mod common;
 
-use maio::usecases::ports::{PlaylistRepository, SongRepository};
 use axum::http::StatusCode;
 use common::*;
 use maio::domain::testing::song;
+use maio::usecases::ports::{PlaylistRepository, SongRepository};
 use serde_json::{Value, json};
 
 fn ids(view: &Value) -> Vec<String> {

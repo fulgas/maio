@@ -38,7 +38,8 @@ async fn every_request_is_a_span_at_the_default_level() {
 
     let exporter = InMemorySpanExporter::default();
     let provider = SdkTracerProvider::builder().with_simple_exporter(exporter.clone()).build();
-    let subscriber = tracing_subscriber::registry().with(tracing_opentelemetry::layer().with_tracer(provider.tracer("test")).with_filter(EnvFilter::new("info")));
+    let subscriber =
+        tracing_subscriber::registry().with(tracing_opentelemetry::layer().with_tracer(provider.tracer("test")).with_filter(EnvFilter::new("info")));
     let _guard = tracing::subscriber::set_default(subscriber);
     let w = world();
     send(&w, script("GET", "/api/v1/status", None)).await;

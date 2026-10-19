@@ -5,11 +5,11 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use anyhow::{Context, Result};
-use crate::usecases::ports::{AccountStore, PlaylistRepository, SongQuery, SongRepository, SongSort};
-use sha2::{Digest, Sha256};
 use crate::domain::{Commercial, Licence, Live, Playlist, PlaylistRef, Song, TitleSource, Visibility};
+use crate::usecases::ports::{AccountStore, PlaylistRepository, SongQuery, SongRepository, SongSort};
+use anyhow::{Context, Result};
 use rusqlite::{Connection, OptionalExtension, Row, params};
+use sha2::{Digest, Sha256};
 
 /// `playlist_songs.song_id` has no `ON DELETE` action, so SQLite itself refuses to delete a song
 /// that a playlist holds (SPEC 1), even if a use case's check races.
@@ -145,7 +145,8 @@ fn song_from(r: &Row) -> rusqlite::Result<Song> {
         title_engine: r.get(21)?,
         artist: r.get(22)?,
         file: r.get(23)?,
-        bytes: u64::try_from(r.get::<_, i64>(24)?).map_err(|e| rusqlite::Error::FromSqlConversionFailure(24, rusqlite::types::Type::Integer, Box::new(e)))?,
+        bytes: u64::try_from(r.get::<_, i64>(24)?)
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(24, rusqlite::types::Type::Integer, Box::new(e)))?,
         created_at: r.get(25)?,
     })
 }
@@ -243,7 +244,10 @@ impl SqlitePlaylists {
         )?;
         tx.execute("DELETE FROM playlist_songs WHERE playlist_id = ?1", [&p.id])?;
         for (position, song_id) in p.song_ids.iter().enumerate() {
-            tx.execute("INSERT INTO playlist_songs (playlist_id, song_id, position) VALUES (?1, ?2, ?3)", params![p.id, song_id, sql_int(u64::try_from(position)?, "position")?])?;
+            tx.execute(
+                "INSERT INTO playlist_songs (playlist_id, song_id, position) VALUES (?1, ?2, ?3)",
+                params![p.id, song_id, sql_int(u64::try_from(position)?, "position")?],
+            )?;
         }
         tx.commit()?;
         Ok(())
@@ -322,7 +326,11 @@ impl AccountStore for SqliteAccount {
     }
 
     fn session_valid(&self, id: &str, now: u64) -> Result<bool> {
-        Ok(self.0.conn().prepare("SELECT 1 FROM sessions WHERE id_hash = ?1 AND expires_at > ?2")?.exists(params![id_hash(id), sql_int(now, "time")?])?)
+        Ok(self
+            .0
+            .conn()
+            .prepare("SELECT 1 FROM sessions WHERE id_hash = ?1 AND expires_at > ?2")?
+            .exists(params![id_hash(id), sql_int(now, "time")?])?)
     }
 
     fn delete_session(&self, id: &str) -> Result<()> {
@@ -345,8 +353,8 @@ impl AccountStore for SqliteAccount {
 mod song_tests {
     use std::sync::Arc;
 
-    use crate::usecases::ports::{SongQuery, SongRepository, SongSort};
     use crate::domain::{Commercial, Song, TitleSource, testing::song};
+    use crate::usecases::ports::{SongQuery, SongRepository, SongSort};
 
     use super::*;
 
@@ -440,7 +448,8 @@ mod song_tests {
     #[test]
     fn search_sorts_newest_first_or_by_title_and_pages() {
         let db = songs();
-        for (id, title, at) in [("a", "beta", "2026-10-16T12:00:01Z"), ("b", "Alpha", "2026-10-16T12:00:03Z"), ("c", "gamma", "2026-10-16T12:00:02Z")] {
+        for (id, title, at) in [("a", "beta", "2026-10-16T12:00:01Z"), ("b", "Alpha", "2026-10-16T12:00:03Z"), ("c", "gamma", "2026-10-16T12:00:02Z")]
+        {
             let mut s = song(id);
             s.title = title.into();
             s.created_at = at.into();
@@ -474,8 +483,8 @@ mod song_tests {
 mod playlist_tests {
     use std::sync::Arc;
 
-    use crate::usecases::ports::{PlaylistRepository, SongRepository};
     use crate::domain::{Playlist, PlaylistRef, Visibility, testing::song};
+    use crate::usecases::ports::{PlaylistRepository, SongRepository};
 
     use super::*;
 

@@ -2,41 +2,69 @@
 name = "maio"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.88"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
 
 [[bin]]
 name = "maio"
 path = "src/main.rs"
+required-features = ["ssr"]
 
 [features]
+default = ["ssr"]
+# The server: every server-only dependency, and Leptos and thaw rendering HTML.
+ssr = [
+    "dep:anyhow", "dep:argon2", "dep:async-trait", "dep:axum", "dep:chrono", "dep:futures",
+    "dep:opentelemetry", "dep:opentelemetry-appender-tracing", "dep:opentelemetry-otlp", "dep:opentelemetry_sdk",
+    "dep:rand", "dep:reqwest", "dep:rusqlite", "dep:sha2", "dep:tokio", "dep:tokio-stream", "dep:toml",
+    "dep:tower", "dep:tower-http", "dep:tracing", "dep:tracing-opentelemetry", "dep:tracing-subscriber", "dep:ulid",
+    "dep:leptos_axum", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "thaw/ssr",
+]
+# The browser: the same components, hydrated (built to wasm by cargo-leptos).
+hydrate = ["leptos/hydrate", "thaw/hydrate", "dep:console_error_panic_hook"]
 # The fakes in domain::testing and usecases::testing, for the tests in tests/.
 testing = []
 
 [dependencies]
-anyhow = "1"
-argon2 = "0.5"
-async-trait = "0.1"
-axum = "0.8"
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-futures = "0.3"
-opentelemetry = "0.33"
-opentelemetry-appender-tracing = "0.33"
-opentelemetry-otlp = "0.33"
-opentelemetry_sdk = "0.33"
-rand = "0.9"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
-rusqlite = { version = "0.40", features = ["bundled"] }
+anyhow = { version = "1", optional = true }
+argon2 = { version = "0.5", optional = true }
+async-trait = { version = "0.1", optional = true }
+axum = { version = "0.8", optional = true }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"], optional = true }
+futures = { version = "0.3", optional = true }
+opentelemetry = { version = "0.33", optional = true }
+opentelemetry-appender-tracing = { version = "0.33", optional = true }
+opentelemetry-otlp = { version = "0.33", optional = true }
+opentelemetry_sdk = { version = "0.33", optional = true }
+rand = { version = "0.9", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"], optional = true }
+rusqlite = { version = "0.40", features = ["bundled"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sha2 = "0.10"
-tokio = { version = "1", features = ["full"] }
-tokio-stream = { version = "0.1", features = ["sync"] }
-toml = "1"
-tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.7", features = ["fs", "trace"] }
-tracing = "0.1"
-tracing-opentelemetry = "0.34"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-ulid = "3"
+sha2 = { version = "0.10", optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+tokio-stream = { version = "0.1", features = ["sync"], optional = true }
+toml = { version = "1", optional = true }
+tower = { version = "0.5", features = ["util"], optional = true }
+tower-http = { version = "0.7", features = ["fs", "trace"], optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-opentelemetry = { version = "0.34", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"], optional = true }
+ulid = { version = "3", optional = true }
+leptos = "0.8.22"
+leptos_meta = "0.8"
+leptos_router = "0.8"
+leptos_axum = { version = "0.8", optional = true }
+# The 0.5.0-beta release fails to build on rustc 1.95; main has the fix (thaw-ui/thaw#446).
+thaw = { git = "https://github.com/thaw-ui/thaw", rev = "0726a3d" }
+gloo-net = { version = "0.7", default-features = false, features = ["http", "json"] }
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["DataTransfer", "DragEvent", "EventSource", "FocusEvent", "HtmlAudioElement", "HtmlElement", "HtmlMediaElement", "KeyboardEvent", "Location", "MessageEvent", "Node", "NodeList", "Storage", "Window"] }
+console_error_panic_hook = { version = "0.1", optional = true }
 
 [dev-dependencies]
 maio = { path = ".", features = ["testing"] }
@@ -53,3 +81,22 @@ perf = { level = "warn", priority = -1 }
 lto = "fat"
 codegen-units = 1
 strip = true
+
+# The browser bundle: small over fast.
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+
+[package.metadata.leptos]
+output-name = "maio"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+style-file = "style/main.css"
+assets-dir = "public"
+site-addr = "127.0.0.1:8080"
+reload-port = 3001
+bin-features = ["ssr"]
+bin-default-features = false
+lib-features = ["hydrate"]
+lib-default-features = false
+lib-profile-release = "wasm-release"

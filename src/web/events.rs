@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use crate::usecases::ports::Notifier;
 use crate::domain::{Song, job::Job};
+use crate::usecases::ports::Notifier;
 use serde::Serialize;
 use serde_json::{Value, json};
 use tokio::sync::broadcast;

@@ -7,9 +7,9 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use anyhow::{Context, Result, bail, ensure};
-use crate::usecases::ports::{AudioFiles, Imported};
 use crate::domain::Song;
+use crate::usecases::ports::{AudioFiles, Imported};
+use anyhow::{Context, Result, bail, ensure};
 
 /// `[storage] format` (SPEC 11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -101,7 +101,8 @@ fn write_tags(path: &Path, pairs: &[(&str, String)]) -> Result<()> {
 /// Song files live under `songs/`; anything else (absolute, `..`, another folder) is refused.
 fn song_path(data_dir: &Path, file: &str) -> Result<PathBuf> {
     let path = Path::new(file);
-    let inside = path.starts_with("songs") && path.components().count() > 1 && path.components().all(|c| matches!(c, std::path::Component::Normal(_)));
+    let inside =
+        path.starts_with("songs") && path.components().count() > 1 && path.components().all(|c| matches!(c, std::path::Component::Normal(_)));
     ensure!(inside, "refusing to touch {file:?}: song files live under songs/");
     Ok(data_dir.join(path))
 }
@@ -178,17 +179,26 @@ mod tests {
     /// A 440 Hz mono 44.1 kHz WAV: a different shape from what is stored, so tests prove the conversion.
     fn tone(path: &Path, secs: u32) {
         let mut cmd = Command::new("ffmpeg");
-        cmd.args(["-hide_banner", "-v", "error", "-y", "-f", "lavfi", "-i"]).arg(format!("sine=frequency=440:duration={secs}")).args(["-ac", "1", "-ar", "44100"]).arg(path);
+        cmd.args(["-hide_banner", "-v", "error", "-y", "-f", "lavfi", "-i"])
+            .arg(format!("sine=frequency=440:duration={secs}"))
+            .args(["-ac", "1", "-ar", "44100"])
+            .arg(path);
         run(&mut cmd, "ffmpeg tone").unwrap();
     }
 
     fn probe(path: &Path, entries: &str) -> String {
-        let out = run(Command::new("ffprobe").args(["-v", "error", "-select_streams", "a:0", "-show_entries", entries, "-of", "csv=p=0"]).arg(path), "ffprobe").unwrap();
+        let out = run(
+            Command::new("ffprobe").args(["-v", "error", "-select_streams", "a:0", "-show_entries", entries, "-of", "csv=p=0"]).arg(path),
+            "ffprobe",
+        )
+        .unwrap();
         String::from_utf8_lossy(&out).trim().to_string()
     }
 
     fn tags(path: &Path) -> HashMap<String, String> {
-        let out = run(Command::new("ffprobe").args(["-v", "error", "-show_entries", "format_tags:stream_tags", "-of", "json"]).arg(path), "ffprobe tags").unwrap();
+        let out =
+            run(Command::new("ffprobe").args(["-v", "error", "-show_entries", "format_tags:stream_tags", "-of", "json"]).arg(path), "ffprobe tags")
+                .unwrap();
         let v: serde_json::Value = serde_json::from_slice(&out).unwrap();
         let mut found = HashMap::new();
         let streams = v["streams"].as_array().cloned().unwrap_or_default();

@@ -36,12 +36,16 @@ pub fn router(app: Shared) -> Router {
         .route("/playlists/{id}/songs/{song_id}", delete(playlists::remove))
         .route_layer(axum::middleware::from_fn_with_state(app.metrics.clone(), crate::web::metrics::record))
         .fallback(|| async { ApiError::not_found("no such API path") });
-    Router::new().nest("/api/v1", api).layer(
+    Router::new()
+        .nest("/api/v1", api)
+        .merge(crate::web::pages::router(app.clone()))
+        .layer(
             // A span per request at INFO, so the default filter keeps it (tower-http makes them at DEBUG).
             tower_http::trace::TraceLayer::new_for_http()
                 .make_span_with(tower_http::trace::DefaultMakeSpan::new().level(tracing::Level::INFO))
                 .on_response(tower_http::trace::DefaultOnResponse::new().level(tracing::Level::INFO)),
-        ).with_state(app)
+        )
+        .with_state(app)
 }
 
 /// A JSON body whose rejections use the API's error format.

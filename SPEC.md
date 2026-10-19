@@ -54,7 +54,7 @@ Maio is written as a hexagon: a core that knows nothing about HTTP, SQLite, ffmp
   - `LiveStreams`: start, stop and update the live stream of a playlist, report listeners.
   - `Clock` and `Ids`: time and id generation, so use cases are testable.
 - **Adapters** (each behind one port): SQLite (rusqlite), the engine HTTP client (reqwest), the text engine clients, ffmpeg, the live playout and stream server, the MediaMTX relay, and the web layer.
-- **Web layer**: Leptos with server-side rendering, served by axum. Pages render on the server and hydrate in the browser; Leptos server functions call the use cases. The JSON API (section 8) calls the same use cases for scripts. No business rule lives in a component or a handler.
+- **Web layer**: Leptos with server-side rendering, served by axum. Pages render on the server and hydrate in the browser; in the browser they call the JSON API (section 10) like any script, so the web app has no private calls. thaw supplies dialogs and toasts. No business rule lives in a component or a handler.
 
 Principles, enforced in review:
 
@@ -71,6 +71,7 @@ src/
   usecases/    use cases and port traits; uses domain
   adapters/    sqlite, engines, text engines, ffmpeg, live, relay; implement the ports in usecases
   web/         Leptos SSR app, server functions, JSON API, axum server; wires everything
+  ui/          the web app (Leptos components); uses only domain, talks to the server through the API
   main.rs      the maio binary
 tests/         tests through the public API of each layer
 ```
@@ -343,13 +344,15 @@ default_language = "en"
 The design is the **Shelf** direction on the Claude Design canvas "Maio songs and playlists" (https://claude.ai/artifact/3ompMaRTUNVrNBvQLSYDS8, row C).
 
 - **Look**: dark by default with a light theme; a sun/moon switch in the header, remembered on the device. Unbounded for headings, Albert Sans for text. Each playlist has its own colour (mustard `#E8B04A`, blue `#6FA8DC`, rose `#D9706C`, sage `#7FB89A`, then repeating), used for its shelf tile, its page band and the marks on songs. The player bar is mustard.
+- **Header**: the logo, the Songs and Playlists tabs, the engine line, the theme switch, and an account menu with "Change password" and "Sign out".
+- **Playlists** screen: every playlist as a tile (the "+" tile first), in the shelf's order; a tile opens its playlist page.
 - **Icons over text** for actions (play, shuffle, add, more, live, lock, refresh, copy, cancel, remove), each with a tooltip and an accessible label.
 - **Songs** screen:
   - the shelf: a sideways-scrolling row of playlist tiles, the "+" tile first, then live playlists, then the rest by most recently played;
   - "Make a song": a large prompt box and a Make button, settings as icon chips (mood, genre, length, tempo, seed) and a Vocals switch (instrumental by default); turning vocals on shows the lyrics box with language and lyrics writer;
   - "Being made": jobs with progress, time left and cancel;
   - the song list with search: play, title and prompt, playlist marks, mood and key, length, add to playlist, and rename or delete.
-- **Playlist** page: a coloured band with the name and length and icon buttons (play, shuffle, add songs, more); the live strip under it (live switch with listener count, public or private, stream shuffle, new link, a copy button per address, streams in use); the songs, full width, with drag to reorder, play, the song on the live stream marked, and remove.
+- **Playlist** page: a coloured band with the name and length and icon buttons (play, shuffle, add songs, more); the live strip under it (live switch with listener count, public or private, stream shuffle, new link, a copy button per address, streams in use; arrives with Live); the songs, full width, with drag to reorder, play, the song on the live stream marked, and remove.
 - **Player bar** on every screen: current song and playlist, shuffle, previous, play and pause, next, repeat, seek bar, volume.
 - **Sign in** and **change password** screens.
 - Every screen works from 360 px wide, with visible keyboard focus and text contrast of at least 4.5:1.

@@ -3,21 +3,21 @@
 
 use std::{sync::Arc, time::Duration};
 
-use maio::adapters::sqlite::{Db, SqlitePlaylists, SqliteSongs};
-use maio::usecases::{
-    Account, MakeSettings, Making, MakingPorts, Playlists, Songs,
-    ports::MusicEngine,
-    testing::{FakeEngine, FixedClock, MemAccount, MemFiles, PlainPasswords, SeqIds},
-};
 use axum::{
     Router,
     body::Body,
     http::{HeaderMap, Request, StatusCode, header, request::Builder},
 };
+use maio::adapters::sqlite::{Db, SqlitePlaylists, SqliteSongs};
 use maio::domain::limits::Rate;
+use maio::usecases::{
+    Account, MakeSettings, Making, MakingPorts, Playlists, Songs,
+    ports::MusicEngine,
+    testing::{FakeEngine, FixedClock, MemAccount, MemFiles, PlainPasswords, SeqIds},
+};
+use maio::web::{App, Shared, events::Events};
 use serde_json::{Value, json};
 use tower::ServiceExt;
-use maio::web::{App, Shared, events::Events};
 
 pub const TOKEN: &str = "a-test-api-token-that-is-long-enough";
 
@@ -29,6 +29,16 @@ pub struct World {
     pub songs: Arc<SqliteSongs>,
     pub playlists: Arc<SqlitePlaylists>,
     pub dir: tempfile::TempDir,
+}
+
+impl World {
+    /// Puts one song straight into the library; returns its id.
+    pub fn songs_with_one(&self) -> String {
+        use maio::usecases::ports::SongRepository;
+        let song = maio::domain::testing::song("song-1");
+        self.songs.insert(&song).unwrap();
+        song.id
+    }
 }
 
 /// A world whose metrics go nowhere.
@@ -123,6 +133,14 @@ pub async fn send(w: &World, req: Request<Body>) -> (StatusCode, HeaderMap, Valu
     let bytes = axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap();
     let body = if bytes.is_empty() { Value::Null } else { serde_json::from_slice(&bytes).expect("a JSON body") };
     (status, headers, body)
+}
+
+/// A page as a browser asks for it: status, headers and the HTML.
+pub async fn page(w: &World, path: &str, session: Option<&str>) -> (StatusCode, HeaderMap, String) {
+    let res = w.router.clone().oneshot(browser("GET", path, session, None)).await.unwrap();
+    let (status, headers) = (res.status(), res.headers().clone());
+    let bytes = axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap();
+    (status, headers, String::from_utf8(bytes.to_vec()).unwrap())
 }
 
 /// Signs in as a browser; returns the session id.

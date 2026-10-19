@@ -1,10 +1,10 @@
 //! A job: one song being made (SPEC 5, jobs).
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::domain::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum JobState {
     Waiting,
@@ -21,7 +21,7 @@ impl JobState {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Job {
     pub id: String,
     pub state: JobState,

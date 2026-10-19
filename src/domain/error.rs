@@ -15,7 +15,10 @@ pub struct PlaylistRef {
 pub enum Error {
     /// `"song"` or `"playlist"`.
     NotFound(&'static str),
-    Invalid { code: &'static str, message: String },
+    Invalid {
+        code: &'static str,
+        message: String,
+    },
     /// The playlists that still hold the song.
     SongInPlaylist(Vec<PlaylistRef>),
     PlaylistLive,
@@ -23,7 +26,9 @@ pub enum Error {
     NoncommercialEngine,
     /// No healthy engine can make the request now.
     EngineUnavailable,
-    RateLimited { retry_after_s: u64 },
+    RateLimited {
+        retry_after_s: u64,
+    },
     BadCredentials,
 }
 

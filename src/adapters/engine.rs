@@ -6,9 +6,9 @@ use std::{
     time::Duration,
 };
 
+use crate::domain::engine::{EngineInfo, EngineStatus, Health, PROTOCOL};
 use crate::usecases::ports::{CallError, EngineRequest, MusicEngine, RemoteJob};
 use async_trait::async_trait;
-use crate::domain::engine::{EngineInfo, EngineStatus, Health, PROTOCOL};
 use futures::StreamExt;
 use tokio::io::AsyncWriteExt;
 
@@ -227,8 +227,11 @@ mod tests {
                     if id == "gone" {
                         return (StatusCode::NOT_FOUND, Json(json!({})));
                     }
-                    (StatusCode::OK, Json(json!({"job_id": id, "state": "done", "seconds": 179.8, "seed": 7, "lyrics": "[chorus]\nla",
-                        "metas": {"bpm": 92, "key": "C major", "time_signature": "4"}})))
+                    (
+                        StatusCode::OK,
+                        Json(json!({"job_id": id, "state": "done", "seconds": 179.8, "seed": 7, "lyrics": "[chorus]\nla",
+                        "metas": {"bpm": 92, "key": "C major", "time_signature": "4"}})),
+                    )
                 })
                 .delete(|State(f): State<Fake>, UrlPath(id): UrlPath<String>| async move {
                     f.deleted.lock().unwrap().push(id);
@@ -248,7 +251,16 @@ mod tests {
     }
 
     fn request() -> EngineRequest {
-        EngineRequest { prompt: "calm".into(), seconds: 30, bpm: Some(70), vocals: false, lyrics: None, seed: 7, vocal_language: "en".into(), write_lyrics: false }
+        EngineRequest {
+            prompt: "calm".into(),
+            seconds: 30,
+            bpm: Some(70),
+            vocals: false,
+            lyrics: None,
+            seed: 7,
+            vocal_language: "en".into(),
+            write_lyrics: false,
+        }
     }
 
     #[tokio::test]

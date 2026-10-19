@@ -8,18 +8,18 @@ use std::{
     },
 };
 
-use anyhow::{Result, anyhow, bail};
-use async_trait::async_trait;
 use crate::domain::{
     Commercial, Playlist, PlaylistRef, Song,
     engine::{EngineStatus, Health},
     job::Job,
     request::Normalized,
 };
+use anyhow::{Result, anyhow, bail};
+use async_trait::async_trait;
 
 use crate::usecases::ports::{
-    AccountStore, AudioFiles, CallError, Clock, EngineRequest, Ids, Imported, MusicEngine, Notifier, Passwords, PlaylistRepository, RemoteError, RemoteJob, SongName,
-    SongQuery, SongRepository, SongSort, TextEngine,
+    AccountStore, AudioFiles, CallError, Clock, EngineRequest, Ids, Imported, MusicEngine, Notifier, Passwords, PlaylistRepository, RemoteError,
+    RemoteJob, SongName, SongQuery, SongRepository, SongSort, TextEngine,
 };
 
 #[derive(Default)]
@@ -203,7 +203,9 @@ impl Notifier for MemNotifier {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Outcome {
     Done,
-    Failed { retryable: bool },
+    Failed {
+        retryable: bool,
+    },
     /// The engine forgets the job (`404`).
     Lost,
     /// `POST /jobs` is refused.

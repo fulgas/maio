@@ -23,7 +23,8 @@ fn env(key: &str) -> Option<String> {
 }
 
 async fn serve(cfg: Config) -> anyhow::Result<()> {
-    let app = maio::web::start(&cfg, (env("MAIO_ADMIN_USER"), env("MAIO_ADMIN_PASSWORD")))?;
+    let (user, password) = (env("MAIO_ADMIN_USER"), env("MAIO_ADMIN_PASSWORD"));
+    let app = maio::web::start(&cfg, (user.as_deref(), password.as_deref()))?;
     let listener = tokio::net::TcpListener::bind(&cfg.listen).await.with_context(|| format!("listening on {}", cfg.listen))?;
     tracing::info!(listen = %cfg.listen, "Maio is up");
     let mut stopping = app.stopping.subscribe();
@@ -35,7 +36,8 @@ async fn serve(cfg: Config) -> anyhow::Result<()> {
             app.stop();
         }
     };
-    let server = axum::serve(listener, maio::web::router(app).into_make_service_with_connect_info::<SocketAddr>()).with_graceful_shutdown(signal);
+    let server =
+        axum::serve(listener, maio::web::router(app).into_make_service_with_connect_info::<SocketAddr>()).with_graceful_shutdown(signal);
     // Docker kills after 10 s; stop waiting for slow requests (an audio download) before that, so telemetry still flushes.
     let deadline = async move {
         let _ = stopping.wait_for(|s| *s).await;

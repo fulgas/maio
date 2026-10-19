@@ -6,12 +6,12 @@ use maio::adapters::{
     sqlite::{Db, SqlitePlaylists, SqliteSongs},
     system::{RandomIds, SystemClock},
 };
+use maio::domain::{Error as Rule, testing::song};
 use maio::usecases::{
     Playlists, Songs,
     ports::{SongRepository, SongSort},
     testing::MemFiles,
 };
-use maio::domain::{Error as Rule, testing::song};
 
 #[test]
 fn songs_and_playlists_follow_the_rules_over_sqlite() {

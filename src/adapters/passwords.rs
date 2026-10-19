@@ -2,8 +2,8 @@
 
 use std::sync::LazyLock;
 
-use anyhow::{Result, anyhow};
 use crate::usecases::ports::Passwords;
+use anyhow::{Result, anyhow};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
 
 pub struct Argon2Passwords;

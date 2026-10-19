@@ -131,7 +131,13 @@ impl Making {
     pub fn make(self: &Arc<Self>, request: &SongRequest) -> Result<Accepted> {
         let s = &self.settings;
         let text_ids: Vec<String> = self.ports.text_engines.iter().map(|t| t.id().to_string()).collect();
-        let rules = Rules { moods: &s.moods, genres: &s.genres, text_engines: &text_ids, default_language: &s.default_language, default_lyrics_by: &s.default_lyrics_by };
+        let rules = Rules {
+            moods: &s.moods,
+            genres: &s.genres,
+            text_engines: &text_ids,
+            default_language: &s.default_language,
+            default_lyrics_by: &s.default_lyrics_by,
+        };
         let n = request.normalize(&rules, self.ports.ids.seed())?;
         let statuses = self.statuses();
         let chosen = engine::choose(&statuses, &n, &[])?;
@@ -262,7 +268,7 @@ impl Making {
                     } else {
                         self.store(id, &status.id, &info, n, &wav, &remote, write_lyrics, lyrics_engine.clone()).await
                     };
-                    let _ = std::fs::remove_file(&wav);
+                    let _ = tokio::fs::remove_file(&wav).await;
                     return stored.map_err(|e| format!("storing the song: {e:#}"));
                 }
                 Err(f) if f.retryable && exclude.is_empty() => {
@@ -379,7 +385,7 @@ impl Making {
                     return got.map(|()| Some((wav, job))).map_err(|e| Failure { retryable: true, message: format!("download: {e}") });
                 }
                 "failed" => {
-                    let e = job.error.unwrap_or(RemoteError { code: "unknown".into(), message: "no reason given".into(), retryable: false });
+                    let e = job.error.unwrap_or_else(|| RemoteError { code: "unknown".into(), message: "no reason given".into(), retryable: false });
                     return Err(Failure { retryable: e.retryable, message: format!("{}: {}", e.code, e.message) });
                 }
                 "cancelled" => return Err(Failure { retryable: false, message: "the engine cancelled the job".into() }),
@@ -545,7 +551,13 @@ mod tests {
     }
 
     fn text(id: &str) -> FakeText {
-        FakeText { id: id.into(), healthy: true, lyrics: Some("[verse]\nwalking home\n[chorus]\nnight bus to nowhere".into()), title: None, hang: false }
+        FakeText {
+            id: id.into(),
+            healthy: true,
+            lyrics: Some("[verse]\nwalking home\n[chorus]\nnight bus to nowhere".into()),
+            title: None,
+            hang: false,
+        }
     }
 
     /// Waits until the job is in `state`, at most 2 s.
@@ -585,7 +597,10 @@ mod tests {
         assert_eq!(job.state, JobState::Done, "{job:?}");
         let song = song_of(&w, &job);
         assert_eq!((song.prompt.as_str(), song.mood.as_deref(), song.seconds, song.seed), ("warm pads", Some("calm"), 179.5, 1234));
-        assert_eq!((song.engine.as_str(), song.artist.as_str(), song.vocals, song.title_source), ("ace-step", "Maio", false, TitleSource::Words));
+        assert_eq!(
+            (song.engine.as_str(), song.artist.as_str(), song.vocals, song.title_source),
+            ("ace-step", "Maio", false, TitleSource::Words)
+        );
         assert_eq!(song.file, format!("songs/{}.opus", song.id));
         assert_eq!(w.engines[0].submitted.lock().unwrap()[0].prompt, "warm pads, jazz, calm mood, instrumental");
         assert_eq!(*w.engines[0].deleted.lock().unwrap(), ["remote1"], "the engine job is freed");
@@ -611,7 +626,11 @@ mod tests {
 
     #[tokio::test]
     async fn pending_jobs_and_the_make_rate_are_limited() {
-        let w = world_with(vec![FakeEngine::up("ace-step")], vec![], MakeSettings { pending_jobs: 2, make_rate: Rate { max: 3, window_s: 600 }, ..settings() });
+        let w = world_with(
+            vec![FakeEngine::up("ace-step")],
+            vec![],
+            MakeSettings { pending_jobs: 2, make_rate: Rate { max: 3, window_s: 600 }, ..settings() },
+        );
         w.engines[0].hold.store(true, Ordering::SeqCst);
         let first = w.making.make(&calm()).unwrap();
         w.making.make(&calm()).unwrap();
@@ -702,11 +721,13 @@ mod tests {
 
     #[tokio::test]
     async fn when_the_text_engine_fails_ace_step_writes_the_lyrics() {
-        let broken = [FakeText { lyrics: None, ..text("local") }, FakeText { hang: true, ..text("local") }, FakeText { healthy: false, ..text("local") }];
+        let broken =
+            [FakeText { lyrics: None, ..text("local") }, FakeText { hang: true, ..text("local") }, FakeText { healthy: false, ..text("local") }];
         for text_engine in broken {
             let w = world_with(vec![FakeEngine::up("ace-step")], vec![text_engine], settings());
             *w.engines[0].lyrics.lock().unwrap() = Some("[chorus]\nace wrote this".into());
-            let job = finished(&w, &w.making.make(&SongRequest { vocals: Some(true), lyrics_by: Some("local".into()), ..calm() }).unwrap().job_id).await;
+            let job =
+                finished(&w, &w.making.make(&SongRequest { vocals: Some(true), lyrics_by: Some("local".into()), ..calm() }).unwrap().job_id).await;
             assert_eq!(job.note.as_deref(), Some("lyrics by local failed, so ACE-Step wrote them"));
             assert!(w.engines[0].submitted.lock().unwrap()[0].write_lyrics);
             let song = song_of(&w, &job);
@@ -716,7 +737,8 @@ mod tests {
 
     #[tokio::test]
     async fn the_naming_engine_titles_songs_and_word_titles_never_repeat() {
-        let namer = FakeText { title: Some(SongName { title: "  Harbour Lights ".into(), description: "A slow walk by the sea.".into() }), ..text("namer") };
+        let namer =
+            FakeText { title: Some(SongName { title: "  Harbour Lights ".into(), description: "A slow walk by the sea.".into() }), ..text("namer") };
         let w = world_with(vec![FakeEngine::up("ace-step")], vec![namer], MakeSettings { naming_engine: Some("namer".into()), ..settings() });
         let song = song_of(&w, &finished(&w, &w.making.make(&calm()).unwrap().job_id).await);
         assert_eq!((song.title.as_str(), song.title_source, song.title_engine.as_deref()), ("Harbour Lights", TitleSource::Engine, Some("namer")));
@@ -758,7 +780,11 @@ mod tests {
     #[tokio::test]
     async fn a_job_cancelled_after_the_engine_finished_leaves_no_song() {
         let namer = FakeText { hang: true, ..text("namer") };
-        let w = world_with(vec![FakeEngine::up("ace-step")], vec![namer], MakeSettings { naming_engine: Some("namer".into()), naming_timeout: Duration::from_millis(300), ..settings() });
+        let w = world_with(
+            vec![FakeEngine::up("ace-step")],
+            vec![namer],
+            MakeSettings { naming_engine: Some("namer".into()), naming_timeout: Duration::from_millis(300), ..settings() },
+        );
         let id = w.making.make(&calm()).unwrap().job_id;
         for _ in 0..400 {
             if !w.files.imported.lock().unwrap().is_empty() {

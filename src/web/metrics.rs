@@ -6,15 +6,15 @@ use std::{
     time::Instant,
 };
 
+use crate::domain::{
+    engine::Health,
+    job::{Job, JobState},
+};
 use crate::usecases::Making;
 use axum::{
     extract::{MatchedPath, Request, State},
     middleware::Next,
     response::Response,
-};
-use crate::domain::{
-    engine::Health,
-    job::{Job, JobState},
 };
 use opentelemetry::{
     KeyValue,

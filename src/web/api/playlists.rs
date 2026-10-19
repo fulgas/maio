@@ -1,12 +1,12 @@
 //! Playlists (SPEC 8, 10). Their live settings come in plan 4.
 
+use crate::domain::Playlist;
+use crate::usecases::{PlaylistSummary, PlaylistView};
 use axum::{
     Json,
     extract::{Path, State},
     http::StatusCode,
 };
-use crate::usecases::{PlaylistSummary, PlaylistView};
-use crate::domain::Playlist;
 use serde::Deserialize;
 
 use super::{Body, blocking};

@@ -4,9 +4,11 @@ use std::{fs, path::Path};
 
 /// Each layer and the layers it must not use.
 const RULES: &[(&str, &[&str])] = &[
-    ("domain", &["usecases", "adapters", "web"]),
-    ("usecases", &["adapters", "web"]),
-    ("adapters", &["web"]),
+    ("domain", &["usecases", "adapters", "web", "ui"]),
+    ("usecases", &["adapters", "web", "ui"]),
+    ("adapters", &["web", "ui"]),
+    // The web app runs in the browser too: it reaches the server only through the API.
+    ("ui", &["usecases", "adapters", "web"]),
 ];
 
 fn rust_files(dir: &Path, out: &mut Vec<std::path::PathBuf>) {

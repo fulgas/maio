@@ -1,13 +1,13 @@
 //! Songs and the jobs that make them (SPEC 5, 10).
 
+use crate::domain::{job::Job, request::SongRequest};
+use crate::usecases::{Accepted, SongPage, SongView, ports::SongSort};
 use axum::{
     Json,
     extract::{Path, Request, State},
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use crate::usecases::{Accepted, SongPage, SongView, ports::SongSort};
-use crate::domain::{job::Job, request::SongRequest};
 use serde::Deserialize;
 use tower::ServiceExt;
 use tower_http::services::ServeFile;

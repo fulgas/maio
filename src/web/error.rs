@@ -1,11 +1,11 @@
 //! Errors as the API sends them (SPEC 10): `{"error": {"code", "message", ...}}` with a matching status.
 
+use crate::domain::Error as Rule;
 use axum::{
     Json,
     http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use crate::domain::Error as Rule;
 use serde_json::{Map, Value, json};
 
 #[derive(Debug, Clone, PartialEq)]

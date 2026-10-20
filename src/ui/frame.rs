@@ -1,16 +1,20 @@
-//! The header on every signed-in page: home, the engine line, the theme switch and the account menu.
+//! The header on every signed-in page: home, the engine line, the MediaMTX line, the theme switch and the account menu.
 
 use leptos::prelude::*;
 use leptos_router::hooks::{use_location, use_navigate};
 use thaw::{ToastIntent, ToasterInjection};
 
-use crate::ui::{
-    api, format,
-    icons::{Icon, IconButton},
-    menu::Dropdown,
-    say,
-    theme::Themes,
+use crate::{
+    domain::relay::RelayState,
+    ui::{
+        api, format,
+        icons::{Icon, IconButton},
+        menu::Dropdown,
+        say,
+        theme::Themes,
+    },
 };
+use wasm_bindgen::JsCast;
 
 #[component]
 pub fn Frame(children: Children) -> impl IntoView {
@@ -36,6 +40,19 @@ pub fn Frame(children: Children) -> impl IntoView {
     let path = use_location().pathname;
     let engine = move || status.get().and_then(Result::ok).map(|s| format::engine_line(&s.engines));
     let engines = move || status.get().and_then(Result::ok).map(|s| s.engines).unwrap_or_default();
+    let relay = move || status.get().and_then(Result::ok).and_then(|s| s.relay);
+    // A toast when MediaMTX goes wrong or comes back; nothing on the first look or while it is still being checked.
+    let was_ok = StoredValue::new(None::<bool>);
+    Effect::new(move |_| {
+        let Some(r) = relay().filter(|r| r.state != RelayState::Checking) else { return };
+        let (line, ok) = format::relay_line(&r);
+        match was_ok.get_value() {
+            Some(true) if !ok => say(toaster, format!("{line}."), ToastIntent::Error),
+            Some(false) if ok => say(toaster, "MediaMTX is back: every live playlist reaches it.".into(), ToastIntent::Success),
+            _ => {}
+        }
+        was_ok.set_value(Some(ok));
+    });
     view! {
         <header class="top">
             <a class="logo" href="/" aria-label="Maio, your songs">"m"<span>"ai"</span>"o"</a>
@@ -96,6 +113,45 @@ pub fn Frame(children: Children) -> impl IntoView {
                     }).collect_view().into_any()
                 }}
             </section>
+            // Rendered once: a status refresh must not rebuild the panel, or an open one would close.
+            <Show when=move || relay().is_some()>
+                {
+                    let line = move || relay().map(|r| format::relay_line(&r)).unwrap_or_default();
+                    let card = move || relay().map(|r| (r.state, format::relay_card(&r), r.streams.iter().map(|s| s.arriving).collect::<Vec<_>>()));
+                    let on_toggle = move |ev: leptos::ev::Event| {
+                        // Looks again when opened: MediaMTX is checked every 5 s, the header only every 30 s.
+                        if ev.dyn_ref::<web_sys::ToggleEvent>().is_some_and(|e| e.new_state() == "open") {
+                            status.refetch();
+                        }
+                    };
+                    view! {
+                        <button type="button" class="engine relay" class:ready=move || line().1 popovertarget="relay"
+                            aria-label=move || format!("{}: show MediaMTX", line().0)>
+                            <i aria-hidden="true"></i>{move || line().0}
+                        </button>
+                        <section id="relay" class="engines" popover="auto" aria-label="MediaMTX" on:toggle=on_toggle>
+                            <h2>"MediaMTX"</h2>
+                            {move || card().map(|(state, (text, facts, streams), arriving)| view! {
+                                <div class="engine-card" class:ready=state == RelayState::Up>
+                                    <h3><i aria-hidden="true"></i>"MediaMTX"</h3>
+                                    <p>{text}</p>
+                                    <ul>{facts.into_iter().map(|f| view! { <li>{f}</li> }).collect_view()}</ul>
+                                </div>
+                                {if streams.is_empty() {
+                                    view! { <p class="engine-card">"No playlist is live."</p> }.into_any()
+                                } else {
+                                    streams.into_iter().zip(arriving).map(|((name, f), arriving)| view! {
+                                        <div class="engine-card" class:ready=arriving>
+                                            <h3><i aria-hidden="true"></i>{name}</h3>
+                                            <ul>{f.into_iter().map(|x| view! { <li>{x}</li> }).collect_view()}</ul>
+                                        </div>
+                                    }).collect_view().into_any()
+                                }}
+                            })}
+                        </section>
+                    }
+                }
+            </Show>
             <IconButton
                 icon=Signal::derive(move || if t.dark.get() { Icon::Sun } else { Icon::Moon })
                 label=Signal::derive(move || if t.dark.get() { "Switch to light theme" } else { "Switch to dark theme" }.to_string())

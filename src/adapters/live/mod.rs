@@ -15,7 +15,7 @@ use bytes::Bytes;
 use tokio::sync::{broadcast, watch};
 
 use crate::{
-    domain::Playlist,
+    domain::{Playlist, PlaylistRef, relay::RelayStatus},
     usecases::ports::{LiveSong, LiveStreams, OnAir},
 };
 pub use station::ListenerGuard;
@@ -47,17 +47,23 @@ pub struct Listen {
 pub struct Stations {
     cfg: StationsConfig,
     on: Mutex<HashMap<String, Arc<Station>>>,
-    readers: Arc<relay::Readers>,
+    seen: Arc<Mutex<relay::Seen>>,
 }
 
 impl Stations {
-    /// Call inside the tokio runtime: with a relay, it starts watching MediaMTX's reader counts.
+    /// Call inside the tokio runtime: with a relay, it starts watching MediaMTX.
     pub fn new(cfg: StationsConfig) -> Arc<Self> {
-        let readers = Arc::new(relay::Readers::default());
+        let seen = Arc::new(Mutex::new(relay::Seen::default()));
         if let Some(t) = cfg.relay.clone() {
-            tokio::spawn(relay::watch(t, readers.clone()));
+            tokio::spawn(relay::watch(t, seen.clone()));
         }
-        Arc::new(Self { cfg, on: Mutex::new(HashMap::new()), readers })
+        Arc::new(Self { cfg, on: Mutex::new(HashMap::new()), seen })
+    }
+
+    /// MediaMTX and the live playlists on it (`live`: each playlist and its relay path); `None` without a relay.
+    pub fn relay_status(&self, live: &[(PlaylistRef, String)]) -> Option<RelayStatus> {
+        let t = self.cfg.relay.as_ref()?;
+        Some(relay::status(&self.seen.lock().unwrap_or_else(|e| e.into_inner()), t, live, chrono::Utc::now()))
     }
 
     fn get(&self, id: &str) -> Option<Arc<Station>> {
@@ -121,11 +127,12 @@ impl LiveStreams for Stations {
         if let Some(st) = self.on.lock().unwrap().remove(id) {
             st.close();
         }
+        station::forget(&self.cfg.data_dir, id);
     }
 
     fn on_air(&self, id: &str) -> Option<OnAir> {
         let st = self.get(id)?;
-        let relayed = self.readers.lock().unwrap_or_else(|e| e.into_inner()).get(&st.relay_path()).copied().unwrap_or(0);
+        let relayed = self.seen.lock().unwrap_or_else(|e| e.into_inner()).readers(&st.relay_path());
         let listeners = st.listeners.load(Ordering::Relaxed) + relayed;
         Some(OnAir { now: st.now.lock().unwrap().clone(), next: st.next.lock().unwrap().clone(), listeners })
     }

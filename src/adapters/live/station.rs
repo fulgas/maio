@@ -148,10 +148,34 @@ fn seed() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_nanos() as u64)
 }
 
+/// Where a station keeps the song on air, so a restart picks up with it (SPEC 9).
+fn on_air_file(data_dir: &Path, id: &str) -> PathBuf {
+    data_dir.join("live").join(id).join("on-air")
+}
+
+/// The song that was on air when the station last ran.
+pub fn remembered(data_dir: &Path, id: &str) -> Option<String> {
+    std::fs::read_to_string(on_air_file(data_dir, id)).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+}
+
+// ponytail: a few bytes written from the playout loop once a song; fine at one write per song, not per tick.
+fn remember(data_dir: &Path, id: &str, song: &str) {
+    let file = on_air_file(data_dir, id);
+    let written = file.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|()| std::fs::write(&file, song));
+    if let Err(e) = written {
+        tracing::warn!(station = %id, "cannot remember the song on air: {e}");
+    }
+}
+
+/// Off air: the next time it goes live, it starts from the top.
+pub fn forget(data_dir: &Path, id: &str) {
+    let _ = std::fs::remove_file(on_air_file(data_dir, id));
+}
+
 /// The playout loop: one 20 ms chunk per tick, paced against a fixed start so it never drifts.
 pub async fn playout(st: Arc<Station>, crossfade_s: f32) {
     let mut mixer = Mixer::new(crossfade_s);
-    let mut order = PlayOrder::default();
+    let mut order = PlayOrder::resuming(remembered(&st.data_dir, &st.id));
     let mut buf = vec![0i16; CHUNK];
     let mut events = Vec::new();
     // The next song's deck, decoding ahead; it moves to the mixer once it has audio.
@@ -205,6 +229,7 @@ pub async fn playout(st: Arc<Station>, crossfade_s: f32) {
         mixer.render(&mut buf, &mut events);
         for e in events.drain(..) {
             if let MixEvent::Started(id) = e {
+                remember(&st.data_dir, &st.id, &id);
                 let song = st
                     .next
                     .lock()
@@ -312,5 +337,22 @@ impl ListenerGuard {
 impl Drop for ListenerGuard {
     fn drop(&mut self) {
         self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_song_on_air_is_remembered_until_the_stream_goes_off_air() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(remembered(dir.path(), "p1"), None);
+        remember(dir.path(), "p1", "s3");
+        remember(dir.path(), "p1", "s4");
+        assert_eq!(remembered(dir.path(), "p1").as_deref(), Some("s4"));
+        assert_eq!(remembered(dir.path(), "p2"), None, "each playlist its own");
+        forget(dir.path(), "p1");
+        assert_eq!(remembered(dir.path(), "p1"), None);
     }
 }

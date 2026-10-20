@@ -197,6 +197,7 @@ A playlist goes live with a switch. While live:
 
 - Maio plays the playlist on the server, looping, with a fixed equal-power crossfade (default 6 s). With **shuffle** on (a setting of the live playlist) it plays every song once in random order, then reshuffles; with shuffle off it plays the playlist's order. A song added while live joins the loop; a removed song leaves it after it finishes playing.
 - Everyone who tunes in hears the same song at the same moment. An empty live playlist streams silence.
+- After a restart a live playlist comes back on air with the song that was playing, from its start; taken off air, it starts from the top the next time.
 - **Addresses** need no account and play in any player:
   - public: `/live/{playlist}/stream.mp3`, `/live/{playlist}/stream.aac`, `/live/{playlist}/hls/index.m3u8`;
   - private: `/listen/{key}/…` with the same files, where `key` is 32 random URL-safe characters; the public paths answer `404`. A new key stops the old one at once and disconnects its listeners. Switching between public and private also disconnects current listeners.
@@ -204,6 +205,7 @@ A playlist goes live with a switch. While live:
 - MP3 and AAC listeners that send `Icy-MetaData: 1` get `StreamTitle='Title - Maio'` every 16 000 bytes.
 - The playlist page shows the live state, listener count (HTTP listeners plus relay readers), what plays now and next, and the addresses with copy buttons.
 - Going live is refused beyond `max_live`; taking a playlist off air stops its encoders and disconnects its listeners.
+- Maio asks MediaMTX's control API every 5 s how it is: its version, how long it has run, and for each live playlist whether its audio arrives (and since when), its format, its readers by RTSP, SRT and RTMP, the data sent and broken frames. No answer is "not answering".
 
 ## 10. HTTP API
 
@@ -214,7 +216,7 @@ A playlist goes live with a switch. While live:
 | POST | `/session` | `{"username","password","remember"}`; `204` and the cookie |
 | DELETE | `/session` | sign out |
 | POST | `/me/password` | `{"current","new"}` |
-| GET | `/status` | engines (music and text) with health, live playlists, disk usage, moods and genres |
+| GET | `/status` | engines (music and text) with health, live playlists, MediaMTX (`relay`, null without one), disk usage, moods and genres |
 | PUT | `/engines/{id}/model` | `{"model"}`: load another installed model (ACE-Step's `/v1/init`); `204` |
 | GET | `/events` | server-sent events: `job`, `song`, `playlist`, `live` |
 | POST | `/songs` | a song request (section 5); `202 {"job_id", "eta_s"}` |
@@ -296,7 +298,7 @@ default_language = "en"
 The design is the **Shelf** direction on the Claude Design canvas "Maio songs and playlists" (https://claude.ai/artifact/3ompMaRTUNVrNBvQLSYDS8, row C).
 
 - **Look**: dark by default with a light theme; a sun/moon switch in the header, remembered on the device. Unbounded for headings, Albert Sans for text. Each playlist has its own colour (mustard `#E8B04A`, blue `#6FA8DC`, rose `#D9706C`, sage `#7FB89A`, then repeating), used for its shelf tile, its page band and the marks on songs. The player bar is mustard.
-- **Header**: the logo, the Songs and Playlists tabs, the engine line (a green dot when a song can be made; a click opens the engine panel: each engine's state and what to do about it, its version, model, lyrics model, queue, song lengths, voice, speed and licence, and a model switch when more than one model is installed), the theme switch, and an account menu with "Change password" and "Sign out".
+- **Header**: the logo, the Songs and Playlists tabs, the engine line (a green dot when a song can be made; a click opens the engine panel: each engine's state and what to do about it, its version, model, lyrics model, queue, song lengths, voice, speed and licence, and a model switch when more than one model is installed), the MediaMTX line when a relay is set up (a green dot when MediaMTX answers and every live playlist reaches it; a click opens its panel: state and what to do about it, version, time up, its addresses, and each live playlist on it; a toast when it stops answering or a stream stops arriving, and when it is back), the theme switch, and an account menu with "Change password" and "Sign out".
 - **Playlists** screen: a "New playlist" button and every playlist as a row like the song list's, in the shelf's order: play, its colour (as on its banner) and name (opens its page), its songs, the live mark and its length.
 - **Icons over text** for actions (play, shuffle, add, more, live, lock, refresh, copy, cancel, remove), each with a tooltip and an accessible label.
 - **Songs** screen:

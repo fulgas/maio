@@ -64,7 +64,7 @@ gloo-net = { version = "0.7", default-features = false, features = ["http", "jso
 js-sys = "0.3"
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
-web-sys = { version = "0.3", features = ["DataTransfer", "DragEvent", "EventSource", "FocusEvent", "HtmlAudioElement", "HtmlDialogElement", "HtmlDocument", "HtmlElement", "HtmlTextAreaElement", "HtmlMediaElement", "KeyboardEvent", "Location", "MessageEvent", "Navigator", "Clipboard", "Node", "NodeList", "Storage", "Window"] }
+web-sys = { version = "0.3", features = ["DataTransfer", "DragEvent", "EventSource", "FocusEvent", "HtmlAudioElement", "HtmlDialogElement", "HtmlDocument", "HtmlElement", "HtmlTextAreaElement", "HtmlMediaElement", "KeyboardEvent", "Location", "MessageEvent", "Navigator", "Clipboard", "Node", "NodeList", "Storage", "ToggleEvent", "Window"] }
 console_error_panic_hook = { version = "0.1", optional = true }
 
 [dev-dependencies]

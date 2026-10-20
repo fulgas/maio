@@ -35,6 +35,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .logo span { color: var(--accent); }
 .engine { margin-left: auto; display: flex; align-items: center; gap: 8px; font: inherit; font-size: 14px; color: var(--muted); background: none; border: 0; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 .engine:hover { background: var(--panel); color: var(--ink); }
+.engine.relay { margin-left: 0; }
 .engine i, .engine-card h3 i { width: 8px; height: 8px; border-radius: 4px; background: var(--faint); flex: none; }
 .engine.ready i, .engine-card.ready h3 i { background: #7FB89A; }
 :root[data-theme="light"] .engine.ready i, :root[data-theme="light"] .engine-card.ready h3 i { background: #3F7F5C; }

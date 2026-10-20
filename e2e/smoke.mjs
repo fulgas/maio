@@ -147,6 +147,12 @@ const firstSong = page.locator(".song").first();
 await firstSong.waitFor({ timeout: 120_000 });
 const title = (await firstSong.locator(".song-title").textContent()).trim();
 
+await check("without MediaMTX set up the header has no MediaMTX line", async () => {
+  const status = await (await page.request.get(base + "/api/v1/status")).json();
+  assert.equal(status.relay, null);
+  assert.equal(await page.locator("button.relay").count(), 0);
+});
+
 await check("a song's title opens its details, with downloads and Make one like this", async () => {
   await page.getByRole("button", { name: `Details for ${title}` }).first().click();
   const dialog = page.getByRole("dialog");

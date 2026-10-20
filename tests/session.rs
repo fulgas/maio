@@ -45,6 +45,7 @@ async fn the_api_needs_a_session_or_the_token() {
     assert_eq!((body["moods"].clone(), body["genres"].clone()), (json!(["calm"]), json!(["jazz"])));
     assert_eq!((body["engines"][0]["id"].as_str(), body["engines"][0]["health"].as_str()), (Some("ace-step"), Some("up")));
     assert_eq!((body["live"].clone(), body["disk"]["songs_bytes"].clone()), (json!([]), json!(0)));
+    assert_eq!(body["relay"], json!(null), "no MediaMTX set up: nothing to report");
     assert_eq!(send(&w, script("GET", "/api/v1/status", None)).await.0, StatusCode::OK);
     let wrong = Request::builder().uri("/api/v1/status").header(header::AUTHORIZATION, "Bearer nope").body(Body::empty()).unwrap();
     assert_eq!(send(&w, wrong).await.0, StatusCode::UNAUTHORIZED);

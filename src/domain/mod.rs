@@ -7,6 +7,7 @@ pub mod job;
 pub mod limits;
 pub mod live;
 mod playlist;
+pub mod relay;
 pub mod request;
 mod song;
 #[cfg(any(test, feature = "testing"))]

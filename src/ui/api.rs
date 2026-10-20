@@ -9,6 +9,7 @@ use crate::domain::{
     Live, Playlist, PlaylistRef, Song,
     engine::{EngineInfo, Health},
     job::Job,
+    relay::RelayStatus,
     request::SongRequest,
 };
 
@@ -60,6 +61,9 @@ pub struct TextEngine {
 pub struct Status {
     pub engines: Vec<EngineStatus>,
     pub text_engines: Vec<TextEngine>,
+    /// MediaMTX, when it relays the live playlists.
+    #[serde(default)]
+    pub relay: Option<RelayStatus>,
     pub moods: Vec<String>,
     pub genres: Vec<String>,
 }

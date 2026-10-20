@@ -11,13 +11,25 @@ pub struct PlayOrder {
     at: usize,
     /// Songs already played this round (shuffle).
     played: Vec<String>,
+    /// The song to start with, once: the one on air before a restart.
+    first: Option<String>,
 }
 
 impl PlayOrder {
+    /// An order that starts with `song` when it is still in the playlist.
+    pub fn resuming(song: Option<String>) -> Self {
+        Self { first: song, ..Self::default() }
+    }
+
     /// The song to play after `current`; `None` for an empty playlist. `seed` drives the shuffle.
     pub fn next(&mut self, songs: &[String], shuffle: bool, current: Option<&str>, seed: u64) -> Option<String> {
         if songs.is_empty() {
             return None;
+        }
+        if let Some(first) = self.first.take()
+            && songs.contains(&first)
+        {
+            return Some(first);
         }
         if !shuffle {
             self.at = match current.and_then(|c| songs.iter().position(|s| s == c)) {
@@ -103,6 +115,19 @@ mod tests {
         let mut p = Playlist::new(id.into(), id, "k".repeat(32), "2026-10-19T12:00:00Z".into()).unwrap();
         p.live = Live { on, shuffle: false, visibility, key: format!("key-{id}") };
         p
+    }
+
+    #[test]
+    fn a_resumed_stream_starts_with_the_song_that_was_on_air() {
+        let songs = ids(4);
+        let mut o = PlayOrder::resuming(Some("s2".into()));
+        let first = o.next(&songs, false, None, 1);
+        assert_eq!(first.as_deref(), Some("s2"));
+        assert_eq!(o.next(&songs, false, first.as_deref(), 1).as_deref(), Some("s3"), "then on in playlist order");
+        let mut gone = PlayOrder::resuming(Some("removed".into()));
+        assert_eq!(gone.next(&songs, false, None, 1).as_deref(), Some("s0"), "a song no longer in it starts from the top");
+        let mut shuffled = PlayOrder::resuming(Some("s1".into()));
+        assert_eq!(shuffled.next(&songs, true, None, 7).as_deref(), Some("s1"));
     }
 
     #[test]

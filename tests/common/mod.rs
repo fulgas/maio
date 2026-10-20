@@ -10,10 +10,15 @@ use axum::{
 };
 use maio::adapters::live::{Stations, StationsConfig, relay};
 use maio::adapters::sqlite::{Db, SqlitePlaylists, SqliteSongs};
-use maio::domain::limits::Rate;
+use maio::domain::{
+    PlaylistRef,
+    limits::Rate,
+    relay::{Caller, RelayAddresses, RelayStatus},
+};
 use maio::usecases::{
-    Account, MakeSettings, Making, MakingPorts, Playlists, Songs,
+    Account, Live, MakeSettings, Making, MakingPorts, Playlists, Songs,
     ports::MusicEngine,
+    ports::Relay,
     testing::{FakeEngine, FixedClock, MemAccount, MemFiles, PlainPasswords, SeqIds},
 };
 use maio::web::{App, Shared, events::Events};
@@ -105,18 +110,8 @@ fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -
         public_origin,
         metrics,
         stopping: tokio::sync::watch::channel(false).0,
-        stations: stations.clone(),
+        live: Live::new(playlists.clone(), stations.clone(), Arc::new(AuthOnlyRelay)),
         serve: maio::web::config::Serve::default(),
-        // A relay target so the auth hook answers; the stations themselves publish nowhere in tests.
-        relay: Some(relay::Target {
-            publish: "rtsp://mediamtx:8554".into(),
-            api: "http://127.0.0.1:9".into(),
-            host: "localhost".into(),
-            rtsp_port: 8555,
-            srt_port: 8891,
-            rtmp_port: 1936,
-            secret: "test".into(),
-        }),
     });
     World { router: maio::web::router(app.clone()), app, engine, files, songs, playlists, stations, dir }
 }
@@ -184,4 +179,31 @@ pub fn tone_song(w: &World, id: &str) -> String {
     song.seconds = 4.0;
     w.songs.insert(&song).unwrap();
     song.id
+}
+
+/// MediaMTX for the tests: the auth hook answers as the real relay does (secret `test`), but nothing is relayed, so
+/// there is no status and no addresses; the stations publish nowhere.
+struct AuthOnlyRelay;
+
+impl Relay for AuthOnlyRelay {
+    fn caller(&self, user: &str, password: &str) -> Option<Caller> {
+        let target = relay::Target {
+            publish: "rtsp://mediamtx:8554".into(),
+            api: "http://127.0.0.1:9".into(),
+            host: "localhost".into(),
+            rtsp_port: 8555,
+            srt_port: 8891,
+            rtmp_port: 1936,
+            secret: "test".into(),
+        };
+        Some(relay::caller(&target, user, password))
+    }
+
+    fn status(&self, _live: &[(PlaylistRef, String)]) -> Option<RelayStatus> {
+        None
+    }
+
+    fn addresses(&self, _path: &str) -> Option<RelayAddresses> {
+        None
+    }
 }

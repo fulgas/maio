@@ -3,8 +3,7 @@
 use serde::Serialize;
 
 use crate::{
-    adapters::live::relay,
-    domain::{Visibility, live},
+    domain::{Visibility, live, relay::RelayAddresses},
     usecases::{LiveView, ports::OnAir},
     web::config::Serve,
 };
@@ -31,18 +30,18 @@ pub struct LiveJson {
     pub addresses: Option<Addresses>,
 }
 
-pub fn json(v: LiveView, serve: &Serve, relay: Option<&relay::Target>) -> LiveJson {
+pub fn json(v: LiveView, serve: &Serve, relay: Option<RelayAddresses>) -> LiveJson {
     let p = &v.playlist;
     let addresses = p.live.on.then(|| {
         let base = live::stream_base(p);
-        let r = relay.map(|t| relay::addresses(t, &live::relay_path(p)));
+        let r = relay.as_ref();
         Addresses {
             mp3: serve.mp3.then(|| format!("{base}/stream.mp3")),
             aac: serve.aac.then(|| format!("{base}/stream.aac")),
             hls: serve.hls.then(|| format!("{base}/hls/index.m3u8")),
-            rtsp: r.as_ref().map(|a| a.rtsp.clone()),
-            srt: r.as_ref().map(|a| a.srt.clone()),
-            rtmp: r.as_ref().map(|a| a.rtmp.clone()),
+            rtsp: r.map(|a| a.rtsp.clone()),
+            srt: r.map(|a| a.srt.clone()),
+            rtmp: r.map(|a| a.rtmp.clone()),
         }
     });
     LiveJson {

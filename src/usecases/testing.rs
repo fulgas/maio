@@ -421,3 +421,77 @@ impl crate::usecases::ports::LiveStreams for FakeLive {
         self.on_air.lock().unwrap().get(id).cloned()
     }
 }
+
+/// Live streams as listeners see them: every stream exists; asks are recorded.
+#[derive(Default)]
+pub struct FakeListening {
+    pub asked: Mutex<Vec<String>>,
+}
+
+impl crate::usecases::ports::LiveListening for FakeListening {
+    fn listen(&self, id: &str, format: crate::domain::live::StreamFormat) -> Option<crate::usecases::ports::Listen> {
+        self.asked.lock().unwrap().push(format!("{id} {format:?}"));
+        let (_tx, bytes) = tokio::sync::broadcast::channel(1);
+        let (_moved_tx, moved) = tokio::sync::watch::channel(0);
+        Some(crate::usecases::ports::Listen { bytes, moved, guard: Box::new(()) })
+    }
+
+    fn now_title(&self, _id: &str) -> Option<String> {
+        None
+    }
+
+    fn hls_dir(&self, id: &str) -> PathBuf {
+        PathBuf::from(format!("/hls/{id}"))
+    }
+}
+
+/// MediaMTX with the secret `secret`, or no relay at all (`default`).
+#[derive(Default)]
+pub struct FakeRelay {
+    on: bool,
+}
+
+impl FakeRelay {
+    pub fn on() -> Self {
+        Self { on: true }
+    }
+}
+
+impl crate::usecases::ports::Relay for FakeRelay {
+    fn caller(&self, user: &str, password: &str) -> Option<crate::domain::relay::Caller> {
+        use crate::domain::relay::Caller;
+        self.on.then(|| match (user, password) {
+            ("maio", "secret") => Caller::Maio,
+            ("maio", _) => Caller::Impostor,
+            _ => Caller::Anyone,
+        })
+    }
+
+    fn status(&self, live: &[(PlaylistRef, String)]) -> Option<crate::domain::relay::RelayStatus> {
+        use crate::domain::relay::{RelayReaders, RelayState, RelayStatus, RelayStream};
+        self.on.then(|| RelayStatus {
+            state: RelayState::Up,
+            version: None,
+            up_s: None,
+            rtsp: String::new(),
+            srt: String::new(),
+            rtmp: String::new(),
+            streams: live
+                .iter()
+                .map(|(playlist, _)| RelayStream {
+                    playlist: playlist.clone(),
+                    arriving: true,
+                    arriving_s: None,
+                    format: None,
+                    readers: RelayReaders::default(),
+                    bytes_sent: 0,
+                    frames_in_error: 0,
+                })
+                .collect(),
+        })
+    }
+
+    fn addresses(&self, path: &str) -> Option<crate::domain::relay::RelayAddresses> {
+        self.on.then(|| crate::domain::relay::RelayAddresses { rtsp: format!("rtsp://relay/{path}"), srt: String::new(), rtmp: String::new() })
+    }
+}

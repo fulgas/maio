@@ -18,7 +18,8 @@ use crate::{
 
 async fn view(app: &Shared, id: String) -> Result<Json<LiveJson>, ApiError> {
     let v = blocking(app, move |a| a.playlists.live(&id)).await?;
-    Ok(Json(json(v, &app.serve, app.relay.as_ref())))
+    let relay = app.live.relay_addresses(&v.playlist);
+    Ok(Json(json(v, &app.serve, relay)))
 }
 
 pub async fn get(State(app): State<Shared>, _me: Me, Path(id): Path<String>) -> Result<Json<LiveJson>, ApiError> {

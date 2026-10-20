@@ -10,7 +10,7 @@ Hexagonal architecture (also called ports and adapters) keeps what Maio *does* a
 - **Ports** are the core's own traits, in `src/usecases/ports.rs`: small, one role each, written in the core's words (`SongRepository::insert`, not "run this SQL"). The core decides what it needs; the outside world fits in.
 - **Driving adapters** call into the core: `web` (the JSON API, the streams, the pages) and, through the API, `ui`. A request becomes a use case call; the answer becomes JSON.
 - **Driven adapters** are called by the core through its ports: SQLite, ACE-Step and the text engines over HTTP, ffmpeg, the live stations and MediaMTX, passwords, the clock.
-- **Dependencies point inward.** `domain` uses nothing; `usecases` use only `domain`; adapters use the core, never the other way. `tests/layers.rs` fails the build when an arrow points outward.
+- **Dependencies point inward.** `domain` uses nothing; `usecases` use only `domain`; adapters use the core, never the other way. `tests/layers.rs` fails the build when an arrow points outward, and within `web` only the start-up wiring (`start.rs`, `config.rs`) may name an adapter.
 
 What it buys: every rule is tested in microseconds with in-memory fakes in place of the adapters (5.2); an adapter (another engine, another store) is replaced without touching a rule; and a request handler stays a translation, with no business rule in it.
 
@@ -39,9 +39,9 @@ e2e/           a real browser through every screen, against a fake acestep-api
 | Layer | Responsibility |
 |-------|----------------|
 | **Domain** | Plain types and rules: `Song`, `Playlist`, `Live` state, song requests, titles in layers, engine choice, jobs, the live play order and limits, MediaMTX's reported state. No I/O, no async, no framework types. Every rule is tested here with plain unit tests. |
-| **Use cases** | One use case per user action (make a song, cancel a job, rename, delete, create a playlist, add, remove, reorder, go live, change visibility, new link, sign in, change password). Each takes its ports as traits and returns domain results or domain errors. |
+| **Use cases** | One use case per user action (make a song, cancel a job, rename, delete, create a playlist, add, remove, reorder, go live, change visibility, new link, listen live, answer MediaMTX's auth hook, sign in, change password). Each takes its ports as traits and returns domain results or domain errors. |
 | **Adapters** | Each behind one port: SQLite, the engine HTTP client, the text engine clients, ffmpeg, the live stations and the MediaMTX relay, passwords, clock and ids. |
-| **Web** | axum: the JSON API (arc42 3.5), the live streams and the relay auth hook (arc42 8.4), server-rendered pages, config (arc42 7.3), logs, traces and metrics (arc42 8.6). It maps domain errors to HTTP status codes. No business rule lives in a handler. |
+| **Web** | axum: the JSON API (arc42 3.5), the live streams with ICY titles (`web/icy.rs`) and the relay auth hook (arc42 8.4), server-rendered pages, config (arc42 7.3), logs, traces and metrics (arc42 8.6). It maps domain errors to HTTP status codes. No business rule lives in a handler. |
 | **UI** | The web app (arc42 8.5): Leptos components rendered on the server and hydrated in the browser. It uses only `domain` types and calls `/api/v1` like any script. No business rule lives in a component. |
 
 ## 5.2 Level 2: the ports
@@ -57,6 +57,8 @@ Traits owned by the use cases, each small and role-specific; tests swap every on
 | `TextEngine` | write lyrics, name a song, health (arc42 3.4) | `adapters::text` | `FakeText` |
 | `AudioFiles` | import (transcode, normalise), tag, duration, export, delete | `adapters::ffmpeg` | `MemFiles` |
 | `LiveStreams` | start, update and stop a playlist's stream; now, next and listeners (arc42 8.4) | `adapters::live` | `FakeLive` |
+| `LiveListening` | a listener's bytes of a running stream, the title on air, the HLS folder | `adapters::live` | `FakeListening` |
+| `Relay` | MediaMTX: who is asking its auth hook, its state, the listener addresses (arc42 8.4) | `adapters::live` | `FakeRelay` |
 | `Notifier` | tell the browser what changed (server-sent events) | `web::events` | `MemNotifier` |
 | `Clock`, `Ids` | time and ids, so use cases are testable | `adapters::system` | `FixedClock`, `SeqIds` |
 
@@ -70,12 +72,11 @@ live
 
 | Part | File | Does |
 |------|------|------|
-| Stations | `live/mod.rs` | One station per live playlist; starts its playout and encoders, answers now, next and listeners, gives MediaMTX's status. |
+| Stations | `live/mod.rs` | One station per live playlist, behind `LiveStreams`, `LiveListening` and `Relay`: starts its playout and encoders, answers now, next and listeners, hands out listeners' streams, gives MediaMTX's status. |
 | Playout | `live/station.rs` | Picks songs in the live order (`domain::live::PlayOrder`), decodes each while it plays, paces 20 ms PCM chunks onto a bus; remembers the song on air for restarts. |
 | Mixer | `live/mixer.rs` | Two decks with an equal-power crossfade. |
 | Encoders | `live/station.rs` | One ffmpeg each for MP3, AAC, HLS and the relay, fed from the PCM bus. |
-| ICY | `live/icy.rs` | `StreamTitle` every 16 000 bytes for players that ask. |
-| Relay | `live/relay.rs` | Publishes AAC to MediaMTX per live path, answers its auth hook, checks its control API every 5 s (version, paths, readers), kicks readers after a move. |
+| Relay | `live/relay.rs` | Publishes AAC to MediaMTX per live path, tells Maio's secret from anyone else's for the auth hook (what each may do is `domain::relay::allowed`), checks its control API every 5 s (version, paths, readers), kicks readers after a move. |
 
 ```c4
 webapp

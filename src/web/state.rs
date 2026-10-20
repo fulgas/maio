@@ -2,7 +2,7 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use crate::usecases::{Account, Making, Playlists, Songs};
+use crate::usecases::{Account, Live, Making, Playlists, Songs};
 use tokio::sync::watch;
 
 use crate::web::{events::Events, metrics::Metrics};
@@ -23,11 +23,9 @@ pub struct App {
     pub metrics: Arc<Metrics>,
     /// Flips to `true` when the server stops, so endless responses (event streams) end and shutdown can finish.
     pub stopping: watch::Sender<bool>,
-    /// The live streams; the stream routes read their bytes.
-    pub stations: Arc<crate::adapters::live::Stations>,
+    /// Listening to live playlists, and MediaMTX.
+    pub live: Live,
     pub serve: crate::web::config::Serve,
-    /// MediaMTX, when it relays live playlists; its secret answers the auth hook.
-    pub relay: Option<crate::adapters::live::relay::Target>,
 }
 
 impl App {

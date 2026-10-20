@@ -1,6 +1,5 @@
-//! Live streams (arc42 8.4): one station per live playlist, behind the `LiveStreams` port.
+//! Live streams (arc42 8.4): one station per live playlist, behind the `LiveStreams`, `LiveListening` and `Relay` ports.
 
-pub mod icy;
 pub mod mixer;
 pub mod relay;
 pub mod station;
@@ -11,12 +10,13 @@ use std::{
     sync::{Arc, Mutex, atomic::Ordering},
 };
 
-use bytes::Bytes;
-use tokio::sync::{broadcast, watch};
-
 use crate::{
-    domain::{Playlist, PlaylistRef, relay::RelayStatus},
-    usecases::ports::{LiveSong, LiveStreams, OnAir},
+    domain::{
+        Playlist, PlaylistRef,
+        live::StreamFormat,
+        relay::{Caller, RelayAddresses, RelayStatus},
+    },
+    usecases::ports::{Listen, LiveListening, LiveSong, LiveStreams, OnAir, Relay},
 };
 pub use station::ListenerGuard;
 use station::{Station, aac_args, encoder, hls_args, mp3_args, playout};
@@ -29,19 +29,6 @@ pub struct StationsConfig {
     pub hls: bool,
     /// MediaMTX, when it relays the live playlists over RTSP, SRT and RTMP.
     pub relay: Option<relay::Target>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Format {
-    Mp3,
-    Aac,
-}
-
-/// One listener's stream: its bytes, a signal when the address moves (end the stream), and its count.
-pub struct Listen {
-    pub bytes: broadcast::Receiver<Bytes>,
-    pub moved: watch::Receiver<u64>,
-    pub guard: ListenerGuard,
 }
 
 pub struct Stations {
@@ -60,31 +47,11 @@ impl Stations {
         Arc::new(Self { cfg, on: Mutex::new(HashMap::new()), seen })
     }
 
-    /// MediaMTX and the live playlists on it (`live`: each playlist and its relay path); `None` without a relay.
-    pub fn relay_status(&self, live: &[(PlaylistRef, String)]) -> Option<RelayStatus> {
-        let t = self.cfg.relay.as_ref()?;
-        Some(relay::status(&self.seen.lock().unwrap_or_else(|e| e.into_inner()), t, live, chrono::Utc::now()))
-    }
-
     fn get(&self, id: &str) -> Option<Arc<Station>> {
         self.on.lock().unwrap().get(id).cloned()
     }
 
-    pub fn listen(&self, id: &str, f: Format) -> Option<Listen> {
-        let st = self.get(id)?;
-        let bytes = match f {
-            Format::Mp3 if self.cfg.mp3 => st.mp3.subscribe(),
-            Format::Aac if self.cfg.aac => st.aac.subscribe(),
-            _ => return None,
-        };
-        Some(Listen { bytes, moved: st.moved.subscribe(), guard: ListenerGuard::new(st.listeners.clone()) })
-    }
-
-    pub fn now_title(&self, id: &str) -> Option<String> {
-        self.get(id)?.now.lock().unwrap().as_ref().map(|s| s.title.clone())
-    }
-
-    pub fn hls_dir(&self, id: &str) -> PathBuf {
+    fn hls_folder(&self, id: &str) -> PathBuf {
         self.cfg.data_dir.join("live").join(id).join("hls")
     }
 
@@ -98,7 +65,7 @@ impl Stations {
             tokio::spawn(encoder(st.clone(), "aac", aac_args, Some(st.aac.clone()), false));
         }
         if self.cfg.hls {
-            let dir = self.hls_dir(&p.id);
+            let dir = self.hls_folder(&p.id);
             if let Err(e) = std::fs::create_dir_all(&dir) {
                 tracing::warn!(playlist = %p.id, "cannot create the HLS folder: {e}");
             }
@@ -110,6 +77,41 @@ impl Stations {
             tokio::spawn(encoder(st.clone(), "relay", move || relay::publish_args(&t, &station.relay_path()), None, true));
         }
         st
+    }
+}
+
+impl LiveListening for Stations {
+    fn listen(&self, id: &str, format: StreamFormat) -> Option<Listen> {
+        let st = self.get(id)?;
+        let bytes = match format {
+            StreamFormat::Mp3 if self.cfg.mp3 => st.mp3.subscribe(),
+            StreamFormat::Aac if self.cfg.aac => st.aac.subscribe(),
+            _ => return None,
+        };
+        Some(Listen { bytes, moved: st.moved.subscribe(), guard: Box::new(ListenerGuard::new(st.listeners.clone())) })
+    }
+
+    fn now_title(&self, id: &str) -> Option<String> {
+        self.get(id)?.now.lock().unwrap().as_ref().map(|s| s.title.clone())
+    }
+
+    fn hls_dir(&self, id: &str) -> PathBuf {
+        self.hls_folder(id)
+    }
+}
+
+impl Relay for Stations {
+    fn caller(&self, user: &str, password: &str) -> Option<Caller> {
+        self.cfg.relay.as_ref().map(|t| relay::caller(t, user, password))
+    }
+
+    fn status(&self, live: &[(PlaylistRef, String)]) -> Option<RelayStatus> {
+        let t = self.cfg.relay.as_ref()?;
+        Some(relay::status(&self.seen.lock().unwrap_or_else(|e| e.into_inner()), t, live, chrono::Utc::now()))
+    }
+
+    fn addresses(&self, path: &str) -> Option<RelayAddresses> {
+        self.cfg.relay.as_ref().map(|t| relay::addresses(t, path))
     }
 }
 

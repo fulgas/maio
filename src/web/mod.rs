@@ -5,6 +5,7 @@ pub mod auth;
 pub mod config;
 pub mod error;
 pub mod events;
+mod icy;
 pub mod live;
 pub mod metrics;
 pub mod pages;

@@ -13,10 +13,11 @@ use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
 
+use serde::Deserialize;
+
 use crate::{
-    adapters::live::{Format, icy, relay},
-    domain::live::{self, PathKind},
-    web::state::Shared,
+    domain::live::{PathKind, StreamFormat},
+    web::{icy, state::Shared},
 };
 
 pub fn router() -> Router<Shared> {
@@ -48,24 +49,17 @@ fn not_found() -> Response {
     StatusCode::NOT_FOUND.into_response()
 }
 
-/// The live playlist a path names, or `None` (404).
-fn find(app: &Shared, kind: PathKind, name: &str) -> Option<String> {
-    let all = app.playlists.all_raw().ok()?;
-    live::by_path(&all, kind, name).map(|p| p.id.clone())
-}
-
 async fn stream(State(app): State<Shared>, kind: PathKind, Path((name, file)): Path<(String, String)>, headers: HeaderMap) -> Response {
     let format = match file.as_str() {
-        "stream.mp3" => Format::Mp3,
-        "stream.aac" => Format::Aac,
+        "stream.mp3" => StreamFormat::Mp3,
+        "stream.aac" => StreamFormat::Aac,
         _ => return not_found(),
     };
-    let Some(id) = find(&app, kind, &name) else { return not_found() };
-    let Some(listen) = app.stations.listen(&id, format) else { return not_found() };
+    let Some((id, listen)) = app.live.listen(kind, &name, format) else { return not_found() };
     let icy = headers.get("icy-metadata").is_some_and(|v| v == "1");
     let (mut moved, guard) = (listen.moved, listen.guard);
     let mut stopping = app.stopping.subscribe();
-    let stations = app.stations.clone();
+    let live = app.live.clone();
     let mut interleave = icy::Interleaver::new();
     let bytes = BroadcastStream::new(listen.bytes)
         // A listener too far behind is dropped: it reconnects; everyone else keeps going.
@@ -74,8 +68,8 @@ async fn stream(State(app): State<Shared>, kind: PathKind, Path((name, file)): P
         .map(move |chunk| {
             let _counted = &guard; // the listener counts until this stream is dropped
             let out = if icy {
-                let (id, stations) = (id.clone(), stations.clone());
-                interleave.push(&chunk, move || format!("{} - Maio", stations.now_title(&id).unwrap_or_default()))
+                let (id, live) = (id.clone(), live.clone());
+                interleave.push(&chunk, move || format!("{} - Maio", live.now_title(&id).unwrap_or_default()))
             } else {
                 chunk.to_vec()
             };
@@ -90,7 +84,7 @@ async fn stream(State(app): State<Shared>, kind: PathKind, Path((name, file)): P
         });
     let mut res = Body::from_stream(bytes).into_response();
     let h = res.headers_mut();
-    h.insert(header::CONTENT_TYPE, header::HeaderValue::from_static(if format == Format::Mp3 { "audio/mpeg" } else { "audio/aac" }));
+    h.insert(header::CONTENT_TYPE, header::HeaderValue::from_static(if format == StreamFormat::Mp3 { "audio/mpeg" } else { "audio/aac" }));
     h.insert(header::CACHE_CONTROL, header::HeaderValue::from_static("no-store"));
     if icy {
         h.insert("icy-metaint", header::HeaderValue::from(icy::METAINT));
@@ -103,15 +97,26 @@ async fn hls(State(app): State<Shared>, kind: PathKind, Path((name, file)): Path
     if !safe {
         return not_found();
     }
-    let Some(id) = find(&app, kind, &name) else { return not_found() };
-    match ServeFile::new(app.stations.hls_dir(&id).join(file)).oneshot(Request::new(Body::empty())).await {
+    let Some(dir) = app.live.hls_dir(kind, &name) else { return not_found() };
+    match ServeFile::new(dir.join(file)).oneshot(Request::new(Body::empty())).await {
         Ok(r) if r.status().is_success() => r.into_response(),
         _ => not_found(),
     }
 }
 
-async fn auth(State(app): State<Shared>, Json(req): Json<relay::AuthRequest>) -> StatusCode {
-    let Some(t) = app.relay.as_ref() else { return StatusCode::UNAUTHORIZED };
-    let paths: Vec<String> = app.playlists.all_raw().unwrap_or_default().iter().filter(|p| p.live.on).map(live::relay_path).collect();
-    if relay::authorize(t, &req, &paths) { StatusCode::OK } else { StatusCode::UNAUTHORIZED }
+/// What MediaMTX sends to its HTTP auth hook.
+#[derive(Debug, Deserialize)]
+struct AuthRequest {
+    #[serde(default)]
+    user: String,
+    #[serde(default)]
+    password: String,
+    #[serde(default)]
+    action: String,
+    #[serde(default)]
+    path: String,
+}
+
+async fn auth(State(app): State<Shared>, Json(r): Json<AuthRequest>) -> StatusCode {
+    if app.live.authorize(&r.user, &r.password, &r.action, &r.path) { StatusCode::OK } else { StatusCode::UNAUTHORIZED }
 }

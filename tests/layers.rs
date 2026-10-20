@@ -40,3 +40,18 @@ fn each_layer_uses_only_the_layers_above_it() {
     }
     assert!(broken.is_empty(), "layer rule broken:\n{}", broken.join("\n"));
 }
+
+/// The web layer drives the core: only the start-up wiring may name an adapter; handlers reach adapters through use cases.
+#[test]
+fn only_the_wiring_names_an_adapter() {
+    let web = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/web");
+    let mut files = Vec::new();
+    rust_files(&web, &mut files);
+    let broken: Vec<_> = files
+        .iter()
+        .filter(|f| !matches!(f.file_name().and_then(|n| n.to_str()), Some("start.rs" | "config.rs")))
+        .filter(|f| fs::read_to_string(f).unwrap().contains("adapters::"))
+        .map(|f| f.strip_prefix(&web).unwrap().display().to_string())
+        .collect();
+    assert!(broken.is_empty(), "web handlers use adapters directly:\n{}", broken.join("\n"));
+}

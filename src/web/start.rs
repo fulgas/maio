@@ -12,7 +12,7 @@ use crate::adapters::{
     text::{self, HttpTextEngine},
 };
 use crate::usecases::{
-    Account, Making, MakingPorts, Playlists, Songs,
+    Account, Live, Making, MakingPorts, Playlists, Songs,
     ports::{Ids, MusicEngine, TextEngine},
 };
 use anyhow::{Context, Result};
@@ -74,12 +74,13 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         mp3: cfg.serve.mp3,
         aac: cfg.serve.aac,
         hls: cfg.serve.hls,
-        relay: relay.clone(),
+        relay,
     });
     let app = Arc::new(App {
         account,
         songs: Songs::new(songs.clone(), playlists.clone(), files),
-        playlists: Playlists::new(playlists, songs, ids.clone(), clock, stations.clone(), cfg.max_live),
+        live: Live::new(playlists.clone(), stations.clone(), stations.clone()),
+        playlists: Playlists::new(playlists, songs, ids.clone(), clock, stations, cfg.max_live),
         making,
         events,
         moods: cfg.moods.clone(),
@@ -89,9 +90,7 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         public_origin: cfg.public_origin.clone(),
         metrics,
         stopping: tokio::sync::watch::channel(false).0,
-        stations,
         serve: cfg.serve.clone(),
-        relay,
     });
     // Playlists that were live before a restart go back on air.
     app.playlists.resume()?;

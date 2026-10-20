@@ -71,6 +71,13 @@ pub fn stream_base(p: &Playlist) -> String {
 }
 
 /// Its path on the relay (MediaMTX).
+/// The formats Maio streams itself; HLS is served as files.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamFormat {
+    Mp3,
+    Aac,
+}
+
 pub fn relay_path(p: &Playlist) -> String {
     stream_base(p).trim_start_matches('/').to_string()
 }

@@ -293,3 +293,30 @@ pub trait LiveStreams: Send + Sync {
     fn stop(&self, id: &str);
     fn on_air(&self, id: &str) -> Option<OnAir>;
 }
+
+/// A listener's live stream (arc42 8.4): its bytes, a signal when the address moves (end the stream), and a guard that
+/// counts the listener while it is held.
+pub struct Listen {
+    pub bytes: tokio::sync::broadcast::Receiver<bytes::Bytes>,
+    pub moved: tokio::sync::watch::Receiver<u64>,
+    pub guard: Box<dyn std::any::Any + Send + Sync>,
+}
+
+/// What listeners of a running live stream need from it (arc42 8.4).
+pub trait LiveListening: Send + Sync {
+    /// `None` when the playlist is not playing or the format is switched off.
+    fn listen(&self, id: &str, format: crate::domain::live::StreamFormat) -> Option<Listen>;
+    fn now_title(&self, id: &str) -> Option<String>;
+    /// Where the playlist's HLS files are written.
+    fn hls_dir(&self, id: &str) -> PathBuf;
+}
+
+/// MediaMTX, which relays live playlists over RTSP, SRT and RTMP (arc42 8.4). Every method answers `None` when no relay
+/// is set up.
+pub trait Relay: Send + Sync {
+    /// Who is asking its auth hook.
+    fn caller(&self, user: &str, password: &str) -> Option<crate::domain::relay::Caller>;
+    /// MediaMTX and the live playlists on it (`live`: each playlist and its relay path).
+    fn status(&self, live: &[(PlaylistRef, String)]) -> Option<crate::domain::relay::RelayStatus>;
+    fn addresses(&self, path: &str) -> Option<crate::domain::relay::RelayAddresses>;
+}

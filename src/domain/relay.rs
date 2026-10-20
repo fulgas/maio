@@ -48,3 +48,45 @@ pub struct RelayReaders {
     pub srt: usize,
     pub rtmp: usize,
 }
+
+/// The listener addresses of a live playlist on MediaMTX.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RelayAddresses {
+    pub rtsp: String,
+    pub srt: String,
+    pub rtmp: String,
+}
+
+/// Who is asking MediaMTX's auth hook.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Caller {
+    /// Maio itself, with the secret it made at start.
+    Maio,
+    /// Maio's user name with the wrong secret.
+    Impostor,
+    Anyone,
+}
+
+/// Maio may do anything; anyone may read a live path; nothing else.
+pub fn allowed(caller: Caller, action: &str, path: &str, live_paths: &[String]) -> bool {
+    match caller {
+        Caller::Maio => true,
+        Caller::Impostor => false,
+        Caller::Anyone => action == "read" && live_paths.iter().any(|p| p == path),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maio_may_do_anything_and_anyone_may_read_a_live_path() {
+        let live = vec!["live/p1".to_string()];
+        assert!(allowed(Caller::Maio, "publish", "live/p1", &live));
+        assert!(!allowed(Caller::Impostor, "read", "live/p1", &live), "a wrong secret reads nothing");
+        assert!(allowed(Caller::Anyone, "read", "live/p1", &live));
+        assert!(!allowed(Caller::Anyone, "read", "live/p2", &live), "not live");
+        assert!(!allowed(Caller::Anyone, "publish", "live/p1", &live), "only Maio publishes");
+    }
+}

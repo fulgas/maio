@@ -4,13 +4,13 @@
 use std::{collections::HashMap, sync::Mutex, time::Duration};
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use super::station::args;
 use crate::domain::{
     PlaylistRef,
-    relay::{RelayReaders, RelayState, RelayStatus, RelayStream},
+    relay::{Caller, RelayAddresses, RelayReaders, RelayState, RelayStatus, RelayStream},
 };
 
 /// The user Maio publishes and calls the API as; its password is `Target::secret`.
@@ -37,41 +37,23 @@ pub fn publish_args(t: &Target, path: &str) -> Vec<String> {
 }
 
 /// The relay addresses listeners use.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Addresses {
-    pub rtsp: String,
-    pub srt: String,
-    pub rtmp: String,
-}
-
-pub fn addresses(t: &Target, path: &str) -> Addresses {
+pub fn addresses(t: &Target, path: &str) -> RelayAddresses {
     let h = &t.host;
-    Addresses {
+    RelayAddresses {
         rtsp: format!("rtsp://{h}:{}/{path}", t.rtsp_port),
         srt: format!("srt://{h}:{}?streamid=read:{path}", t.srt_port),
         rtmp: format!("rtmp://{h}:{}/{path}", t.rtmp_port),
     }
 }
 
-/// What MediaMTX sends to its HTTP auth hook.
-#[derive(Debug, Deserialize)]
-pub struct AuthRequest {
-    #[serde(default)]
-    pub user: String,
-    #[serde(default)]
-    pub password: String,
-    #[serde(default)]
-    pub action: String,
-    #[serde(default)]
-    pub path: String,
-}
-
-/// Maio may do anything; anyone may read a live path; nothing else.
-pub fn authorize(t: &Target, r: &AuthRequest, live_paths: &[String]) -> bool {
-    if r.user == USER {
-        return Sha256::digest(r.password.as_bytes()) == Sha256::digest(t.secret.as_bytes());
+/// Who is asking the auth hook: Maio's user with its secret (compared by digest, in constant time for its length),
+/// that user with anything else, or anyone. What each may do is the domain's rule (`relay::allowed`).
+pub fn caller(t: &Target, user: &str, password: &str) -> Caller {
+    match user {
+        USER if Sha256::digest(password.as_bytes()) == Sha256::digest(t.secret.as_bytes()) => Caller::Maio,
+        USER => Caller::Impostor,
+        _ => Caller::Anyone,
     }
-    r.action == "read" && live_paths.contains(&r.path)
 }
 
 fn client() -> reqwest::Client {
@@ -377,19 +359,11 @@ mod tests {
     }
 
     #[test]
-    fn maio_may_do_anything_and_anyone_may_read_a_live_path() {
+    fn the_secret_tells_maio_from_an_impostor_and_anyone() {
         let t = target();
-        let live = vec!["live/p1".to_string()];
-        let req = |user: &str, password: &str, action: &str, path: &str| AuthRequest {
-            user: user.into(),
-            password: password.into(),
-            action: action.into(),
-            path: path.into(),
-        };
-        assert!(authorize(&t, &req(USER, "s3cret", "publish", "live/p1"), &live));
-        assert!(!authorize(&t, &req(USER, "wrong", "publish", "live/p1"), &live));
-        assert!(authorize(&t, &req("", "", "read", "live/p1"), &live));
-        assert!(!authorize(&t, &req("", "", "read", "live/p2"), &live), "not live");
-        assert!(!authorize(&t, &req("", "", "publish", "live/p1"), &live), "only Maio publishes");
+        assert_eq!(caller(&t, USER, "s3cret"), Caller::Maio);
+        assert_eq!(caller(&t, USER, "wrong"), Caller::Impostor);
+        assert_eq!(caller(&t, "", ""), Caller::Anyone);
+        assert_eq!(caller(&t, "someone", "s3cret"), Caller::Anyone);
     }
 }

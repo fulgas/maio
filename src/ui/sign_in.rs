@@ -21,6 +21,7 @@ pub fn SignIn() -> impl IntoView {
     let submit = move |ev: SubmitEvent| {
         ev.prevent_default();
         let value = |r: NodeRef<Input>| r.get_untracked().map(|i| i.value()).unwrap_or_default();
+        let field = pass;
         let (user, pass) = (value(user), value(pass));
         let remember = remember.get_untracked().is_some_and(|i| i.checked());
         busy.set(true);
@@ -33,6 +34,10 @@ pub fn SignIn() -> impl IntoView {
                 Err(f) => {
                     error.set(Some(f.text()));
                     busy.set(false);
+                    // The disabled button dropped focus; put it where the person tries again.
+                    if let Some(p) = field.get_untracked() {
+                        let _ = p.focus();
+                    }
                 }
             }
         });
@@ -71,6 +76,8 @@ pub fn Password() -> impl IntoView {
                     [current, new, again].iter().for_each(|s| s.set(String::new()));
                     say(toaster, "Password changed. Your other sessions are signed out.".into(), ToastIntent::Success);
                 }
+                // The account's "wrong username or password" names a field this form does not have.
+                Err(f) if f.code == "bad_credentials" => error.set(Some("That is not your current password.".into())),
                 Err(f) => error.set(Some(f.text())),
             }
             busy.set(false);

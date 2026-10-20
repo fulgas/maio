@@ -4,10 +4,7 @@ use std::collections::HashSet;
 
 use leptos::{ev::KeyboardEvent, prelude::*};
 use leptos_router::hooks::{use_navigate, use_params_map};
-use thaw::{
-    Button, ButtonAppearance, Checkbox, CheckboxGroup, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Field, Input,
-    ToastIntent, ToasterInjection,
-};
+use thaw::{Button, ButtonAppearance, Checkbox, CheckboxGroup, Field, Input, ToastIntent, ToasterInjection};
 use wasm_bindgen::JsCast;
 
 use crate::{
@@ -18,6 +15,7 @@ use crate::{
         format,
         icons::{Icon, IconButton, Svg},
         menu::Dropdown,
+        modal::Modal,
         player::Player,
         queue::QSong,
         say, shelf,
@@ -89,42 +87,8 @@ pub fn PlaylistPage() -> impl IntoView {
     let on_air = RwSignal::new(None::<(Option<String>, Option<String>)>);
 
     // Band actions: rename, delete, add songs.
-    let (renaming, deleting, adding, new_name) = (RwSignal::new(false), RwSignal::new(false), RwSignal::new(false), RwSignal::new(String::new()));
-    let rename = move || {
-        leptos::task::spawn_local(async move {
-            match api::rename_playlist(&id.get_untracked(), &new_name.get_untracked()).await {
-                Ok(p) => {
-                    name.set(p.name);
-                    renaming.set(false);
-                }
-                Err(f) => say(toaster, f.text(), ToastIntent::Error),
-            }
-        })
-    };
-    let delete = {
-        let navigate = navigate.clone();
-        move || {
-            let navigate = navigate.clone();
-            deleting.set(false);
-            leptos::task::spawn_local(async move {
-                match api::delete_playlist(&id.get_untracked()).await {
-                    Ok(()) => {
-                        say(toaster, format!("Deleted {}.", name.get_untracked()), ToastIntent::Success);
-                        navigate("/", Default::default());
-                    }
-                    Err(f) => say(toaster, f.text(), ToastIntent::Error),
-                }
-            });
-        }
-    };
-    let on_more = move |key: String| {
-        if key == "rename" {
-            new_name.set(name.get_untracked());
-            renaming.set(true);
-        } else {
-            deleting.set(true);
-        }
-    };
+    let (renaming, deleting, adding) = (RwSignal::new(false), RwSignal::new(false), RwSignal::new(false));
+    let on_more = more(renaming, deleting);
 
     view! {
         {move || failed().map(|text| view! {
@@ -148,8 +112,7 @@ pub fn PlaylistPage() -> impl IntoView {
                 <IconButton icon=Icon::Shuffle class="solid" label="Shuffle when I play it".to_string()
                     pressed=Signal::derive(move || player.queue.with(|q| q.shuffle)) on_click=move || player.shuffle()/>
                 <IconButton icon=Icon::Add class="outline" label="Add songs".to_string() on_click=move || adding.set(true)/>
-                <Dropdown icon=Icon::More label="Rename or delete the playlist" class="outline" on_select=on_more
-                    items=vec![("rename".into(), "Rename".into()), ("delete".into(), "Delete".into())]/>
+                <Dropdown icon=Icon::More label="Rename or delete the playlist" class="outline" on_select=on_more items=more_items()/>
             </div>
         </section>
         <crate::ui::live::LiveStrip playlist=id on_air/>
@@ -238,26 +201,80 @@ pub fn PlaylistPage() -> impl IntoView {
         </ol>
         <AddSongs open=adding playlist=id/>
         <crate::ui::details::SongDetails open=showing song=shown/>
-        <Dialog open=renaming>
-            <DialogSurface><DialogBody>
-                <DialogTitle>"Rename playlist"</DialogTitle>
-                <DialogContent><Field label="Name"><Input value=new_name/></Field></DialogContent>
-                <DialogActions>
-                    <Button on_click=move |_| renaming.set(false)>"Cancel"</Button>
-                    <Button appearance=ButtonAppearance::Primary on_click=move |_| rename()>"Rename"</Button>
-                </DialogActions>
-            </DialogBody></DialogSurface>
-        </Dialog>
-        <Dialog open=deleting>
-            <DialogSurface><DialogBody>
-                <DialogTitle>{move || format!("Delete {}?", name.get())}</DialogTitle>
-                <DialogContent>"The playlist goes; its songs stay in your library."</DialogContent>
-                <DialogActions>
-                    <Button on_click=move |_| deleting.set(false)>"Cancel"</Button>
-                    <Button appearance=ButtonAppearance::Primary on_click=move |_| delete()>"Delete"</Button>
-                </DialogActions>
-            </DialogBody></DialogSurface>
-        </Dialog>
+        <PlaylistDialogs renaming deleting id name
+            on_renamed=Callback::new(move |n| name.set(n))
+            on_deleted=Callback::new(move |()| navigate("/", Default::default()))/>
+    }
+}
+
+/// The More menu's choices for a playlist: on its band and on its row in Playlists.
+pub fn more_items() -> Vec<(String, String)> {
+    vec![("rename".into(), "Rename".into()), ("delete".into(), "Delete".into())]
+}
+
+/// What a More menu pick opens.
+pub fn more(renaming: RwSignal<bool>, deleting: RwSignal<bool>) -> impl Fn(String) + Clone + Send + Sync + 'static {
+    move |key: String| if key == "rename" { renaming.set(true) } else { deleting.set(true) }
+}
+
+/// Rename and Delete for one playlist, shared by its band and the Playlists screen.
+#[component]
+pub fn PlaylistDialogs(
+    renaming: RwSignal<bool>,
+    deleting: RwSignal<bool>,
+    #[prop(into)] id: Signal<String>,
+    #[prop(into)] name: Signal<String>,
+    on_renamed: Callback<String>,
+    on_deleted: Callback<()>,
+) -> impl IntoView {
+    let c = expect_context::<Changes>();
+    let toaster = ToasterInjection::expect_context();
+    let new_name = RwSignal::new(String::new());
+    Effect::new(move |_| {
+        if renaming.get() {
+            new_name.set(name.get_untracked());
+        }
+    });
+    let rename = move || {
+        leptos::task::spawn_local(async move {
+            match api::rename_playlist(&id.get_untracked(), &new_name.get_untracked()).await {
+                Ok(p) => {
+                    renaming.set(false);
+                    c.playlists.update(|n| *n += 1);
+                    on_renamed.run(p.name);
+                }
+                Err(f) => say(toaster, f.text(), ToastIntent::Error),
+            }
+        })
+    };
+    let delete = move || {
+        deleting.set(false);
+        leptos::task::spawn_local(async move {
+            match api::delete_playlist(&id.get_untracked()).await {
+                Ok(()) => {
+                    say(toaster, format!("Deleted {}.", name.get_untracked()), ToastIntent::Success);
+                    c.playlists.update(|n| *n += 1);
+                    on_deleted.run(());
+                }
+                Err(f) => say(toaster, f.text(), ToastIntent::Error),
+            }
+        });
+    };
+    view! {
+        <Modal open=renaming title="Rename playlist">
+            <Field label="Name"><Input value=new_name/></Field>
+            <div class="modal-actions">
+                <Button on_click=move |_| renaming.set(false)>"Cancel"</Button>
+                <Button appearance=ButtonAppearance::Primary on_click=move |_| rename()>"Rename"</Button>
+            </div>
+        </Modal>
+        <Modal open=deleting title=Signal::derive(move || format!("Delete {}?", name.get()))>
+            <p>"The playlist goes; its songs stay in your library."</p>
+            <div class="modal-actions">
+                <Button on_click=move |_| deleting.set(false)>"Cancel"</Button>
+                <Button appearance=ButtonAppearance::Primary on_click=move |_| delete()>"Delete"</Button>
+            </div>
+        </Modal>
     }
 }
 
@@ -285,10 +302,7 @@ fn AddSongs(open: RwSignal<bool>, playlist: Memo<String>) -> impl IntoView {
         })
     };
     view! {
-        <Dialog open>
-            <DialogSurface><DialogBody>
-                <DialogTitle>"Add songs"</DialogTitle>
-                <DialogContent>
+        <Modal open title="Add songs">
                     <label class="search"><Svg icon=Icon::Search size=16/><span class="sr">"Search songs"</span>
                         <input type="search" placeholder="Search titles, moods, lyrics" bind:value=query/></label>
                     <div class="pick">
@@ -298,15 +312,13 @@ fn AddSongs(open: RwSignal<bool>, playlist: Memo<String>) -> impl IntoView {
                                 .collect_view()}
                         </CheckboxGroup>
                     </div>
-                </DialogContent>
-                <DialogActions>
+                <div class="modal-actions">
                     <Button on_click=move |_| open.set(false)>"Cancel"</Button>
                     <Button appearance=ButtonAppearance::Primary on_click=move |_| add()
                         disabled=Signal::derive(move || picked.with(HashSet::is_empty))>
                         {move || format!("Add {}", format::songs(picked.with(HashSet::len)))}
                     </Button>
-                </DialogActions>
-            </DialogBody></DialogSurface>
-        </Dialog>
+                </div>
+        </Modal>
     }
 }

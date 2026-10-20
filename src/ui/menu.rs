@@ -74,6 +74,10 @@ pub fn Dropdown(
                                 view! {
                                     <button type="button" on:click=move |_| {
                                         open.set(false);
+                                        // Back on the menu button, so a dialog this opens gives focus back there.
+                                        if let Some(b) = trigger.get_untracked() {
+                                            let _ = b.focus();
+                                        }
                                         pick(value.clone());
                                     }>{text}</button>
                                 }

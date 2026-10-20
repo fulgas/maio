@@ -36,6 +36,31 @@ async function noSidewaysScroll(path) {
   await page.setViewportSize({ width: 1280, height: 900 });
 }
 
+// WCAG contrast ratio of two computed rgb() colours.
+function contrast(a, b) {
+  const lum = (c) => {
+    const [r, g, bl] = c.match(/\d+(\.\d+)?/g).slice(0, 3).map((v) => { v = v / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+  return (x + 0.05) / (y + 0.05);
+}
+
+async function tallEnough(locator, what) {
+  const box = await locator.boundingBox();
+  assert.ok(box && box.height >= 24, `${what} is ${box?.height}px tall, under 24`);
+}
+
+// Where a hovered control's caption lands, left and right, in page pixels.
+async function captionEdges(locator) {
+  await locator.hover();
+  return locator.evaluate((el) => {
+    const a = getComputedStyle(el, "::after"), r = el.getBoundingClientRect();
+    const left = r.left + parseFloat(a.left) + new DOMMatrix(a.transform === "none" ? undefined : a.transform).m41;
+    return { left, right: left + parseFloat(a.width) + parseFloat(a.paddingLeft) + parseFloat(a.paddingRight), width: innerWidth };
+  });
+}
+
 async function makeSong(prompt, seconds) {
   await page.getByLabel("What it sounds like").fill(prompt);
   await page.getByLabel("Length").selectOption(String(seconds));
@@ -61,6 +86,18 @@ await check("the e2e config is committed, not ignored", async () => {
 step("strangers land on sign-in");
 await page.goto(base + "/");
 assert.equal(new URL(page.url()).pathname, "/sign-in");
+await check("the Keep me signed in box is big enough to hit", async () => {
+  await tallEnough(page.getByRole("checkbox"), "the Keep me signed in box");
+});
+
+await check("a failed sign-in says so and puts focus back in the password field", async () => {
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Username").fill(user);
+  await page.getByLabel("Password").fill("not-the-password");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("alert").filter({ hasText: /./ }).waitFor({ timeout: 5_000 });
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("type")), "password");
+});
 
 step("sign in, typing before the app has loaded");
 await check("typing before the app loads survives hydration", async () => {
@@ -116,6 +153,16 @@ await check("a song's title opens its details, with downloads and Make one like 
   await dialog.getByText("Described as").waitFor();
   const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("link", { name: "Download as MP3" }).click()]);
   assert.match(download.suggestedFilename(), /\.mp3$/);
+  for (const chip of await dialog.locator(".downloads .chip").all()) {
+    await chip.hover();
+    const tip = await chip.evaluate((el) => {
+      const s = getComputedStyle(el, "::after"), r = el.getBoundingClientRect(), box = el.closest("dialog, .thaw-dialog-content, .thaw-dialog-body").getBoundingClientRect();
+      const left = r.left + parseFloat(s.left), top = r.bottom - parseFloat(s.bottom) - parseFloat(s.height);
+      return { text: s.content, inside: left >= box.left && left + parseFloat(s.width) <= box.right && top >= box.top };
+    });
+    assert.match(tip.text, /Download as /, "a caption on each download");
+    assert.ok(tip.inside, `the caption ${tip.text} runs out of the dialog`);
+  }
   await dialog.getByRole("button", { name: "Make one like this" }).click();
   await dialog.waitFor({ state: "hidden" });
   assert.equal(await page.getByLabel("What it sounds like").inputValue(), longPrompt);
@@ -153,6 +200,15 @@ await check("Cancel keeps keyboard focus while a song is being made", async () =
 step("play it");
 await page.getByRole("button", { name: `Play ${title}` }).first().click();
 await page.locator(".now-title", { hasText: title }).waitFor();
+
+await check("the playlist marks are an image screen readers name, and small controls are big enough to hit", async () => {
+  assert.equal(await page.locator(".song .marks").first().getAttribute("role"), "img");
+  await tallEnough(page.getByRole("slider", { name: "Seek" }), "the seek bar");
+  await tallEnough(page.getByRole("slider", { name: "Volume" }), "the volume slider");
+  await tallEnough(page.locator(".song-title").first(), "a song title");
+  await tallEnough(page.getByRole("searchbox"), "the search box");
+  await tallEnough(page.getByLabel("Mood"), "the Mood select");
+});
 
 await check("keyboard focus shows on the mustard player bar", async () => {
   for (let i = 0; i < 80; i++) {
@@ -208,6 +264,10 @@ await check("the Playlists tab lists the playlist", async () => {
 
 step("the player kept its song across pages");
 await page.locator(".now-title", { hasText: title }).waitFor();
+
+await check("a song title on a playlist is big enough to hit", async () => {
+  await tallEnough(page.locator(".track-title button").first(), "a song title on a playlist");
+});
 
 await check("a playlist's play button takes the band's colour", async () => {
   const ok = await page.evaluate(() => {
@@ -287,6 +347,13 @@ await check("going live streams the playlist and counts its listener", async () 
   await page.locator(".listeners strong", { hasText: "1" }).waitFor({ timeout: 8_000 });
 });
 
+await check("the Live switch's caption stays on screen at the left edge", async () => {
+  await page.setViewportSize({ width: 720, height: 900 });
+  const tip = await captionEdges(page.getByRole("switch", { name: /Live stream on/ }));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  assert.ok(tip.left >= 0 && tip.right <= tip.width, `caption from ${tip.left} to ${tip.right} in ${tip.width}`);
+});
+
 await check("going private moves the stream to a private link", async () => {
   const before = await page.getByRole("button", { name: "Copy the MP3 link" }).getAttribute("data-tip");
   await page.getByRole("button", { name: /Make private/ }).click();
@@ -312,13 +379,18 @@ await check("the 5 s live refresh keeps keyboard focus where it is", async () =>
 await check("copy works without navigator.clipboard (plain http) and says when it fails", async () => {
   await page.evaluate(() => Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true }));
   await page.getByRole("button", { name: "Copy the MP3 link" }).click();
-  await page.getByText("MP3 link copied.").waitFor({ timeout: 5_000 });
+  await page.getByText("MP3 link copied.").first().waitFor({ timeout: 5_000 });
   await page.evaluate(() => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new Error("denied")) }, configurable: true });
     document.execCommand = () => false;
   });
   await page.getByRole("button", { name: "Copy the AAC link" }).click();
-  await page.getByText(/Could not copy the AAC link/).waitFor({ timeout: 5_000 });
+  await page.getByText(/Could not copy the AAC link/).first().waitFor({ timeout: 5_000 });
+});
+
+await check("what a toast says reaches screen readers", async () => {
+  await page.getByRole("button", { name: "Copy the HLS link" }).click();
+  await page.locator("[role=status]", { hasText: /HLS link/ }).waitFor({ state: "attached", timeout: 5_000 });
 });
 
 await check("off air stops the stream", async () => {
@@ -336,6 +408,7 @@ await check("a wrong current password says so and stays on the page", async () =
   await page.getByRole("button", { name: "Change password", exact: true }).click();
   await page.locator(".error", { hasText: /./ }).waitFor({ timeout: 5_000 });
   assert.equal(new URL(page.url()).pathname, "/password");
+  assert.equal((await page.locator(".error").textContent()).trim(), "That is not your current password.");
 });
 
 await check("a song list that fails to load says so, not 'No songs yet'", async () => {
@@ -364,6 +437,21 @@ await check("on a wide screen the logo lines up with the page", async () => {
   const content = await page.locator(".page").first().evaluate((el) => el.getBoundingClientRect().left + parseFloat(getComputedStyle(el).paddingLeft));
   await page.setViewportSize({ width: 1280, height: 900 });
   assert.ok(Math.abs(logo.x - content) <= 1, `logo at ${logo.x}, content at ${content}`);
+});
+
+await check("in the light theme Live reads at 4.5:1 and the ready dot shows at 3:1", async () => {
+  const got = await page.evaluate(() => {
+    const row = document.createElement("div");
+    row.className = "playlist-row";
+    row.innerHTML = '<span class="live-chip">Live</span>';
+    document.querySelector(".page").append(row);
+    const bg = getComputedStyle(document.body).backgroundColor;
+    const r = { live: getComputedStyle(row.firstChild).color, dot: getComputedStyle(document.querySelector(".engine.ready i")).backgroundColor, bg };
+    row.remove();
+    return r;
+  });
+  assert.ok(contrast(got.live, got.bg) >= 4.5, `Live ${got.live} on ${got.bg}: ${contrast(got.live, got.bg).toFixed(2)}`);
+  assert.ok(contrast(got.dot, got.bg) >= 3, `ready dot ${got.dot} on ${got.bg}: ${contrast(got.dot, got.bg).toFixed(2)}`);
 });
 
 step("no sideways scrolling at 360 px");
@@ -399,6 +487,69 @@ await check("the shelf never scrolls; with more playlists than it shows it ends 
     await page.setViewportSize({ width: 1280, height: 900 });
     for (const id of made) await page.request.delete(base + `/api/v1/playlists/${id}`, { headers });
   }
+});
+
+await check("a dialog takes keyboard focus, keeps it, has a name and gives focus back", async () => {
+  await page.goto(base + "/playlists");
+  await page.waitForLoadState("networkidle");
+  const np = page.getByRole("button", { name: "New playlist" });
+  await np.focus();
+  await page.keyboard.press("Enter");
+  const d = page.getByRole("dialog", { name: "New playlist" });
+  await d.waitFor({ timeout: 5_000 });
+  const inside = () => d.evaluate((el) => el.contains(document.activeElement));
+  assert.ok(await inside(), "focus moved into the dialog");
+  assert.equal(await d.locator("h1 input, h2 input, h3 input").count(), 0, "the dialog's body is not a heading");
+  // Past the last button Tab may reach the browser's own toolbar, never the page behind the dialog.
+  const behind = () => d.evaluate((el) => { const a = document.activeElement; return !!a && a !== document.body && !el.contains(a); });
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Tab");
+    assert.ok(!(await behind()), `Tab ${i + 1} reached the page behind the dialog`);
+  }
+  await page.keyboard.press("Escape");
+  await d.waitFor({ state: "hidden", timeout: 5_000 });
+  assert.ok(await np.evaluate((el) => el === document.activeElement), "focus back on New playlist");
+  const row = page.locator(".playlist-row").first();
+  const more = row.locator(".dropdown > button");
+  await more.click();
+  await row.locator(".dropdown-list").getByRole("button", { name: "Rename" }).click();
+  await page.getByRole("dialog", { name: "Rename playlist" }).waitFor({ timeout: 5_000 });
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog").waitFor({ state: "hidden", timeout: 5_000 });
+  assert.ok(await more.evaluate((el) => el === document.activeElement), "focus back on the menu button");
+});
+
+await check("a search with no hits keeps the list valid and says how many songs it found", async () => {
+  await page.goto(base + "/");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("searchbox").fill("zzzz-no-such-song");
+  await page.getByText("No song matches that search.").waitFor({ timeout: 5_000 });
+  assert.equal(await page.locator("[role=list]:has(> p)").count(), 0, "a list holding a paragraph");
+  await page.locator("[role=status]", { hasText: "No songs found" }).waitFor({ state: "attached", timeout: 5_000 });
+  await page.getByRole("searchbox").fill("");
+});
+
+await check("the Playlists page renames and deletes a playlist from its row", async () => {
+  await page.goto(base + "/playlists");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "New playlist" }).click();
+  await page.getByRole("dialog").getByLabel("Name").fill("Rename me");
+  await page.getByRole("dialog").getByRole("button", { name: "Create" }).click();
+  await page.waitForURL(/\/playlists\/.+/);
+  await page.goto(base + "/playlists");
+  const row = page.locator(".playlist-row", { hasText: "Rename me" });
+  await row.waitFor({ timeout: 5_000 });
+  await row.getByRole("button", { name: "Rename or delete Rename me" }).click();
+  await row.locator(".dropdown-list").getByRole("button", { name: "Rename" }).click();
+  await page.getByRole("dialog").getByLabel("Name").fill("Renamed list");
+  await page.getByRole("dialog").getByRole("button", { name: "Rename" }).click();
+  const renamed = page.locator(".playlist-row", { hasText: "Renamed list" });
+  await renamed.waitFor({ timeout: 5_000 });
+  await renamed.getByRole("button", { name: "Rename or delete Renamed list" }).click();
+  await renamed.locator(".dropdown-list").getByRole("button", { name: "Delete" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+  await renamed.waitFor({ state: "detached", timeout: 5_000 });
+  assert.equal(new URL(page.url()).pathname, "/playlists", "deleting from the list stays on the list");
 });
 
 await check("a session that ends while the page is open sends you to sign-in", async () => {

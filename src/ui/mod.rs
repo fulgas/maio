@@ -10,6 +10,7 @@ mod icons;
 mod live;
 pub mod make;
 mod menu;
+mod modal;
 mod player;
 mod playlist;
 pub mod queue;
@@ -48,6 +49,8 @@ pub fn App() -> impl IntoView {
                     </Routes>
                     <player::PlayerBar/>
                 </Router>
+                // What toasts say, for screen readers: thaw's toaster is not a live region.
+                <div id="announce" class="sr" role="status" aria-live="polite"></div>
             </ToasterProvider>
         </ConfigProvider>
     }
@@ -56,6 +59,9 @@ pub fn App() -> impl IntoView {
 /// A short message in the corner (thaw's toaster).
 pub(crate) fn say(toaster: thaw::ToasterInjection, text: String, intent: thaw::ToastIntent) {
     use thaw::{Toast, ToastBody, ToastOptions};
+    if let Some(region) = document().get_element_by_id("announce") {
+        region.set_text_content(Some(&text));
+    }
     toaster.dispatch_toast(move || view! { <Toast><ToastBody>{text}</ToastBody></Toast> }, ToastOptions::default().with_intent(intent));
 }
 

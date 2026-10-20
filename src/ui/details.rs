@@ -2,13 +2,14 @@
 
 use leptos::prelude::*;
 use leptos_router::hooks::{use_location, use_navigate};
-use thaw::{Button, ButtonAppearance, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle};
+use thaw::{Button, ButtonAppearance};
 
 use crate::{
     domain::{DownloadFormat, Song},
     ui::{
         api, format,
         make::{Draft, MakeForm},
+        modal::Modal,
     },
 };
 
@@ -57,30 +58,24 @@ pub fn SongDetails(open: RwSignal<bool>, song: RwSignal<Option<Song>>) -> impl I
         }
     };
     view! {
-        <Dialog open>
-            <DialogSurface><DialogBody>
-                <DialogTitle>{move || song.get().map(|s| s.title).unwrap_or_default()}</DialogTitle>
-                <DialogContent>
+        <Modal open title=Signal::derive(move || song.get().map(|s| s.title).unwrap_or_default())>
                     {move || song.get().map(|s| view! {
                         <dl class="facts">
                             {facts(&s).into_iter().map(|(k, v)| view! { <dt>{k}</dt><dd>{v}</dd> }).collect_view()}
                         </dl>
                         {s.lyrics.clone().map(|l| view! { <h3 class="lyrics-head">"Lyrics"</h3><pre class="lyrics-text">{l}</pre> })}
-                        // A visible label, not captions: the dialog would cut a caption off.
                         <div class="downloads" role="group" aria-labelledby="downloads-label">
                             <span id="downloads-label" class="downloads-label">"Download"</span>
                             {DownloadFormat::ALL.into_iter().map(|f| view! {
-                                <a class="chip" href=api::download_url(&s.id, f) download aria-label=format!("Download as {}", f.label())>{f.label()}</a>
+                                <a class="chip" href=api::download_url(&s.id, f) download aria-label=format!("Download as {}", f.label()) data-tip=format!("Download as {}", f.label())>{f.label()}</a>
                             }).collect_view()}
                         </div>
                     })}
-                </DialogContent>
-                <DialogActions>
-                    <Button on_click=move |_| open.set(false)>"Close"</Button>
-                    <Button appearance=ButtonAppearance::Primary on_click=move |_| like_this()>"Make one like this"</Button>
-                </DialogActions>
-            </DialogBody></DialogSurface>
-        </Dialog>
+            <div class="modal-actions">
+                <Button on_click=move |_| open.set(false)>"Close"</Button>
+                <Button appearance=ButtonAppearance::Primary on_click=move |_| like_this()>"Make one like this"</Button>
+            </div>
+        </Modal>
     }
 }
 

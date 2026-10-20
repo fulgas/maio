@@ -2,10 +2,7 @@
 
 use leptos::{ev::SubmitEvent, prelude::*};
 use leptos_router::hooks::use_navigate;
-use thaw::{
-    Button, ButtonAppearance, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Field, Input, ToastIntent,
-    ToasterInjection,
-};
+use thaw::{Button, ButtonAppearance, Field, Input, ToastIntent, ToasterInjection};
 
 use crate::{
     domain::{Song, job::JobState},
@@ -16,7 +13,9 @@ use crate::{
         icons::{Icon, IconButton, Svg},
         make::{LANGUAGES, LENGTHS, MakeForm},
         menu::Dropdown,
+        modal::Modal,
         player::Player,
+        playlist,
         queue::QSong,
         say, shelf,
     },
@@ -72,6 +71,8 @@ pub fn PlaylistsPage() -> impl IntoView {
 fn PlaylistList(playlists: Playlists) -> impl IntoView {
     let player = expect_context::<Player>();
     let toaster = ToasterInjection::expect_context();
+    // One pair of Rename and Delete dialogs for the whole list, aimed at the row whose menu was used.
+    let (renaming, deleting, target) = (RwSignal::new(false), RwSignal::new(false), RwSignal::new((String::new(), String::new())));
     let rows = move || {
         let all = loaded(playlists);
         shelf::order(&all, &shelf::played()).into_iter().map(|p| (shelf::colour(&all, &p.id), p)).collect::<Vec<_>>()
@@ -110,10 +111,15 @@ fn PlaylistList(playlists: Playlists) -> impl IntoView {
                         </span>
                         <span class="live-chip">{p.live.on.then(|| view! { <Svg icon=Icon::Live size=14/>"Live" })}</span>
                         <span class="len">{format::length(p.seconds)}</span>
+                        <Dropdown icon=Icon::More label=format!("Rename or delete {name}") items=playlist::more_items()
+                            on_select={ let (id, name, pick) = (id.clone(), name.clone(), playlist::more(renaming, deleting)); move |key| { target.set((id.clone(), name.clone())); pick(key) } }/>
                     </li>
                 }
             }/>
         </ol>
+        <playlist::PlaylistDialogs renaming deleting
+            id=Signal::derive(move || target.get().0) name=Signal::derive(move || target.get().1)
+            on_renamed=Callback::new(|_| ()) on_deleted=Callback::new(|()| ())/>
     }
 }
 
@@ -206,18 +212,13 @@ fn NewPlaylist(open: RwSignal<bool>) -> impl IntoView {
         });
     };
     view! {
-        <Dialog open>
-            <DialogSurface>
-                <DialogBody>
-                    <DialogTitle>"New playlist"</DialogTitle>
-                    <DialogContent><Field label="Name"><Input value=name/></Field></DialogContent>
-                    <DialogActions>
+        <Modal open title="New playlist">
+                    <Field label="Name"><Input value=name/></Field>
+                    <div class="modal-actions">
                         <Button on_click=move |_| open.set(false)>"Cancel"</Button>
                         <Button appearance=ButtonAppearance::Primary on_click=move |_| create()>"Create"</Button>
-                    </DialogActions>
-                </DialogBody>
-            </DialogSurface>
-        </Dialog>
+                    </div>
+        </Modal>
     }
 }
 
@@ -358,18 +359,13 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
             </Show>
             <p class="error" role="alert">{move || error.get()}</p>
         </form>
-        <Dialog open=ask_noncommercial>
-            <DialogSurface>
-                <DialogBody>
-                    <DialogTitle>"Non-commercial engine"</DialogTitle>
-                    <DialogContent>"The engine that can make this song allows only non-commercial use of what it makes. Make it anyway?"</DialogContent>
-                    <DialogActions>
-                        <Button on_click=move |_| ask_noncommercial.set(false)>"Cancel"</Button>
-                        <Button appearance=ButtonAppearance::Primary on_click=move |_| { ask_noncommercial.set(false); send(true); }>"Make anyway"</Button>
-                    </DialogActions>
-                </DialogBody>
-            </DialogSurface>
-        </Dialog>
+        <Modal open=ask_noncommercial title="Non-commercial engine">
+            <p>"The engine that can make this song allows only non-commercial use of what it makes. Make it anyway?"</p>
+            <div class="modal-actions">
+                <Button on_click=move |_| ask_noncommercial.set(false)>"Cancel"</Button>
+                <Button appearance=ButtonAppearance::Primary on_click=move |_| { ask_noncommercial.set(false); send(true); }>"Make anyway"</Button>
+            </div>
+        </Modal>
     }
 }
 
@@ -513,18 +509,26 @@ fn SongList(playlists: Playlists) -> impl IntoView {
     };
     let summary = move || {
         let songs = all();
-        (next.get().is_none() && query.with(String::is_empty) && !songs.is_empty())
+        if !matches!(first.get(), Some(Ok(_))) {
+            return None;
+        }
+        // A search says how many it found; it is a status, so screen readers hear it too.
+        if !query.with(String::is_empty) {
+            let more = if next.get().is_some() { "+" } else { "" };
+            return Some(if songs.is_empty() { "No songs found".to_string() } else { format!("{}{more} found", format::songs(songs.len())) });
+        }
+        (next.get().is_none() && !songs.is_empty())
             .then(|| format!("{}, {}", format::songs(songs.len()), format::length(songs.iter().map(|s| s.song.seconds).sum())))
     };
     view! {
         <div class="list-head">
             <h1>"Songs"</h1>
-            <span class="hint">{summary}</span>
+            <span class="hint" role="status">{summary}</span>
             <label class="search"><Svg icon=Icon::Search size=16/><span class="sr">"Search songs"</span>
                 <input type="search" placeholder="Search titles, moods, lyrics" bind:value=query/>
             </label>
         </div>
-        <div class="songs" role="list">
+        <div class="songs" role=move || (matches!(first.get(), Some(Ok(_))) && !all().is_empty()).then_some("list")>
             {move || {
                 // Loading shows nothing and a failure says so: "No songs yet" only when the library really is empty.
                 match first.get() {
@@ -590,7 +594,7 @@ fn SongList(playlists: Playlists) -> impl IntoView {
                                     on:click={ let s = s.song.clone(); move |_| { shown.set(Some(s.clone())); showing.set(true); } }>{name.clone()}</button>
                                 <span class="song-prompt">{subtitle}</span>
                             </span>
-                            <span class="marks" data-tip=format::in_playlists(&s.playlists) aria-label=format::in_playlists(&s.playlists)>
+                            <span class="marks" role="img" data-tip=format::in_playlists(&s.playlists) aria-label=format::in_playlists(&s.playlists)>
                                 {marks.into_iter().map(|c| view! { <i style:background=c></i> }).collect_view()}
                             </span>
                             <span class="meta">{format::meta(&s.song)}</span>
@@ -607,25 +611,19 @@ fn SongList(playlists: Playlists) -> impl IntoView {
             <button type="button" class="more" on:click=load_more>"Show more songs"</button>
         </Show>
         <crate::ui::details::SongDetails open=showing song=shown/>
-        <Dialog open=renaming>
-            <DialogSurface><DialogBody>
-                <DialogTitle>"Rename song"</DialogTitle>
-                <DialogContent><Field label="Title"><Input value=title/></Field></DialogContent>
-                <DialogActions>
-                    <Button on_click=move |_| renaming.set(false)>"Cancel"</Button>
-                    <Button appearance=ButtonAppearance::Primary on_click=move |_| rename()>"Rename"</Button>
-                </DialogActions>
-            </DialogBody></DialogSurface>
-        </Dialog>
-        <Dialog open=deleting>
-            <DialogSurface><DialogBody>
-                <DialogTitle>{move || format!("Delete {}?", target.get().map(|t| t.1).unwrap_or_default())}</DialogTitle>
-                <DialogContent>"The song and its file are deleted. This cannot be undone."</DialogContent>
-                <DialogActions>
-                    <Button on_click=move |_| deleting.set(false)>"Cancel"</Button>
-                    <Button appearance=ButtonAppearance::Primary on_click=move |_| delete()>"Delete"</Button>
-                </DialogActions>
-            </DialogBody></DialogSurface>
-        </Dialog>
+        <Modal open=renaming title="Rename song">
+            <Field label="Title"><Input value=title/></Field>
+            <div class="modal-actions">
+                <Button on_click=move |_| renaming.set(false)>"Cancel"</Button>
+                <Button appearance=ButtonAppearance::Primary on_click=move |_| rename()>"Rename"</Button>
+            </div>
+        </Modal>
+        <Modal open=deleting title=Signal::derive(move || format!("Delete {}?", target.get().map(|t| t.1).unwrap_or_default()))>
+            <p>"The song and its file are deleted. This cannot be undone."</p>
+            <div class="modal-actions">
+                <Button on_click=move |_| deleting.set(false)>"Cancel"</Button>
+                <Button appearance=ButtonAppearance::Primary on_click=move |_| delete()>"Delete"</Button>
+            </div>
+        </Modal>
     }
 }

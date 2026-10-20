@@ -167,13 +167,12 @@ async fn the_playlists_page_lists_them_behind_sign_in() {
 }
 
 #[tokio::test]
-async fn play_waits_for_a_song() {
-    // With nothing chosen yet, the player's Play has nothing to play: it says so instead of doing nothing.
+async fn the_player_bar_waits_for_a_song() {
+    // With nothing chosen yet the player bar has nothing to show, so it stays out of the way.
     let w = world();
     let session = sign_in(&w).await;
     let (_, _, html) = page(&w, "/", Some(&session)).await;
-    assert!(html.contains(r#"aria-label="Play: pick a song first""#), "{html}");
-    assert!(html.contains("disabled"), "{html}");
+    assert!(html.contains(r#"class="player hidden""#), "{html}");
 }
 
 #[tokio::test]

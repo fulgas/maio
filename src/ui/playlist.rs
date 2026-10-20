@@ -33,6 +33,7 @@ pub fn PlaylistPage() -> impl IntoView {
     let view_res = LocalResource::new(move || {
         c.playlists.track();
         c.songs.track();
+        c.live.track();
         let id = id.get();
         async move { api::playlist(&id).await }
     });
@@ -55,6 +56,7 @@ pub fn PlaylistPage() -> impl IntoView {
         _ => None,
     };
     let loaded = move || matches!(view_res.get(), Some(Ok(_)));
+    let is_live = move || view_res.get().and_then(Result::ok).is_some_and(|v| v.playlist.live.on);
     let colour = move || all.get().and_then(Result::ok).map_or(shelf::COLOURS[0], |a| shelf::colour(&a, &id.get()));
     let from = move || Some(PlaylistRef { id: id.get_untracked(), name: name.get_untracked() });
     let queue = move || songs.get_untracked().iter().map(QSong::from).collect::<Vec<_>>();
@@ -106,11 +108,16 @@ pub fn PlaylistPage() -> impl IntoView {
                     icon=Signal::derive(move || if player.is_playing_list(&id.get()) { Icon::Pause } else { Icon::Play })
                     label=Signal::derive(move || format!("{} {}", if player.is_playing_list(&id.get()) { "Pause" } else { "Play" }, name.get()))
                     on_click=move || {
-                        let this = player.queue.with_untracked(|q| q.from.as_ref().is_some_and(|f| f.id == id.get_untracked()));
-                        if this { player.toggle() } else { player.play(queue(), 0, from()) }
+                        if let Some(from) = from() {
+                            player.play_list(from, Some(queue()))
+                        }
                     }/>
-                <IconButton icon=Icon::Shuffle class="solid" label="Shuffle when I play it".to_string()
-                    pressed=Signal::derive(move || player.queue.with(|q| q.shuffle)) on_click=move || player.shuffle()/>
+                // A one-shot, not a second shuffle switch: the player's shuffle is the switch.
+                // Live, Play plays the stream, whose order is the live strip's shuffle.
+                <Show when=move || !is_live()>
+                    <IconButton icon=Icon::Shuffle class="solid" label="Shuffle play: start it in random order".to_string()
+                        on_click=move || if let Some(from) = from() { player.shuffle_play(queue(), from) }/>
+                </Show>
                 <IconButton icon=Icon::Add class="outline" label="Add songs".to_string() on_click=move || adding.set(true)/>
                 <Dropdown icon=Icon::More label="Rename or delete the playlist" class="outline" on_select=on_more items=more_items()/>
             </div>

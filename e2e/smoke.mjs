@@ -304,6 +304,17 @@ await check("after the list ends, the player's Play plays again", async () => {
   await page.locator(".player").getByRole("button", { name: "Pause", exact: true }).click();
 });
 
+await check("the band's Shuffle play starts the playlist shuffled and is no switch", async () => {
+  const b = page.locator(".band").getByRole("button", { name: /^Shuffle play/ });
+  assert.equal(await b.getAttribute("aria-pressed"), null, "a button, not a second shuffle switch");
+  await b.click();
+  await page.locator(".player").getByRole("button", { name: "Pause", exact: true }).waitFor({ timeout: 5_000 });
+  const shuffle = page.locator(".player").getByRole("button", { name: /^Shuffle/ });
+  assert.equal(await shuffle.getAttribute("aria-pressed"), "true", "the player's shuffle is on");
+  await shuffle.click();
+  await page.locator(".player").getByRole("button", { name: "Pause", exact: true }).click();
+});
+
 await check("arrow keys move a song more than one step", async () => {
   const first = (await page.locator(".track-title").first().textContent()).trim();
   await page.locator(".grip").first().focus();
@@ -399,9 +410,51 @@ await check("what a toast says reaches screen readers", async () => {
   await page.locator("[role=status]", { hasText: /HLS link/ }).waitFor({ state: "attached", timeout: 5_000 });
 });
 
-await check("off air stops the stream", async () => {
+await check("Play on a live playlist tunes into its stream; a song's own Play stays on demand", async () => {
+  const onAir = async () => (await (await page.request.get(base + "/api/v1" + playlistPath + "/live")).json()).on_air;
+  assert.equal(await page.locator(".band").getByRole("button", { name: /^Shuffle/ }).count(), 0, "a live playlist's order is the live strip's shuffle");
+  await page.locator(".band").getByRole("button", { name: /^Play / }).click();
+  await page.locator(".player .live-mark").waitFor({ timeout: 5_000 });
+  assert.match(await page.locator(".player audio").evaluate((a) => a.src), /\/listen\/[^/]+\/stream\.mp3$/);
+  assert.ok(await page.locator(".player").getByRole("button", { name: /^Next song/ }).isDisabled(), "no skipping a broadcast");
+  assert.ok(!(await page.getByRole("slider", { name: "Seek" }).isVisible()), "a stream has no seek bar");
+  assert.ok(Number(await page.locator(".player").getByRole("button", { name: /^Next song/ }).evaluate((b) => getComputedStyle(b).opacity)) < 1, "a disabled control looks disabled");
+  assert.ok(await page.locator(".player").getByRole("button", { name: /^Shuffle/ }).isDisabled(), "the stream's order is the live strip's to change");
+  await page.locator(".now-title", { hasText: (await onAir()).now.title }).waitFor({ timeout: 8_000 });
+  await page.locator(".band").getByRole("button", { name: /^Pause / }).waitFor({ timeout: 5_000 });
+  await page.locator(".player").getByRole("button", { name: "Pause", exact: true }).click();
+  await page.locator(".player").getByRole("button", { name: "Play", exact: true }).waitFor({ timeout: 3_000 });
+  await page.locator(".band").getByRole("button", { name: /^Play / }).waitFor({ timeout: 3_000 });
+  await page.locator(".player").getByRole("button", { name: "Play", exact: true }).click();
+  await page.locator(".band").getByRole("button", { name: /^Pause / }).waitFor({ timeout: 5_000 });
+  await page.locator(".track").first().getByRole("button", { name: /^Play / }).click();
+  await page.locator(".player .live-mark").waitFor({ state: "detached", timeout: 5_000 });
+  assert.match(await page.locator(".player audio").evaluate((a) => a.src), /\/songs\/[^/]+\/audio/);
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+});
+
+await check("off air stops the stream, and a listening player says so", async () => {
+  await page.locator(".band").getByRole("button", { name: /^Play / }).click();
+  await page.locator(".player .live-mark").waitFor({ timeout: 5_000 });
   await page.getByRole("switch", { name: /Live stream on/ }).click();
   await page.getByRole("switch", { name: /Go live/ }).waitFor({ timeout: 5_000 });
+  await page.locator("[role=status]", { hasText: /went off air/ }).waitFor({ state: "attached", timeout: 10_000 });
+  await page.locator(".player .live-mark").waitFor({ state: "detached", timeout: 5_000 });
+});
+
+await check("the player bar shows only while it holds something, even on a live playlist's page", async () => {
+  await page.locator(".player").waitFor({ state: "hidden", timeout: 5_000 });
+  await page.getByRole("switch", { name: /Go live/ }).click();
+  await page.getByRole("switch", { name: /Live stream on/ }).waitFor({ timeout: 5_000 });
+  await page.waitForTimeout(1_000);
+  assert.ok(!(await page.locator(".player").isVisible()), "no idle player bar on a live page");
+  await page.locator(".band").getByRole("button", { name: /^Play / }).click();
+  await page.locator(".player .live-mark").waitFor({ timeout: 5_000 });
+  await page.locator(".player").getByRole("button", { name: "Pause", exact: true }).click();
+  assert.ok(await page.locator(".player").isVisible(), "paused, it stays");
+  await page.getByRole("switch", { name: /Live stream on/ }).click();
+  await page.getByRole("switch", { name: /Go live/ }).waitFor({ timeout: 5_000 });
+  await page.locator(".player").waitFor({ state: "hidden", timeout: 10_000 });
 });
 
 await check("a wrong current password says so and stays on the page", async () => {

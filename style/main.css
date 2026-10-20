@@ -56,6 +56,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* Player bar: mustard, on every screen */
 .player { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; align-items: center; gap: 12px 18px; padding: 12px var(--gutter); background: var(--mustard); color: var(--on-colour); flex-wrap: wrap; }
 .player.hidden { display: none; }
+/* Listening live: a stream has no length and no seeking, and the controls it does not have look switched off. */
+.player .time.hidden, .player .seek.hidden { display: none; }
+.player .icon:disabled { opacity: 0.4; cursor: default; }
+.player .volume { margin-left: auto; }
+.player .live-mark { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; font-weight: 700; }
 .player .icon:hover { background: rgba(30, 28, 33, 0.12); }
 .player .icon.small, .player .icon.big { background: var(--on-colour); color: var(--mustard); }
 .player .icon.small { width: 40px; height: 40px; }

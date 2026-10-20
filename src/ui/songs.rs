@@ -70,7 +70,6 @@ pub fn PlaylistsPage() -> impl IntoView {
 #[component]
 fn PlaylistList(playlists: Playlists) -> impl IntoView {
     let player = expect_context::<Player>();
-    let toaster = ToasterInjection::expect_context();
     // One pair of Rename and Delete dialogs for the whole list, aimed at the row whose menu was used.
     let (renaming, deleting, target) = (RwSignal::new(false), RwSignal::new(false), RwSignal::new((String::new(), String::new())));
     let rows = move || {
@@ -83,19 +82,7 @@ fn PlaylistList(playlists: Playlists) -> impl IntoView {
                 let (id, name) = (p.id.clone(), p.name.clone());
                 let play = {
                     let (id, name) = (id.clone(), name.clone());
-                    move || {
-                        if player.queue.with_untracked(|q| q.from.as_ref().is_some_and(|f| f.id == id)) {
-                            return player.toggle();
-                        }
-                        let (id, name) = (id.clone(), name.clone());
-                        leptos::task::spawn_local(async move {
-                            match api::playlist(&id).await {
-                                Ok(v) if v.songs.is_empty() => say(toaster, format!("{name} has no songs yet."), ToastIntent::Info),
-                                Ok(v) => player.play(v.songs.iter().map(QSong::from).collect(), 0, Some(crate::domain::PlaylistRef { id, name })),
-                                Err(f) => say(toaster, f.text(), ToastIntent::Error),
-                            }
-                        });
-                    }
+                    move || player.play_list(crate::domain::PlaylistRef { id: id.clone(), name: name.clone() }, None)
                 };
                 view! {
                     <li class="playlist-row">

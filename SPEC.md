@@ -10,7 +10,7 @@ It is a personal tool: one person runs it and owns everything in it. This versio
 |-------|------------|
 | **Song** | Made from one prompt by a music engine, then kept in the library until you delete it. |
 | **Playlist** | A named, ordered collection of songs you choose. A song can be in many playlists, or in none. Playlists have no prompts and make no songs themselves. |
-| **Player** | Plays songs and playlists on demand in your browser, with shuffle, repeat one and repeat all. |
+| **Player** | Plays songs and playlists on demand in your browser, with shuffle, repeat one and repeat all; a live playlist plays its stream. |
 | **Live** | A switch on a playlist. While it is on, the playlist streams continuously, looping, to anyone with its link. |
 
 Rules:
@@ -190,6 +190,7 @@ Lyrics, titles and descriptions come from text engines: language models that wri
 - A playlist has an `id`, a `name`, its songs in order, and its live settings (section 9).
 - You create, rename and delete playlists, add songs (at a position, default the end; songs already in it are skipped), remove songs, and set the whole order.
 - The player runs in the browser. It plays one song or a playlist from any song, with play and pause, previous and next, a seek bar, volume, shuffle, and repeat (off, all, one). Songs stream from `GET /api/v1/songs/{id}/audio` with HTTP range requests. The player is per browser and changes nothing on the server.
+- Play on a live playlist (its band, its row on Playlists) tunes into its live stream (MP3), so you hear what its listeners hear: the bar shows Live, the song on air (looked up every 5 s) and the playlist; seek, previous, next, shuffle and repeat are off, since a broadcast plays the same for everyone (the stream's shuffle is in the live strip). Pause hangs up; Play again joins at the live edge. A song's own Play, and any playlist that is not live, play on demand. When the stream goes off air the player stops and says so.
 
 ## 9. Live
 
@@ -307,8 +308,8 @@ The design is the **Shelf** direction on the Claude Design canvas "Maio songs an
   - "Being made": jobs with progress, time left and cancel;
   - the song list with search: play, title (opens the song's details) and prompt, playlist marks, mood and key, length, add to playlist, and rename or delete.
 - **Song details** (from a song's title, on the Songs screen and a playlist page): everything the song carries (section 5): what it was described as, mood, genre, energy, length, tempo, key, time signature, voice, seed, engine, who wrote the lyrics and the title, licence, when it was made; its lyrics; downloads in MP3, AAC, FLAC, WAV and Opus; and "Make one like this", which fills the Make form with its settings and seed.
-- **Playlist** page: a coloured band with the name and length and icon buttons (play, shuffle, add songs, more); the live strip under it (live switch with listener count, public or private, stream shuffle, new link, a copy button per address, streams in use); the songs, full width, with drag to reorder, play, the song on the live stream marked, and remove.
-- **Player bar** on every screen: current song and playlist, shuffle, previous, play and pause, next, repeat, seek bar, volume.
+- **Playlist** page: a coloured band with the name and length and icon buttons (play, shuffle play: the playlist from a random song with the player's shuffle on, a one-shot and no switch, and none on a live playlist; add songs, more); the live strip under it (live switch with listener count, public or private, stream shuffle, new link, a copy button per address, streams in use); the songs, full width, with drag to reorder, play, the song on the live stream marked, and remove.
+- **Player bar** on every screen while the player holds a song or a stream (playing or paused; hidden when it holds nothing): current song and playlist, shuffle, previous, play and pause, next, repeat, seek bar, volume; listening live, a Live mark and the song on air in place of the seek bar.
 - **Sign in** and **change password** screens.
 - Every screen works from 360 px wide, with visible keyboard focus and text contrast of at least 4.5:1.
 - Asset file names carry a hash of their content and are cached for good, so a new release is never hidden behind a cached old file.

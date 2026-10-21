@@ -84,7 +84,7 @@ Lyrics, titles and descriptions come from text engines: language models that wri
 | `anthropic` | the Anthropic Messages API | needs an API key |
 | `openai` | any OpenAI-compatible chat API (llama.cpp, Ollama, LM Studio, vLLM) | key optional |
 
-- A text engine has an `id`, a `kind`, a `model`, for the HTTP kinds a `url` and an optional `api_key_env`, and a `licence` for credits.
+- A text engine has an `id`, a `kind`, a `model`, a `url` (required for `openai`; `anthropic` defaults to Anthropic's API) and an optional `api_key_env`.
 - Maio sends only your prompt, the structured fields and the lyrics, with fixed instructions. Reasoning text (`<think>…</think>`) in replies is dropped.
 - Health: a one-token call at start and every 5 minutes.
 

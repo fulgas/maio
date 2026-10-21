@@ -65,7 +65,7 @@ export const views = {
     nodes: [node('you', 20, 90), node('scripts', 20, 440), node('webapp', 420, 90), node('server', 800, 330), node('mediamtx', 1180, 90), node('db', 610, 610), node('files', 990, 610), node('listeners', 1600, 90), node('acestep', 1600, 400), node('textengines', 1600, 680)],
     edges: [edge('you', 'webapp', 'Uses', { channel: 'input' }), edge('webapp', 'server', 'Everything · /api/v1, SSE', { channel: 'input' }), edge('scripts', 'server', 'Everything · token'), edge('server', 'mediamtx', 'Publishes AAC', { channel: 'output' }), edge('mediamtx', 'server', 'Who may read? /relay/auth'), edge('server', 'listeners', 'MP3 · AAC · HLS', { channel: 'output' }), edge('mediamtx', 'listeners', 'RTSP · SRT · RTMP', { channel: 'output' }), edge('server', 'db', 'Reads, writes'), edge('server', 'files', 'Song files'), edge('server', 'acestep', 'Makes songs · HTTP', { channel: 'input' }), edge('acestep', 'server', 'The audio', { channel: 'output' }), edge('server', 'textengines', 'Words · HTTPS')],
     flows: [{ id: 'input', legs: [{ from: 'you', to: 'webapp' }, { from: 'webapp', to: 'server' }, { from: 'server', to: 'acestep' }] }, { id: 'output', legs: [{ from: 'acestep', to: 'server' }, { from: 'server', to: 'mediamtx' }, { from: 'server', to: 'listeners' }, { from: 'mediamtx', to: 'listeners' }] }],
-    boundary: { x: 380, y: 40, width: 1090, height: 770, label: 'maio · Docker compose on the Mac' }, parent: 'context',
+    boundary: { x: 380, y: 40, width: 1090, height: 770, label: 'maio · Docker compose' }, parent: 'context',
   },
   components: {
     title: 'Components', level: 'C4 · Level 3', scope: 'Inside maio', crumb: 'components',
@@ -93,12 +93,12 @@ export const views = {
     boundary: { x: -20, y: -10, width: 1260, height: 590, label: 'Web app · Leptos, hydrated in the browser' }, parent: 'containers',
   },
   deployment: {
-    title: 'Deployment', level: 'C4 · Deployment', scope: 'The Mac', crumb: 'containers', deeper: true,
-    description: 'Where each part runs: Docker compose on the Mac, ACE-Step beside it.',
+    title: 'Deployment', level: 'C4 · Deployment', scope: 'Docker host and Mac', crumb: 'containers', deeper: true,
+    description: 'Where each part runs: Docker compose on any Docker host; ACE-Step on a Mac with Apple silicon, for Metal.',
     hint: 'The ports are the ones listeners and browsers use; MediaMTX\'s control API stays inside Docker.',
-    nodes: [node('you', 20, 120), node('listeners', 20, 520), node('deployServer', 470, 130), node('deployMediamtx', 890, 300), node('deployData', 890, 560), node('deployAcestep', 1400, 130)],
-    edges: [edge('you', 'deployServer', 'HTTP · 8080'), edge('listeners', 'deployServer', 'MP3 · AAC · HLS · 8080'), edge('listeners', 'deployMediamtx', 'RTSP 8555 · SRT 8891 · RTMP 1936'), edge('deployServer', 'deployMediamtx', 'Publishes AAC'), edge('deployMediamtx', 'deployServer', 'POST /relay/auth'), edge('deployServer', 'deployData', 'Reads, writes'), edge('deployServer', 'deployAcestep', 'host.docker.internal:7801')],
-    boundaries: [{ x: 380, y: 20, width: 1360, height: 740, label: 'The Mac' }, { x: 420, y: 70, width: 800, height: 660, label: 'Docker compose · maio' }], parent: 'containers',
+    nodes: [node('you', 20, 120), node('listeners', 20, 520), node('deployServer', 470, 130), node('deployMediamtx', 890, 300), node('deployData', 890, 560), node('deployAcestep', 1395, 130)],
+    edges: [edge('you', 'deployServer', 'HTTP · 8080'), edge('listeners', 'deployServer', 'MP3 · AAC · HLS · 8080'), edge('listeners', 'deployMediamtx', 'RTSP 8555 · SRT 8891 · RTMP 1936'), edge('deployServer', 'deployMediamtx', 'Publishes AAC'), edge('deployMediamtx', 'deployServer', 'POST /relay/auth'), edge('deployServer', 'deployData', 'Reads, writes'), edge('deployServer', 'deployAcestep', 'HTTP :7801 · the [[engine]] url')],
+    boundaries: [{ x: 380, y: 20, width: 880, height: 740, label: 'Docker host · any machine with Docker' }, { x: 420, y: 70, width: 800, height: 660, label: 'Docker compose · maio' }, { x: 1340, y: 80, width: 360, height: 260, label: 'Mac · Apple silicon' }], parent: 'containers',
   },
 };
 

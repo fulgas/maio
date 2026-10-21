@@ -59,15 +59,19 @@ test('edges meet node borders, boxes do not overlap, and the fit bounds hold eve
   }
 });
 
-test('the deployment view nests Docker compose inside the Mac, with ACE-Step on the Mac outside Docker', () => {
+test('the deployment view puts Docker compose on any Docker host, and ACE-Step on a Mac of its own', () => {
   const view = views.deployment;
   assert.ok(view, 'a deployment view');
-  const [mac, docker] = view.boundaries;
+  const [host, docker, mac] = view.boundaries;
   const inside = (n, b) => n.x >= b.x && n.y >= b.y && n.x + n.width <= b.x + b.width && n.y + n.height <= b.y + b.height;
-  assert.ok(inside(docker, mac), 'Docker compose sits inside the Mac');
+  assert.match(host.label, /Docker host/);
+  assert.match(mac.label, /Mac/);
+  assert.ok(inside(docker, host), 'Docker compose sits on the Docker host');
+  assert.ok(!inside(docker, mac) && !inside(mac, host), 'the Docker host is not the Mac');
   const at = id => view.nodes.find(n => n.id === id);
   for (const id of ['deployServer', 'deployMediamtx', 'deployData']) assert.ok(inside(at(id), docker), `${id} inside Docker`);
-  assert.ok(inside(at('deployAcestep'), mac) && !inside(at('deployAcestep'), docker), 'ACE-Step on the Mac, outside Docker');
+  assert.ok(inside(at('deployAcestep'), mac) && !inside(at('deployAcestep'), host), 'ACE-Step on the Mac, off the Docker host');
+  assert.ok(!/on the Mac/.test(views.containers.boundary.label), 'the containers do not need a Mac');
 });
 
 

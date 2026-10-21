@@ -283,6 +283,7 @@ test('the docs follow Diátaxis: a tutorial, how-to guides, explanation and refe
   const group = g => result.documents.filter(d => d.group === g).map(d => d.id);
   assert.ok(group('tutorials').length >= 1, 'a tutorial');
   assert.ok(group('how-to').length >= 5, 'how-to guides');
+  assert.ok(group('how-to').includes('how-to/06-make-a-themed-playlist-with-the-api'), 'making playlists through the API is a how-to');
   assert.deepEqual(group('reference'), ['reference', 'tech', 'design']);
   assert.deepEqual(group('explanation'), ['product']);
   for (const id of [...group('tutorials'), ...group('how-to')]) {

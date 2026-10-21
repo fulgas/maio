@@ -10,6 +10,9 @@ moods = ["calm", "focused", "upbeat", "playful", "tense", "dreamy", "melancholy"
 genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic"]
 # A job whose engine shows no progress for this long fails, and is tried once more on another engine.
 engine_stall_s = 600
+# How often a song being made is polled; after a busy answer or a failed poll, the wait doubles up to engine_backoff_max_s.
+engine_poll_s = 2
+engine_backoff_max_s = 30
 # At most this many playlists live at once: each runs its own encoders.
 max_live = 4
 # The crossfade between songs on a live stream, in seconds.

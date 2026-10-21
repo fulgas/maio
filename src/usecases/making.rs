@@ -15,6 +15,7 @@ use crate::domain::{
     request::{Normalized, Rules, SongRequest},
     titles,
 };
+use backon::{ExponentialBuilder, Retryable};
 use serde::Serialize;
 use tokio::sync::{Notify, Semaphore};
 use tracing::Instrument;
@@ -40,8 +41,10 @@ pub struct MakeSettings {
     pub naming_engine: Option<String>,
     pub make_rate: Rate,
     pub pending_jobs: u32,
-    /// How often a running engine job is polled (arc42 3.3: 2 s).
+    /// How often a running engine job is polled, and the first wait after trouble (arc42 8.8).
     pub poll: Duration,
+    /// After a busy answer or a failed poll, each wait doubles up to this (arc42 8.8).
+    pub backoff_max: Duration,
     /// arc42 8.2: 30 s for lyrics, 15 s for a title.
     pub lyrics_timeout: Duration,
     pub naming_timeout: Duration,
@@ -219,6 +222,16 @@ impl Making {
     }
 
     /// Changes an open job and tells the notifier; a cancelled or finished job stays as it is.
+    /// The waits after a busy answer or a failed poll: the poll interval, doubling up to `backoff_max`, no jitter
+    /// (one client, nothing to spread apart), with no limit on tries unless the caller sets one (arc42 8.8).
+    fn backoff(&self) -> ExponentialBuilder {
+        ExponentialBuilder::default()
+            .with_min_delay(self.settings.poll)
+            .with_max_delay(self.settings.backoff_max)
+            .with_factor(2.0)
+            .without_max_times()
+    }
+
     fn update(&self, id: &str, change: impl FnOnce(&mut Job)) {
         let job = {
             let mut jobs = lock(&self.jobs);
@@ -353,22 +366,19 @@ impl Making {
             return Ok(None);
         }
         let request = EngineRequest { write_lyrics, ..EngineRequest::from(n) };
-        let remote = loop {
-            match engine.submit(&request).await {
-                Ok(remote) => break remote,
-                Err(CallError::Busy) => {
-                    tokio::time::sleep(self.settings.poll).await;
-                    if self.is_cancelled(id) {
-                        return Ok(None);
-                    }
-                }
+        // A busy engine is asked again after backoff, until it takes the song or the song is cancelled.
+        let submit = (|| engine.submit(&request)).retry(self.backoff()).when(|e| *e == CallError::Busy);
+        let remote = tokio::select! {
+            r = submit => match r {
+                Ok(remote) => remote,
                 Err(CallError::Rejected(m)) => return Err(Failure { retryable: false, message: m }),
                 Err(e) => return Err(engine_trouble(id, engine_id, "submit", &e)),
-            }
+            },
+            () = cancel.notified() => return Ok(None),
         };
-        let mut transport_errors = 0;
         let (mut last_seen, mut seen_at) = ((String::new(), -1.0_f32), tokio::time::Instant::now());
         loop {
+            // The steady pace between good answers; a failed poll is retried with backoff, 3 tries in all.
             tokio::select! {
                 () = tokio::time::sleep(self.settings.poll) => {}
                 () = cancel.notified() => {}
@@ -377,18 +387,12 @@ impl Making {
                 engine.delete(&remote).await;
                 return Ok(None);
             }
-            let job = match engine.job(&remote).await {
+            let poll = (|| engine.job(&remote)).retry(self.backoff().with_max_times(2)).when(|e| *e != CallError::NotFound);
+            let job = match poll.await {
                 Ok(job) => job,
                 Err(CallError::NotFound) => return Err(Failure { retryable: true, message: "the engine lost the job".into() }),
-                Err(e) => {
-                    transport_errors += 1;
-                    if transport_errors >= 3 {
-                        return Err(engine_trouble(id, engine_id, "polling", &e));
-                    }
-                    continue;
-                }
+                Err(e) => return Err(engine_trouble(id, engine_id, "polling", &e)),
             };
-            transport_errors = 0;
             let seen = (job.state.clone(), job.progress);
             if seen != last_seen {
                 (last_seen, seen_at) = (seen, tokio::time::Instant::now());
@@ -546,6 +550,7 @@ mod tests {
             make_rate: Rate { max: 20, window_s: 600 },
             pending_jobs: 4,
             poll: Duration::from_millis(5),
+            backoff_max: Duration::from_millis(20),
             lyrics_timeout: Duration::from_millis(100),
             naming_timeout: Duration::from_millis(100),
             stall: Duration::from_secs(10),
@@ -737,6 +742,29 @@ mod tests {
         assert_eq!(
             (job.state, job.error.as_deref()),
             (JobState::Failed, Some("the engine ace-step is not answering at 127.0.0.1:9; check that it is running, then make the song again"))
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_busy_engine_is_asked_again_after_waits_that_double_up_to_the_most() {
+        let w = world_with(vec![FakeEngine::up("ace-step")], vec![], settings());
+        w.engines[0].busy.store(4, Ordering::SeqCst);
+        finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
+        assert_eq!(w.engines[0].gaps_ms("submit"), [5, 10, 20, 20], "poll 5 ms, the most 20 ms");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn failed_polls_wait_longer_each_time_and_a_good_answer_brings_the_steady_poll_back() {
+        let w = world_with(vec![FakeEngine::up("ace-step")], vec![], settings());
+        w.engines[0].hold.store(true, Ordering::SeqCst);
+        w.engines[0].poll_failures.store(2, Ordering::SeqCst);
+        let id = w.making.make(&calm()).unwrap().job_id;
+        reaches(&w, &id, JobState::Making).await;
+        tokio::time::sleep(Duration::from_millis(60)).await;
+        assert_eq!(
+            w.engines[0].gaps_ms("poll")[..4],
+            [5, 10, 5, 5],
+            "after each failure the wait doubles, then a good answer brings the steady poll back"
         );
     }
 

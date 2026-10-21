@@ -92,6 +92,7 @@ fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -
             make_rate: Rate { max: 3, window_s: 600 },
             pending_jobs: 4,
             poll: Duration::from_millis(5),
+            backoff_max: Duration::from_millis(20),
             lyrics_timeout: Duration::from_millis(100),
             naming_timeout: Duration::from_millis(100),
             stall: Duration::from_secs(10),

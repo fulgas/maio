@@ -78,7 +78,7 @@ default_language = "en"
 ```
 
 - `[relay] host` and the ports are what the live strip shows listeners; set `host` to the name they reach this machine by.
-- `log_format = "json"` switches logs to JSON (arc42 8.6); `engine_stall_s` (default 600) fails a song that has not changed for that long (arc42 3.3).
+- `log_format = "json"` switches logs to JSON (arc42 8.6); `engine_stall_s` (default 600) fails a song that has not changed for that long; `engine_poll_s` (default 2) is how often a song being made is polled, and `engine_backoff_max_s` (default 30) the longest wait after a busy answer or a failed poll (arc42 8.8).
 
 The environment (`.env`, copy `.env.example`; never printed):
 

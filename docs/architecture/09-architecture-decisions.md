@@ -24,4 +24,4 @@ Decisions that still shape Maio are recorded as architecture decision records (A
 | [0014](../adr/0014-product-design-and-tech-pages.md) | Product, Design and Tech pages lead into arc42 | Accepted |
 | [0015](../adr/0015-conventional-commits-decide-semantic-versions.md) | Conventional Commits decide semantic versions | Accepted |
 | [0016](../adr/0016-zola-builds-the-documentation-site.md) | Zola builds the documentation site | Accepted |
-| [0017](../adr/0017-the-engine-health-is-the-circuit-breaker.md) | The engine's health is the circuit breaker; a busy engine is retried every 2 s | Accepted |
+| [0017](../adr/0017-the-engine-health-is-the-circuit-breaker.md) | The engine's health is the circuit breaker; trouble is retried with exponential backoff | Accepted |

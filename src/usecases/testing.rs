@@ -239,6 +239,12 @@ pub struct FakeEngine {
     pub deleted: Mutex<Vec<String>>,
     /// Models the engine panel asked it to load.
     pub switched: Mutex<Vec<String>>,
+    /// Answers this many submits with `429`, then accepts.
+    pub busy: AtomicUsize,
+    /// Fails this many polls with no answer, then answers.
+    pub poll_failures: AtomicUsize,
+    /// When each submit and each poll came, in Tokio's (pausable) time.
+    pub calls: Mutex<Vec<(&'static str, tokio::time::Instant)>>,
 }
 
 impl FakeEngine {
@@ -253,7 +259,16 @@ impl FakeEngine {
             submitted: Mutex::default(),
             deleted: Mutex::default(),
             switched: Mutex::default(),
+            busy: AtomicUsize::new(0),
+            poll_failures: AtomicUsize::new(0),
+            calls: Mutex::default(),
         }
+    }
+
+    /// The gaps between this engine's calls of one kind, in milliseconds.
+    pub fn gaps_ms(&self, kind: &str) -> Vec<u128> {
+        let at: Vec<_> = self.calls.lock().unwrap().iter().filter(|(k, _)| *k == kind).map(|(_, t)| *t).collect();
+        at.windows(2).map(|w| (w[1] - w[0]).as_millis()).collect()
     }
 }
 
@@ -264,6 +279,10 @@ impl MusicEngine for FakeEngine {
     }
 
     async fn submit(&self, request: &EngineRequest) -> std::result::Result<String, CallError> {
+        self.calls.lock().unwrap().push(("submit", tokio::time::Instant::now()));
+        if self.busy.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok() {
+            return Err(CallError::Busy);
+        }
         match *self.outcome.lock().unwrap() {
             Outcome::Rejected => return Err(CallError::Rejected("422: bad request".into())),
             Outcome::Unreachable => return Err(CallError::Unreachable("127.0.0.1:9".into())),
@@ -275,6 +294,10 @@ impl MusicEngine for FakeEngine {
     }
 
     async fn job(&self, id: &str) -> std::result::Result<RemoteJob, CallError> {
+        self.calls.lock().unwrap().push(("poll", tokio::time::Instant::now()));
+        if self.poll_failures.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok() {
+            return Err(CallError::Transport("no answer in time".into()));
+        }
         let running = RemoteJob { job_id: id.into(), state: "running".into(), progress: 0.5, ..Default::default() };
         if self.hold.load(Ordering::SeqCst) {
             return Ok(running);

@@ -43,6 +43,12 @@ pub struct Config {
     /// A job whose engine shows no change for this long fails, and is retried once elsewhere.
     #[serde(default = "default_stall")]
     pub engine_stall_s: u64,
+    /// How often a song being made is polled, and the first wait after a busy answer or a failed poll (arc42 8.8).
+    #[serde(default = "default_poll")]
+    pub engine_poll_s: u64,
+    /// The longest wait between tries after a busy answer or a failed poll: each wait doubles up to this.
+    #[serde(default = "default_backoff_max")]
+    pub engine_backoff_max_s: u64,
     /// At most this many playlists live at once (arc42 1.2): each runs its own encoders.
     #[serde(default = "default_max_live")]
     pub max_live: usize,
@@ -225,6 +231,14 @@ fn default_stall() -> u64 {
     600
 }
 
+fn default_poll() -> u64 {
+    2
+}
+
+fn default_backoff_max() -> u64 {
+    30
+}
+
 /// Reads and checks the config file. `env` reads environment variables.
 pub fn load(path: &Path, env: impl Fn(&str) -> Option<String>) -> Result<Config> {
     let text = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
@@ -266,6 +280,8 @@ pub fn parse(text: &str, env: impl Fn(&str) -> Option<String>) -> Result<Config>
     Rate::parse(&cfg.limits.make).map_err(anyhow::Error::msg).context("[limits] make")?;
     ensure!(cfg.limits.pending_jobs >= 1, "[limits] pending_jobs must be at least 1");
     ensure!(cfg.engine_stall_s >= 1, "engine_stall_s must be at least 1");
+    ensure!(cfg.engine_poll_s >= 1, "engine_poll_s must be at least 1");
+    ensure!(cfg.engine_backoff_max_s >= cfg.engine_poll_s, "engine_backoff_max_s must be at least engine_poll_s");
     ensure!(cfg.max_live >= 1, "max_live must be at least 1");
     ensure!((0.0..=30.0).contains(&cfg.crossfade_s), "crossfade_s must be 0 to 30 seconds");
     if let Some(origin) = &mut cfg.public_origin {
@@ -323,7 +339,8 @@ impl Config {
             naming_engine: self.naming.engine.clone(),
             make_rate: Rate::parse(&self.limits.make).expect("checked when the config was loaded"),
             pending_jobs: self.limits.pending_jobs,
-            poll: Duration::from_secs(2),
+            poll: Duration::from_secs(self.engine_poll_s),
+            backoff_max: Duration::from_secs(self.engine_backoff_max_s),
             lyrics_timeout: Duration::from_secs(30),
             naming_timeout: Duration::from_secs(15),
             stall: Duration::from_secs(self.engine_stall_s),
@@ -356,6 +373,9 @@ mod tests {
         let s = cfg.make_settings();
         assert_eq!((s.make_rate, s.pending_jobs, s.stall), (Rate { max: 20, window_s: 600 }, 4, Duration::from_secs(600)));
         assert_eq!((s.poll, s.lyrics_timeout, s.naming_timeout), (Duration::from_secs(2), Duration::from_secs(30), Duration::from_secs(15)));
+        assert_eq!(s.backoff_max, Duration::from_secs(30));
+        let s = parse(&format!("{MINIMAL}engine_poll_s = 3\nengine_backoff_max_s = 60\n"), no_env).unwrap().make_settings();
+        assert_eq!((s.poll, s.backoff_max), (Duration::from_secs(3), Duration::from_secs(60)), "both can be set");
     }
 
     #[test]
@@ -391,6 +411,8 @@ mod tests {
         assert!(error(&format!("{MINIMAL}[lyrics]\ndefault_language = \"English\"\n")).contains("default_language"));
         assert!(error(&format!("{MINIMAL}[limits]\nmake = \"lots\"\n")).contains("[limits] make"));
         assert!(error(&format!("{MINIMAL}[limits]\npending_jobs = 0\n")).contains("pending_jobs"));
+        assert!(error(&format!("{MINIMAL}engine_poll_s = 0\n")).contains("engine_poll_s"));
+        assert!(error(&format!("{MINIMAL}engine_poll_s = 5\nengine_backoff_max_s = 2\n")).contains("engine_backoff_max_s"));
         assert!(error(&format!("{MINIMAL}[[text_engine]]\nid = \"local\"\nkind = \"openai\"\nmodel = \"m\"\n")).contains("needs a url"));
         assert!(error(&format!("{MINIMAL}[[text_engine]]\nid = \"ace-step\"\nkind = \"anthropic\"\nmodel = \"m\"\n")).contains("ace-step"));
         assert!(

@@ -134,3 +134,74 @@ The design is called **Shelf**: playlists as coloured tiles on a shelf above the
 ## 8.7 Errors
 
 Domain errors are typed (`domain::Error`), each with a stable code (`song_in_playlist`, `playlist_live`, `live_limit`, `bad_credentials`, `rate_limited`, …). The web layer maps them to a status and the body `{"error": {"code", "message", …}}`; the web app shows the message as it comes.
+
+## 8.8 When the engine is busy or down
+
+ACE-Step makes one song at a time, can be slow to start, and runs in a terminal that can close. Maio must not pile requests on it, and must not take songs it cannot make. It does this with a circuit breaker built from the engine's health, and exponential backoff when the engine is busy or a poll fails; why is in [ADR 0017](../adr/0017-the-engine-health-is-the-circuit-breaker.md).
+
+### The circuit breaker
+
+The engine's health ([arc42 3.3](03-system-scope-and-context.md#33-the-music-engine-ace-step-15)) is the breaker. Only an engine that is `up` takes songs; anything else refuses them with `503 engine_unavailable` before a job starts, so nothing waits for an engine that cannot answer.
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    closed: closed, engine up, songs accepted
+    open: open, engine down, songs refused
+    halfopen: half-open, the next health check
+    [*] --> closed: models loaded
+    closed --> open: 3 failed checks in a row
+    closed --> open: a call for a song cannot connect
+    open --> halfopen: 30 s later
+    halfopen --> closed: answers with models loaded
+    halfopen --> open: no answer
+```
+
+- **Opens** after 3 failed health checks in a row (about 90 s), or at once when a call made for a song cannot connect at all.
+- **Half-open**: the health check runs every 30 s whatever the state; it is the one call let through.
+- **Closes** when ACE-Step answers with its models loaded. While it answers but is still loading its models, it stays shut to songs.
+- The header shows the state: the status dot on the engine icon turns grey, and its caption says why, while the breaker is open.
+
+### Backoff and limits
+
+| Rule | What happens | Value | Set in |
+|------|--------------|-------|--------|
+| Limits before Maio | Over either limit, a new song is refused with `429 rate_limited` and a `Retry-After` | 4 waiting songs; 20 songs per 10 minutes | `pending_jobs`, `[limits] make` in `maio.toml` |
+| Engine slots | Only this many songs are sent to the engine at once; the rest wait in Maio, in the order asked | 1 for ACE-Step | fixed by the engine adapter |
+| Steady polling | While ACE-Step answers, a song being made is polled at a steady pace, so progress moves smoothly and a finished song is seen at once | every 2 s | `engine_poll_s` in `maio.toml` |
+| Busy engine | When ACE-Step answers `429`, the song tries again after a wait that doubles each time, up to the most, until it is accepted or cancelled | 2 s, 4, 8, 16, then 30 s | `engine_poll_s` and `engine_backoff_max_s` in `maio.toml` |
+| A poll fails | The poll is tried again after a wait that doubles; the third failure in a row fails the song; a good answer brings back the steady pace | 2 s, then 4 s | `engine_poll_s` and `engine_backoff_max_s` in `maio.toml` |
+| Stalled | A song whose state and progress have not changed for this long fails | 600 s | `engine_stall_s` in `maio.toml` |
+| Retry | A song that failed for a reason that may pass (lost, stalled, unreachable, or the engine says retryable) is tried once more on another engine, when there is one | once | fixed |
+
+### A song through a busy engine, and a gone one
+
+```mermaid
+sequenceDiagram
+    participant You
+    participant Maio
+    participant ACE as ACE-Step
+    You->>Maio: make a song
+    Maio-->>You: 202, waiting
+    Maio->>ACE: submit
+    ACE-->>Maio: 429, busy
+    Note over Maio: waits 2 s
+    Maio->>ACE: submit again
+    ACE-->>Maio: 429, busy
+    Note over Maio: waits 4 s, twice as long
+    Maio->>ACE: submit again
+    ACE-->>Maio: accepted
+    loop every 2 s
+        Maio->>ACE: how far along
+        ACE-->>Maio: progress
+    end
+    Note over ACE: the terminal running ACE-Step closes
+    You->>Maio: make another song
+    Maio->>ACE: submit
+    Note over Maio,ACE: cannot connect, the breaker opens
+    Maio-->>You: the song fails, the engine ace-step is not answering, check that it is running
+    You->>Maio: make a third song
+    Maio-->>You: 503 engine_unavailable, no job starts
+```
+
+The waits come from the backon crate's exponential backoff, without jitter: jitter spreads many clients apart, and Maio is one. A song that fails says which engine and what to do (8.2); which call failed goes to the log (8.6).

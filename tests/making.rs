@@ -92,6 +92,7 @@ async fn a_prompt_becomes_a_tagged_opus_song_in_the_library() {
             make_rate: Rate { max: 20, window_s: 600 },
             pending_jobs: 4,
             poll: Duration::from_millis(10),
+            backoff_max: Duration::from_millis(20),
             lyrics_timeout: Duration::from_secs(1),
             naming_timeout: Duration::from_secs(1),
             stall: Duration::from_secs(60),

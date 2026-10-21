@@ -24,7 +24,7 @@ sequenceDiagram
     end
     E->>A: POST /release_task (prompt, lyrics, length, bpm, seed)
     A-->>E: task id
-    loop every 2 s until done
+    loop every engine_poll_s, 2 s by default, until done
         E->>A: POST /query_result
         A-->>E: progress, stage
         E-->>B: SSE job: making, progress

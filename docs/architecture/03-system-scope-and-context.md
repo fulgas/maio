@@ -68,15 +68,8 @@ stateDiagram-v2
 ```
 
 - Health: checked at start and every 30 s. `up` when the models are initialised, `loading` before, `down` after 3 failed checks in a row, or at once when a call made for a job cannot connect (so new songs are refused with `engine_unavailable` instead of starting jobs that cannot run), `incompatible` when the URL answers but not as `acestep-api`.
-- A running job is polled every 2 s. Progress and stage come from ACE-Step (`query_result`); a song waiting in ACE-Step's own queue shows as waiting. An id ACE-Step answers with an empty result (lost in a restart) fails the job as lost, and it is tried once more on another engine when there is one.
-- When ACE-Step is busy, slow or gone, these rules keep Maio from piling work on it; together they are its backoff and circuit breaker ([ADR 0017](../adr/0017-the-engine-health-is-the-circuit-breaker.md)):
-  - **Slots**: at most `concurrency` jobs (1 for ACE-Step) are sent to an engine at once; the rest wait in Maio, in the order asked.
-  - **Before it**: `pending_jobs` and `[limits] make` refuse songs with `429 rate_limited` before they reach the engine (arc42 8.2).
-  - **Busy**: when ACE-Step answers `429`, the job tries again every 2 s, until it is accepted or cancelled.
-  - **Breaker**: health is the breaker. `down` (3 failed checks, or a job's call that cannot connect) opens it: new songs are refused with `engine_unavailable` before a job starts. The next check that gets an answer, within 30 s, closes it.
-  - **Polling**: one failed poll is skipped; 3 in a row fail the job.
-  - **Stalled**: a job whose state and progress have not changed for `engine_stall_s` (600 s) fails.
-  - **Retry**: a job that fails for a reason that may pass (lost, stalled, unreachable, the engine says retryable) is tried once more on another engine, when there is one.
+- A running job is polled every `engine_poll_s` (2 s by default). Progress and stage come from ACE-Step (`query_result`); a song waiting in ACE-Step's own queue shows as waiting. An id ACE-Step answers with an empty result (lost in a restart) fails the job as lost, and it is tried once more on another engine when there is one.
+- When ACE-Step is busy, slow or gone, the health state works as a circuit breaker, and busy answers and failed polls are retried with exponential backoff: [arc42 8.8](08-crosscutting-concepts.md#88-when-the-engine-is-busy-or-down) has the rules and how they behave.
 - ACE-Step can neither cancel nor delete a task. Cancelling a song being made stops Maio waiting for it; ACE-Step finishes it, nobody fetches it, and ACE-Step's own cleanup removes the file.
 - A song with no change for `engine_stall_s` fails, and is tried once more on another engine when there is one.
 

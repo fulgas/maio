@@ -32,6 +32,7 @@ test('animated flows follow edges of their view', () => {
     assert.ok(view.edges.some(e => e.from === leg.from && e.to === leg.to), `${id}: flow leg ${leg.from} → ${leg.to} has no edge`);
   }
   assert.deepEqual(flowChannelsFor(views.context).map(f => f.id), ['input', 'output']);
+  assert.deepEqual(flowChannelsFor(views.containers).map(f => f.id), ['input', 'output'], 'the containers carry the same requests and audio');
   assert.deepEqual(flowChannelsFor({ ...views.context, edges: [] }), []);
 });
 

@@ -1,4 +1,4 @@
-//! The web app's pages (SPEC 12): Leptos renders them; strangers are sent to `/sign-in`.
+//! The web app's pages (arc42 8.5): Leptos renders them; strangers are sent to `/sign-in`.
 
 use std::path::PathBuf;
 

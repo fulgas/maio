@@ -1,4 +1,4 @@
-//! What a rule can refuse, each with the code the API sends (SPEC 10).
+//! What a rule can refuse, each with the code the API sends (arc42 3.5).
 
 use std::fmt;
 
@@ -77,7 +77,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_error_has_the_spec_code() {
+    fn every_error_has_its_documented_code() {
         assert_eq!(Error::NotFound("song").code(), "not_found");
         assert_eq!(Error::invalid("bad_title", "x").code(), "bad_title");
         assert_eq!(Error::SongInPlaylist(vec![]).code(), "song_in_playlist");

@@ -1,4 +1,4 @@
-//! The Shelf's icons (SPEC 12: icons over text). Icons are decorative; their buttons carry the label.
+//! The Shelf's icons (arc42 8.5: icons over text). Icons are decorative; their buttons carry the label.
 
 use leptos::prelude::*;
 

@@ -1,4 +1,4 @@
-//! Signing in and changing the password (SPEC 4).
+//! Signing in and changing the password (arc42 8.1).
 
 use leptos::{ev::SubmitEvent, html::Input, prelude::*};
 use thaw::{ToastIntent, ToasterInjection};

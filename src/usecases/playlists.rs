@@ -1,4 +1,4 @@
-//! Playlist use cases: create, rename, delete, add, remove, reorder, list (SPEC 8).
+//! Playlist use cases: create, rename, delete, add, remove, reorder, list (arc42 8.3).
 
 use std::sync::{Arc, Mutex};
 
@@ -10,7 +10,7 @@ use crate::usecases::{
     ports::{Clock, Ids, LiveSong, LiveStreams, OnAir, PlaylistRepository, SongRepository},
 };
 
-/// A playlist in the list: song count, length and live state (SPEC 10, `GET /playlists`).
+/// A playlist in the list: song count, length and live state (arc42 3.5, `GET /playlists`).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PlaylistSummary {
     pub id: String,
@@ -21,14 +21,14 @@ pub struct PlaylistSummary {
     pub created_at: String,
 }
 
-/// A playlist and its songs in order (SPEC 10, `GET /playlists/{id}`).
+/// A playlist and its songs in order (arc42 3.5, `GET /playlists/{id}`).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PlaylistView {
     pub playlist: Playlist,
     pub songs: Vec<Song>,
 }
 
-/// A playlist's live state for its page (SPEC 10, `GET /playlists/{id}/live`); the web layer adds addresses.
+/// A playlist's live state for its page (arc42 3.5, `GET /playlists/{id}/live`); the web layer adds addresses.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct LiveView {
     pub playlist: Playlist,
@@ -121,7 +121,7 @@ impl Playlists {
         Ok(self.repo.list()?)
     }
 
-    /// On or off air, shuffle, public or private (SPEC 9).
+    /// On or off air, shuffle, public or private (arc42 8.4).
     pub fn set_live(&self, id: &str, change: &LiveChange) -> Result<Playlist> {
         let _one_at_a_time = self.lock();
         let mut p = self.find(id)?;

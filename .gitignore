@@ -14,3 +14,6 @@ maio.toml.*
 /e2e/node_modules
 /target/e2e-data
 !e2e/maio.toml
+
+# The architecture website, built by docs-site/build.mjs
+/docs-site/dist

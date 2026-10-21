@@ -1,4 +1,4 @@
-//! One live playlist on air (SPEC 9): decode the next song, crossfade, pace 20 ms chunks onto the PCM bus;
+//! One live playlist on air (arc42 8.4): decode the next song, crossfade, pace 20 ms chunks onto the PCM bus;
 //! encoders turn the bus into MP3, AAC and HLS bytes and publish AAC to the relay.
 
 use std::{
@@ -148,7 +148,7 @@ fn seed() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(1, |d| d.as_nanos() as u64)
 }
 
-/// Where a station keeps the song on air, so a restart picks up with it (SPEC 9).
+/// Where a station keeps the song on air, so a restart picks up with it (arc42 8.4).
 fn on_air_file(data_dir: &Path, id: &str) -> PathBuf {
     data_dir.join("live").join(id).join("on-air")
 }

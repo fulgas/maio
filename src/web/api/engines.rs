@@ -1,4 +1,4 @@
-//! The engine panel's controls (SPEC 10, 12).
+//! The engine panel's controls (arc42 3.5, 8.5).
 
 use axum::{
     extract::{Path, State},

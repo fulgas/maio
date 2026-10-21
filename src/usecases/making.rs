@@ -1,4 +1,4 @@
-//! Making songs (SPEC 5): one prompt, one job, one song kept in the library.
+//! Making songs (arc42 8.2): one prompt, one job, one song kept in the library.
 
 use std::{
     collections::HashMap,
@@ -29,7 +29,7 @@ const PENDING_RETRY_S: u64 = 30;
 /// Finished jobs kept so a client can read how they ended.
 const KEEP_FINISHED: usize = 50;
 
-/// What making songs needs from config (SPEC 5, 7, 11).
+/// What making songs needs from config (arc42 8.2, 3.4, 7.3).
 #[derive(Debug, Clone)]
 pub struct MakeSettings {
     pub moods: Vec<String>,
@@ -40,9 +40,9 @@ pub struct MakeSettings {
     pub naming_engine: Option<String>,
     pub make_rate: Rate,
     pub pending_jobs: u32,
-    /// How often a running engine job is polled (SPEC 6: 2 s).
+    /// How often a running engine job is polled (arc42 3.3: 2 s).
     pub poll: Duration,
-    /// SPEC 5: 30 s for lyrics, 15 s for a title.
+    /// arc42 8.2: 30 s for lyrics, 15 s for a title.
     pub lyrics_timeout: Duration,
     pub naming_timeout: Duration,
     /// A job whose engine reports no change in state or progress for this long fails (retryable).
@@ -60,7 +60,7 @@ pub struct MakingPorts {
     pub notifier: Arc<dyn Notifier>,
 }
 
-/// `202 {"job_id", "eta_s"}` (SPEC 10, `POST /songs`).
+/// `202 {"job_id", "eta_s"}` (arc42 3.5, `POST /songs`).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Accepted {
     pub job_id: String,
@@ -156,13 +156,13 @@ impl Making {
         }
         tracing::info!(job = %job.id, label = %job.label, "job waiting");
         self.ports.notifier.job(&job);
-        // The job's logs and engine calls share a span, a child of the request that asked for it (SPEC 13).
+        // The job's logs and engine calls share a span, a child of the request that asked for it (arc42 8.6).
         let span = tracing::info_span!("job", job = %job.id);
         tokio::spawn(self.clone().run(job.id.clone(), n).instrument(span));
         Ok(Accepted { job_id: job.id, eta_s })
     }
 
-    /// Jobs waiting or making, oldest first (SPEC 10, `GET /jobs`).
+    /// Jobs waiting or making, oldest first (arc42 3.5, `GET /jobs`).
     pub fn jobs(&self) -> Vec<Job> {
         lock(&self.jobs).iter().filter(|e| e.job.state.is_open()).map(|e| e.job.clone()).collect()
     }
@@ -183,8 +183,8 @@ impl Making {
         Ok(job)
     }
 
-    /// The music engines as last seen (SPEC 10, `/status`).
-    /// The engine panel's model switch (SPEC 12). The model must be one the engine has installed.
+    /// The music engines as last seen (arc42 3.5, `/status`).
+    /// The engine panel's model switch (arc42 8.5). The model must be one the engine has installed.
     pub async fn switch_model(&self, engine: &str, model: &str) -> Result<()> {
         let i = self.ports.engines.iter().position(|e| e.status().id == engine).ok_or(Rule::NotFound("engine"))?;
         let installed = self.ports.engines[i].status().info.is_some_and(|info| info.models.iter().any(|m| m == model) || info.models.is_empty());
@@ -294,7 +294,7 @@ impl Making {
         }
     }
 
-    /// With vocals and no lyrics, a text engine writes them, else ACE-Step does (SPEC 5).
+    /// With vocals and no lyrics, a text engine writes them, else ACE-Step does (arc42 8.2).
     /// Returns whether the engine must write them, and which text engine did.
     async fn lyrics(&self, id: &str, n: &mut Normalized) -> (bool, Option<String>) {
         if !n.vocals || n.lyrics.is_some() {
@@ -482,7 +482,7 @@ impl Making {
         Ok(Some(song))
     }
 
-    /// Titles in layers (SPEC 5): a text engine, the lyrics, then word lists. A person's rename comes later.
+    /// Titles in layers (arc42 8.2): a text engine, the lyrics, then word lists. A person's rename comes later.
     async fn title(&self, n: &Normalized, lyrics: Option<&str>) -> Title {
         let namer = self.settings.naming_engine.as_deref().and_then(|id| self.text_engine(id));
         if let Some(te) = namer

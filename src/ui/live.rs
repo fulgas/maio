@@ -1,4 +1,4 @@
-//! The live strip under a playlist's band (SPEC 9, 12): the switch, listeners, public or private, stream shuffle,
+//! The live strip under a playlist's band (arc42 8.4, 8.5): the switch, listeners, public or private, stream shuffle,
 //! a new private link, the addresses with copy buttons, and how many streams are in use.
 
 use leptos::prelude::*;

@@ -1,4 +1,4 @@
-//! Signing in and out, and changing the password (SPEC 4, 10).
+//! Signing in and out, and changing the password (arc42 8.1, 3.5).
 
 use axum::{
     extract::State,

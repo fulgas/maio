@@ -1,5 +1,5 @@
-//! The web app (SPEC 12): Leptos components rendered on the server and hydrated in the browser.
-//! It talks to Maio only through the JSON API (SPEC 10), like any script.
+//! The web app (arc42 8.5): Leptos components rendered on the server and hydrated in the browser.
+//! It talks to Maio only through the JSON API (arc42 3.5), like any script.
 
 pub mod api;
 mod details;

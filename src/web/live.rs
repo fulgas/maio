@@ -1,4 +1,4 @@
-//! A playlist's live state as the API sends it (SPEC 10): settings, what plays, and the addresses.
+//! A playlist's live state as the API sends it (arc42 3.5): settings, what plays, and the addresses.
 
 use serde::Serialize;
 

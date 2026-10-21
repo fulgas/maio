@@ -1,4 +1,4 @@
-//! Keeps the four layers apart now that they share one crate (SPEC 3): each layer may use only the layers above it.
+//! Keeps the four layers apart now that they share one crate (arc42 5): each layer may use only the layers above it.
 
 use std::{fs, path::Path};
 

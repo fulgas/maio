@@ -1,0 +1,91 @@
+# 7. Deployment view
+
+## 7.1 Nodes
+
+```c4
+deployment
+```
+
+- The compose project is `maio`, on its own network `maio_default`.
+- `just` starts Maio and MediaMTX in Docker and runs ACE-Step in the terminal; Ctrl-C stops both. `just fake` runs a fake engine (sine tones, no GPU) instead.
+- The host ports 8555, 8891 and 1936 leave 8554, 8890 and 1935 free for another MediaMTX on the same machine. From another container, use `host.docker.internal:8555`; inside Maio's compose network, `mediamtx:8554`.
+- MediaMTX asks Maio at `http://maio:8080/relay/auth` about every publish, read and API call.
+- The image is built in two stages: `cargo leptos build --release` (server and WebAssembly, hashed asset names), then a slim runtime with ffmpeg.
+
+## 7.2 The data volume
+
+| Path | What |
+|------|------|
+| `library.db` | SQLite: songs, playlists, the account and sessions |
+| `songs/{id}.<ext>` | the song files, in the storage format |
+| `tmp/` | exports being made for a download |
+| `live/{playlist}/hls/` | HLS segments of a live playlist |
+| `live/{playlist}/on-air` | the song on air, for a restart |
+
+## 7.3 Config
+
+`maio.toml` (copy `maio.example.toml`):
+
+```toml
+listen = "0.0.0.0:8080"
+data_dir = "/data"
+secure_cookies = false
+max_live = 4
+crossfade_s = 6.0
+moods = ["calm", "focused", "upbeat", "playful", "tense", "dreamy", "melancholy", "triumphant"]
+genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic"]
+
+[limits]
+make = "20/10m"
+pending_jobs = 4
+
+[storage]
+format = "opus"        # opus | flac | mp3 | aac
+bitrate_k = 160
+
+[serve]
+mp3 = true
+aac = true
+hls = true
+
+[relay]
+enabled = true
+publish = "rtsp://mediamtx:8554"
+api = "http://mediamtx:9997"
+host = "localhost"
+rtsp_port = 8555
+srt_port = 8891
+rtmp_port = 1936
+
+[[engine]]
+id = "ace-step"
+url = "http://host.docker.internal:7801"
+# api_key_env = "ACE_STEP_API_KEY"
+
+# [[text_engine]]
+# id = "local"
+# kind = "openai"
+# url = "http://host.docker.internal:8081/v1"
+# model = "qwen3-8b"
+
+# [naming]
+# engine = "local"
+
+[lyrics]
+default_engine = "ace-step"
+default_language = "en"
+```
+
+- `[relay] host` and the ports are what the live strip shows listeners; set `host` to the name they reach this machine by.
+- `log_format = "json"` switches logs to JSON (arc42 8.6); `engine_stall_s` (default 600) fails a song that has not changed for that long (arc42 3.3).
+
+The environment (`.env`, copy `.env.example`; never printed):
+
+| Variable | What |
+|----------|------|
+| `MAIO_ADMIN_USER`, `MAIO_ADMIN_PASSWORD` | the one account, made on first start; without them Maio refuses to start |
+| `MAIO_API_TOKEN` | optional, at least 32 characters: the API token for scripts |
+| `ACE_STEP_API_KEY` | optional: ACE-Step's key, named by `api_key_env` |
+| text engine keys | named by each text engine's `api_key_env` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` and the other `OTEL_*` | optional: send traces, metrics and logs over OTLP |
+| `RUST_LOG` | log filter, default `info` |

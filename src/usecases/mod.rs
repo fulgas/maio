@@ -1,4 +1,4 @@
-//! Use cases and the ports they need (SPEC 3). Adapters implement the ports; the web layer calls the use cases.
+//! Use cases and the ports they need (arc42 5). Adapters implement the ports; the web layer calls the use cases.
 
 mod account;
 mod error;

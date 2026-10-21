@@ -1,4 +1,4 @@
-//! Songs and the jobs that make them (SPEC 5, 10).
+//! Songs and the jobs that make them (arc42 8.2, 3.5).
 
 use crate::domain::{job::Job, request::SongRequest};
 use crate::usecases::{Accepted, SongPage, SongView, ports::SongSort};
@@ -70,7 +70,7 @@ pub async fn delete(State(app): State<Shared>, _me: Me, Path(id): Path<String>) 
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// The song's file, with range requests so the player can seek (SPEC 8).
+/// The song's file, with range requests so the player can seek (arc42 8.3).
 pub async fn audio(State(app): State<Shared>, _me: Me, Path(id): Path<String>, req: Request) -> Result<Response, ApiError> {
     let view = blocking(&app, move |a| a.songs.get(&id)).await?;
     match ServeFile::new(app.data_dir.join(&view.song.file)).oneshot(req).await {
@@ -85,7 +85,7 @@ pub struct DownloadQuery {
     format: String,
 }
 
-/// The song in a format, as an attachment named after its title (SPEC 10). A converted copy is removed as soon as
+/// The song in a format, as an attachment named after its title (arc42 3.5). A converted copy is removed as soon as
 /// it is open: the open file is sent in full while its name is already gone (Unix).
 pub async fn download(
     State(app): State<Shared>,

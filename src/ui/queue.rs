@@ -1,4 +1,4 @@
-//! The player's queue (SPEC 8): play order, shuffle and repeat. Pure, so it is tested here; the player bar drives it.
+//! The player's queue (arc42 8.3): play order, shuffle and repeat. Pure, so it is tested here; the player bar drives it.
 
 use crate::domain::{PlaylistRef, Song};
 

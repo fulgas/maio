@@ -1,4 +1,4 @@
-//! Maio, one crate in five layers (SPEC 3). Each layer may use only the ones above it:
+//! Maio, one crate in five layers (arc42 5). Each layer may use only the ones above it:
 //! `domain` (rules, no I/O) ← `usecases` (use cases and ports) ← `adapters` (SQLite, engines, ffmpeg) ← `web` (API, config, telemetry).
 //! `ui` is the web app; it runs in the browser too, so it uses only `domain` and talks to the server through the API.
 //! `tests/layers.rs` keeps it that way.

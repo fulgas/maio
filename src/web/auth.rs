@@ -1,4 +1,4 @@
-//! Who is calling (SPEC 4): you, by session cookie or by the API token.
+//! Who is calling (arc42 8.1): you, by session cookie or by the API token.
 
 use std::{
     convert::Infallible,
@@ -32,7 +32,7 @@ fn bearer(headers: &HeaderMap) -> Option<&str> {
     headers.get(header::AUTHORIZATION)?.to_str().ok()?.strip_prefix("Bearer ")
 }
 
-/// True when `Origin` is this site (SPEC 4, cross-site protection): the configured public origin when a proxy
+/// True when `Origin` is this site (arc42 8.1, cross-site protection): the configured public origin when a proxy
 /// sits in front, else the host the request was sent to.
 pub fn same_origin(headers: &HeaderMap, public_origin: Option<&str>) -> bool {
     if let Some(public) = public_origin {

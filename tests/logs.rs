@@ -1,4 +1,4 @@
-//! What the request logs say (SPEC 13), alone in its own binary: tracing caches whether a log line is wanted,
+//! What the request logs say (arc42 8.6), alone in its own binary: tracing caches whether a log line is wanted,
 //! and tests running beside this one without a subscriber would make it cache "no".
 
 mod common;

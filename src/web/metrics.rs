@@ -1,4 +1,4 @@
-//! Metrics (SPEC 13): API requests by route, jobs by outcome, engine health.
+//! Metrics (arc42 8.6): API requests by route, jobs by outcome, engine health.
 //! Without OTLP the meter does nothing.
 
 use std::{

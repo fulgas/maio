@@ -1,4 +1,4 @@
-//! `GET /events` (SPEC 10): server-sent events.
+//! `GET /events` (arc42 3.5): server-sent events.
 
 use std::convert::Infallible;
 

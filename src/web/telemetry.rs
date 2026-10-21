@@ -1,4 +1,4 @@
-//! Logs, traces and metrics (SPEC 13). Logs always go to stdout, filtered by `RUST_LOG` (default `info`).
+//! Logs, traces and metrics (arc42 8.6). Logs always go to stdout, filtered by `RUST_LOG` (default `info`).
 //! With `OTEL_EXPORTER_OTLP_ENDPOINT` set, traces, metrics and logs also go out over OTLP/HTTP.
 
 use anyhow::{Context, Result};
@@ -65,7 +65,7 @@ pub fn init(format: LogFormat) -> Result<Telemetry> {
         .with_batch_exporter(LogExporter::builder().with_http().build().context("making the OTLP log exporter")?)
         .build();
     global::set_meter_provider(metrics.clone());
-    // W3C trace context on outgoing calls, so ACE-Step's spans join ours (SPEC 13).
+    // W3C trace context on outgoing calls, so ACE-Step's spans join ours (arc42 8.6).
     global::set_text_map_propagator(opentelemetry_sdk::propagation::TraceContextPropagator::new());
     tracing_subscriber::registry()
         .with(stdout.with_filter(filter()))

@@ -1,4 +1,4 @@
-//! Two decks and an equal-power crossfade (SPEC 9). Pure: no clock, no I/O; decks are fed by their decoders.
+//! Two decks and an equal-power crossfade (arc42 8.4). Pure: no clock, no I/O; decks are fed by their decoders.
 
 use std::f32::consts::FRAC_PI_2;
 

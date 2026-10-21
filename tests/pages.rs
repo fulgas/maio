@@ -1,4 +1,4 @@
-//! The web app's pages (SPEC 12): rendered on the server, behind sign-in.
+//! The web app's pages (arc42 8.5): rendered on the server, behind sign-in.
 
 mod common;
 
@@ -132,7 +132,7 @@ async fn playlist_page_renders_its_frame() {
 
 #[tokio::test]
 async fn menus_are_keyboard_buttons() {
-    // thaw's Menu renders click-only divs; ours is a button that says whether it is open (SPEC 12: keyboard).
+    // thaw's Menu renders click-only divs; ours is a button that says whether it is open (arc42 8.5: keyboard).
     let w = world();
     let session = sign_in(&w).await;
     let (_, _, html) = page(&w, "/", Some(&session)).await;

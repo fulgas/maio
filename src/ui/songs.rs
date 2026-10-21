@@ -1,4 +1,4 @@
-//! The Songs screen (SPEC 12): the shelf of playlists, "Make a song", "Being made" and the song list.
+//! The Songs screen (arc42 8.5): the shelf of playlists, "Make a song", "Being made" and the song list.
 
 use leptos::{ev::SubmitEvent, prelude::*};
 use leptos_router::hooks::use_navigate;
@@ -39,7 +39,7 @@ pub fn SongsPage() -> impl IntoView {
     }
 }
 
-/// Playlists (SPEC 12): every playlist as a tile, "+" first to make one.
+/// Playlists (arc42 8.5): every playlist as a tile, "+" first to make one.
 #[component]
 pub fn PlaylistsPage() -> impl IntoView {
     let c = expect_context::<Changes>();
@@ -66,7 +66,7 @@ pub fn PlaylistsPage() -> impl IntoView {
     }
 }
 
-/// Every playlist as a row (SPEC 12): its colour, like its banner; play; its name; live; songs; length.
+/// Every playlist as a row (arc42 8.5): its colour, like its banner; play; its name; live; songs; length.
 #[component]
 fn PlaylistList(playlists: Playlists) -> impl IntoView {
     let player = expect_context::<Player>();

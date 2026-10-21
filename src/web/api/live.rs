@@ -1,4 +1,4 @@
-//! The live switch over the API (SPEC 10): `PUT`/`GET /playlists/{id}/live`, `POST /playlists/{id}/live/key`.
+//! The live switch over the API (arc42 3.5): `PUT`/`GET /playlists/{id}/live`, `POST /playlists/{id}/live/key`.
 
 use axum::{
     Json,

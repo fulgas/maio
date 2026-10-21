@@ -1,4 +1,4 @@
-//! Signing in (SPEC 4): one account from `.env`, sessions, sign-in limits, the API token.
+//! Signing in (arc42 8.1): one account from `.env`, sessions, sign-in limits, the API token.
 
 use std::{
     collections::HashMap,
@@ -57,7 +57,7 @@ impl Account {
     }
 
     /// On first start the account comes from `MAIO_ADMIN_USER` and `MAIO_ADMIN_PASSWORD`; without them
-    /// and without an account, Maio refuses to start (SPEC 4). Later starts ignore them.
+    /// and without an account, Maio refuses to start (arc42 8.1). Later starts ignore them.
     pub fn ensure(&self, username: Option<&str>, password: Option<&str>) -> anyhow::Result<()> {
         if self.store.account()?.is_some() {
             return Ok(());
@@ -129,7 +129,7 @@ impl Account {
         Ok(self.store.delete_session(session)?)
     }
 
-    /// Changes the password and ends every other session (SPEC 4). `session` is `None` for the API token, which
+    /// Changes the password and ends every other session (arc42 8.1). `session` is `None` for the API token, which
     /// ends them all. Slow on purpose: call it on a blocking thread.
     pub fn change_password(&self, session: Option<&str>, current: &str, new: &str) -> Result<()> {
         let (username, hash) = self.store.account()?.context("there is no account")?;
@@ -144,7 +144,7 @@ impl Account {
         Ok(())
     }
 
-    /// `Authorization: Bearer <token>` (SPEC 4), compared in constant time. With no token configured, none works.
+    /// `Authorization: Bearer <token>` (arc42 8.1), compared in constant time. With no token configured, none works.
     pub fn is_api_token(&self, token: &str) -> bool {
         self.api_token.as_deref().is_some_and(|t| same_bytes(t.as_bytes(), token.as_bytes()))
     }

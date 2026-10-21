@@ -1,4 +1,4 @@
-//! The JSON API under `/api/v1` (SPEC 10): everything the web app does, a script can do.
+//! The JSON API under `/api/v1` (arc42 3.5): everything the web app does, a script can do.
 
 mod engines;
 mod events;

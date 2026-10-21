@@ -1,4 +1,4 @@
-//! The Make form (SPEC 5, 12): what the person picked, turned into a song request.
+//! The Make form (arc42 8.2, 8.5): what the person picked, turned into a song request.
 
 use crate::domain::request::{Energy, SongRequest, Tempo, TempoWord};
 
@@ -114,7 +114,7 @@ impl MakeForm {
     }
 }
 
-/// What "Make one like this" puts in the form (SPEC 12): the song's settings, its words and its seed.
+/// What "Make one like this" puts in the form (arc42 8.5): the song's settings, its words and its seed.
 impl MakeForm {
     pub fn from_song(s: &crate::domain::Song) -> Self {
         let nearest =

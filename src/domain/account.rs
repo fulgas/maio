@@ -1,4 +1,4 @@
-//! The one account (SPEC 4): username and password rules, how long sessions last, sign-in limits.
+//! The one account (arc42 8.1): username and password rules, how long sessions last, sign-in limits.
 
 /// A session without "keep me signed in": 12 hours.
 pub const SESSION_S: u64 = 12 * 3600;

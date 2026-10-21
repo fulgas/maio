@@ -1,4 +1,4 @@
-//! The shelf of playlists (SPEC 12): each playlist's colour, and the order of the tiles.
+//! The shelf of playlists (arc42 8.5): each playlist's colour, and the order of the tiles.
 
 use std::collections::HashMap;
 

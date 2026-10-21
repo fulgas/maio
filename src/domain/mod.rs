@@ -1,4 +1,4 @@
-//! Maio's core: songs, playlists and their rules (SPEC 1, 3). No I/O, no async.
+//! Maio's core: songs, playlists and their rules (arc42 1.2, 5). No I/O, no async.
 
 pub mod account;
 pub mod engine;

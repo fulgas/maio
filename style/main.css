@@ -1,4 +1,4 @@
-/* Maio, the Shelf look (SPEC 12). Dark by default; [data-theme=light] swaps the tokens. */
+/* Maio, the Shelf look (arc42 8.5). Dark by default; [data-theme=light] swaps the tokens. */
 
 @font-face { font-family: "Unbounded"; src: url("/fonts/unbounded.woff2") format("woff2"); font-weight: 200 900; font-display: swap; }
 @font-face { font-family: "Albert Sans"; src: url("/fonts/albert-sans.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
@@ -205,7 +205,7 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
    the page shows through instead, so panels like "Make a song" stand out as in the design. */
 body > .thaw-config-provider { background-color: transparent; color: var(--ink); font-size: 16px; line-height: 1.45; flex: 1; display: flex; flex-direction: column; }
 
-/* Captions: every icon says what it does, on hover and on keyboard focus (SPEC 12: icons over text, each with a tooltip). */
+/* Captions: every icon says what it does, on hover and on keyboard focus (arc42 8.5: icons over text, each with a tooltip). */
 [data-tip] { position: relative; }
 [data-tip]:hover::after, [data-tip]:focus-visible::after {
   content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); z-index: 50;
@@ -236,7 +236,7 @@ body > .thaw-config-provider { background-color: transparent; color: var(--ink);
 .tabs a[aria-current="page"] { background: var(--ink); color: var(--bg); font-weight: 700; }
 /* The Playlists page: the same tiles, wrapping */
 
-/* The live strip (SPEC 12) */
+/* The live strip (arc42 8.5) */
 .band { border-radius: 8px 8px 0 0; }
 .live-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-radius: 0 0 8px 8px; background: var(--panel); margin-top: -22px; }
 .live-switch { height: 44px; padding: 0 16px 0 12px; border: 1px solid var(--line2); border-radius: 22px; background: transparent; display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; cursor: pointer; }

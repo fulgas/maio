@@ -1,4 +1,4 @@
-//! Maio's web layer (SPEC 3, 10, 12): config, the JSON API, events, and the web app's pages over axum.
+//! Maio's web layer (arc42 5, 3.5, 8.5): config, the JSON API, events, and the web app's pages over axum.
 
 pub mod api;
 pub mod auth;

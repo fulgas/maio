@@ -1,4 +1,4 @@
-//! Server-sent events (SPEC 10, `/events`): `job` carries the job; `song` and `playlist` carry `{"id", "deleted"}`.
+//! Server-sent events (arc42 3.5, `/events`): `job` carries the job; `song` and `playlist` carry `{"id", "deleted"}`.
 
 use std::sync::Arc;
 

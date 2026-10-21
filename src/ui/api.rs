@@ -1,4 +1,4 @@
-//! The JSON API (SPEC 10) as the browser calls it: the session cookie goes along by itself, and fetch sends `Origin`.
+//! The JSON API (arc42 3.5) as the browser calls it: the session cookie goes along by itself, and fetch sends `Origin`.
 //! The network functions run only in the browser; the types and helpers are plain Rust.
 
 use gloo_net::http::{Method, RequestBuilder};

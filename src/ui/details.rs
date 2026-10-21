@@ -1,4 +1,4 @@
-//! A song's details (SPEC 12): how it was made, its words, downloads, and "Make one like this".
+//! A song's details (arc42 8.5): how it was made, its words, downloads, and "Make one like this".
 
 use leptos::prelude::*;
 use leptos_router::hooks::{use_location, use_navigate};

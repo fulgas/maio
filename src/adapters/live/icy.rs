@@ -1,4 +1,4 @@
-//! In-stream titles for MP3 and AAC listeners that ask for them (SPEC 9):
+//! In-stream titles for MP3 and AAC listeners that ask for them (arc42 8.4):
 //! a metadata block after every `METAINT` audio bytes.
 
 /// Audio bytes between metadata blocks (`icy-metaint`).

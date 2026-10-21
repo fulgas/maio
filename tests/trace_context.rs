@@ -1,4 +1,4 @@
-//! Engine calls carry the W3C trace context (SPEC 13), so ACE-Step's spans join Maio's trace.
+//! Engine calls carry the W3C trace context (arc42 8.6), so ACE-Step's spans join Maio's trace.
 //! Alone in its own binary: tracing caches whether a span is wanted, and tests beside it would make it cache "no".
 
 use std::sync::{Arc, Mutex};

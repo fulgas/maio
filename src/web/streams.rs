@@ -1,4 +1,4 @@
-//! Live streams and the relay's auth hook (SPEC 9): no session; a path answers only while it names a live playlist.
+//! Live streams and the relay's auth hook (arc42 8.4): no session; a path answers only while it names a live playlist.
 
 use axum::{
     Json, Router,

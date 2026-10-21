@@ -1,4 +1,4 @@
-// A fake ACE-Step `acestep-api` for the browser tests: the calls Maio makes (SPEC 6), sine tones for songs.
+// A fake ACE-Step `acestep-api` for the browser tests: the calls Maio makes (arc42 3.3), sine tones for songs.
 import http from "node:http";
 
 const port = Number(process.argv[2] ?? 7801);

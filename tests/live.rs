@@ -1,4 +1,4 @@
-//! Live stations with real ffmpeg (SPEC 9): songs decode, crossfade and stream as MP3.
+//! Live stations with real ffmpeg (arc42 8.4): songs decode, crossfade and stream as MP3.
 
 use std::{process::Command, sync::Arc, time::Duration};
 

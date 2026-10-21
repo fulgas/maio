@@ -1,4 +1,4 @@
-//! Dialogs (SPEC 12): the browser's own `<dialog>`, opened with `showModal()`. The browser moves focus in,
+//! Dialogs (arc42 8.5): the browser's own `<dialog>`, opened with `showModal()`. The browser moves focus in,
 //! keeps it there while the dialog is open, closes it on Escape and puts focus back where it was.
 
 use leptos::{html, prelude::*};

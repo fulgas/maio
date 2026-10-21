@@ -1,4 +1,4 @@
-//! Playlists (SPEC 8, 10). Their live settings come in plan 4.
+//! Playlists (arc42 8.3, 3.5). Their live settings come in plan 4.
 
 use crate::domain::Playlist;
 use crate::usecases::{PlaylistSummary, PlaylistView};

@@ -1,4 +1,4 @@
-//! `maio.toml` (SPEC 11), checked once at start so a bad config never half-runs.
+//! `maio.toml` (arc42 7.3), checked once at start so a bad config never half-runs.
 //! Secrets come from the environment and never appear in an error.
 
 use std::{
@@ -29,7 +29,7 @@ pub struct Config {
     #[serde(default)]
     pub secure_cookies: bool,
     /// The address browsers use, such as `https://music.example`, when a proxy sits in front and changes `Host`.
-    /// Without it, `Origin` must match the `Host` header (SPEC 4).
+    /// Without it, `Origin` must match the `Host` header (arc42 8.1).
     #[serde(default)]
     pub public_origin: Option<String>,
     /// `text` (default) or `json` lines on stdout.
@@ -43,7 +43,7 @@ pub struct Config {
     /// A job whose engine shows no change for this long fails, and is retried once elsewhere.
     #[serde(default = "default_stall")]
     pub engine_stall_s: u64,
-    /// At most this many playlists live at once (SPEC 1): each runs its own encoders.
+    /// At most this many playlists live at once (arc42 1.2): each runs its own encoders.
     #[serde(default = "default_max_live")]
     pub max_live: usize,
     /// The equal-power crossfade between songs on a live stream, in seconds.
@@ -313,7 +313,7 @@ impl Config {
         }
     }
 
-    /// SPEC 5 and 6 fix the poll (2 s) and the text engines' limits (30 s lyrics, 15 s titles).
+    /// arc42 8.2 and 6 fix the poll (2 s) and the text engines' limits (30 s lyrics, 15 s titles).
     pub fn make_settings(&self) -> MakeSettings {
         MakeSettings {
             moods: self.moods.clone(),
@@ -346,7 +346,7 @@ mod tests {
     }
 
     #[test]
-    fn a_minimal_config_takes_the_spec_defaults() {
+    fn a_minimal_config_takes_the_documented_defaults() {
         let cfg = parse(MINIMAL, no_env).unwrap();
         assert_eq!((cfg.listen.as_str(), cfg.secure_cookies, cfg.engine_stall_s), ("0.0.0.0:8080", false, 600));
         assert_eq!((cfg.limits.make.as_str(), cfg.limits.pending_jobs), ("20/10m", 4));

@@ -1,5 +1,5 @@
 //! A small dropdown of buttons: reachable by keyboard, closed by a choice, Escape, or focus leaving it.
-//! thaw's Menu renders click-only divs that a keyboard cannot reach (SPEC 12), so this replaces it.
+//! thaw's Menu renders click-only divs that a keyboard cannot reach (arc42 8.5), so this replaces it.
 
 use std::sync::Arc;
 

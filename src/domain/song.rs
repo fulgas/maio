@@ -1,4 +1,4 @@
-//! A song and what it carries (SPEC 5, "What a song carries").
+//! A song and what it carries (arc42 8.2, "What a song carries").
 
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +6,7 @@ use crate::domain::{Error, PlaylistRef, SongId};
 
 pub const MAX_TITLE: usize = 60;
 
-/// Which layer gave a song its title (SPEC 5, titles in layers).
+/// Which layer gave a song its title (arc42 8.2, titles in layers).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TitleSource {
@@ -31,7 +31,7 @@ impl TitleSource {
     }
 }
 
-/// An engine licence's commercial terms (SPEC 6, `GET /info`).
+/// An engine licence's commercial terms (arc42 3.3, `GET /info`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Commercial {
@@ -93,7 +93,7 @@ pub struct Song {
 }
 
 impl Song {
-    /// A person's title, never overwritten by the other layers (SPEC 5, layer 1).
+    /// A person's title, never overwritten by the other layers (arc42 8.2, layer 1).
     pub fn rename(&mut self, title: &str) -> Result<(), Error> {
         let title = title.trim();
         let n = title.chars().count();
@@ -106,12 +106,12 @@ impl Song {
     }
 }
 
-/// A song can be deleted only when no playlist holds it (SPEC 1).
+/// A song can be deleted only when no playlist holds it (arc42 1.2).
 pub fn song_deletable(in_playlists: Vec<PlaylistRef>) -> Result<(), Error> {
     if in_playlists.is_empty() { Ok(()) } else { Err(Error::SongInPlaylist(in_playlists)) }
 }
 
-/// A format a song downloads in (SPEC 10, `GET /songs/{id}/download`).
+/// A format a song downloads in (arc42 3.5, `GET /songs/{id}/download`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DownloadFormat {
     Mp3,

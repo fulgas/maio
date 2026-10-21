@@ -1,0 +1,55 @@
+# Project rules
+
+How changes to Maio are made. What Maio does and how it is built is in the [architecture](architecture/01-introduction-and-goals.md); the [decisions](architecture/09-architecture-decisions.md) say why.
+
+## The architecture comes first
+
+- The arc42 sections in `docs/architecture/` are the authority. Read the section you are touching before changing code; code points to it as `arc42 x.y`.
+- A change to what Maio does changes its section first, then the code.
+- A decision that would surprise the next reader gets a record in `docs/adr/`, in [MADR 4.0.0](https://adr.github.io/madr/), started from the [template](adr/template.md), and a row in [section 9](architecture/09-architecture-decisions.md). A replaced decision keeps its file, with `status: superseded by ADR NNNN`.
+- The C4 model (`docs-site/src/model.mjs`) changes with the building blocks it draws.
+
+## Principles
+
+SOLID, KISS and YAGNI, as [arc42 2.3](architecture/02-architecture-constraints.md#23-principles-enforced-in-review) spells them out: small ports and use cases that depend on them, the simplest thing that meets the documentation, and nothing for a future that has not been asked for. The layers keep their direction (`domain` ← `usecases` ← `adapters` ← `web`, plus `ui`); `tests/layers.rs` fails the build otherwise.
+
+## Test first
+
+- A change starts with a test that fails for the right reason, then the code that makes it pass.
+- `just test` (format check, every Rust test, the WebAssembly build, the documentation site's checks) and `just e2e` (a real browser through every screen against a fake ACE-Step) stay green.
+- A fix to the web app gets an e2e check that fails without it.
+
+## Conventional Commits
+
+Commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
+
+```text
+type(optional-scope)!: what changed, for the person using Maio
+
+Optional body: why, and what it affects.
+
+BREAKING CHANGE: what no longer works, and what to do instead
+```
+
+The subject says what changed in plain words (`fix(player): Pause while listening live turns to Play`), not which file was edited. The `!` and the `BREAKING CHANGE:` footer mark a change that breaks the API, the config or stored data; a breaking change always has the footer.
+
+| Type | Use |
+| --- | --- |
+| `feat` | Something new people can use. |
+| `fix` | A defect corrected. |
+| `docs` | Documentation only: the arc42 sections, ADRs, these rules, the C4 model, README. |
+| `test` | Tests only, no change in behaviour. |
+| `refactor` | Code reshaped with no change in behaviour. |
+| `perf` | Faster or lighter, same behaviour. |
+| `build`, `ci`, `chore`, `style`, `revert` | Build and dependencies, automation, upkeep, formatting, undoing earlier work. |
+
+Scopes, when they help: `songs`, `playlists`, `player`, `live`, `relay`, `engine`, `text`, `account`, `api`, `ui`, `config`, `telemetry`, `docs-site`. One logical change per commit.
+
+## Secrets
+
+- Secrets live in `.env` and are never printed, logged or committed: the account password, the API token, engine keys.
+- Logs name jobs, songs, playlists and engines by id, never a secret ([arc42 8.6](architecture/08-crosscutting-concepts.md#86-logs-traces-and-metrics)).
+
+## Accessibility
+
+Every screen meets WCAG 2.1 AA ([arc42 10](architecture/10-quality-requirements.md)): keyboard throughout, visible focus, text contrast of at least 4.5:1, targets of at least 24 px, from 360 px wide. A review with axe-core and a keyboard pass comes before a release.

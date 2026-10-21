@@ -1,4 +1,4 @@
-//! Live changes from `/api/v1/events` (SPEC 10): jobs as they move, and a nudge to reload when songs or playlists change.
+//! Live changes from `/api/v1/events` (arc42 3.5): jobs as they move, and a nudge to reload when songs or playlists change.
 
 use leptos::prelude::*;
 use wasm_bindgen::{JsCast, closure::Closure};

@@ -1,4 +1,4 @@
-//! ACE-Step 1.5's own HTTP API, `acestep-api` (SPEC 6).
+//! ACE-Step 1.5's own HTTP API, `acestep-api` (arc42 3.3).
 
 use std::{
     collections::HashMap,
@@ -16,7 +16,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use tokio::io::AsyncWriteExt;
 
-/// `[[engine]]` in config (SPEC 6).
+/// `[[engine]]` in config (arc42 3.3).
 #[derive(Clone, PartialEq)]
 pub struct EngineConfig {
     pub id: String,
@@ -121,7 +121,7 @@ impl HttpEngine {
         }
     }
 
-    /// One health check (SPEC 6): `down` after 3 failures in a row; loading until ACE-Step's models are up.
+    /// One health check (arc42 3.3): `down` after 3 failures in a row; loading until ACE-Step's models are up.
     pub async fn check(&self) {
         let before = self.seen().health;
         self.check_once().await;
@@ -227,7 +227,7 @@ impl HttpEngine {
     }
 }
 
-/// Checks at start and every 30 s, for as long as the server runs (SPEC 6).
+/// Checks at start and every 30 s, for as long as the server runs (arc42 3.3).
 pub async fn watch(engine: Arc<HttpEngine>) {
     loop {
         engine.check().await;

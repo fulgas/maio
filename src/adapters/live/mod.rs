@@ -1,4 +1,4 @@
-//! Live streams (SPEC 9): one station per live playlist, behind the `LiveStreams` port.
+//! Live streams (arc42 8.4): one station per live playlist, behind the `LiveStreams` port.
 
 pub mod icy;
 pub mod mixer;

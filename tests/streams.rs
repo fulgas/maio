@@ -1,4 +1,4 @@
-//! Live over HTTP (SPEC 9, 10): the live API, the streams, and the relay's auth hook.
+//! Live over HTTP (arc42 8.4, 3.5): the live API, the streams, and the relay's auth hook.
 
 mod common;
 

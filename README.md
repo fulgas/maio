@@ -1,7 +1,13 @@
 # Maio
 
 Makes songs with music generation models, keeps them in your library, builds playlists from them and plays them.
-Spec: `SPEC.md`. The music engine is ACE-Step 1.5's own `acestep-api`, from the `ACE-Step-1.5` checkout next to this repo (`just engine`).
+- [Product](docs/product.md), [Design](DESIGN.md) and [Tech](docs/tech.md): what Maio is, how it looks, how it is built, each on one page.
+- [Architecture](docs/architecture/01-introduction-and-goals.md): twelve arc42 sections, the authority for what Maio does and how it is built.
+- [Decisions](docs/architecture/09-architecture-decisions.md): arc42 section 9, the index of the ADRs and their reasons.
+- [Project rules](docs/project-rules.md): how changes are made.
+
+`just docs-serve` shows all of it as a website with an interactive C4 explorer at http://localhost:8000;
+`docs-site/dist/architecture.html` is the same site in one file.
 
 ## Run
 
@@ -10,7 +16,7 @@ Spec: `SPEC.md`. The music engine is ACE-Step 1.5's own `acestep-api`, from the 
 2. `just` starts Maio and MediaMTX in Docker and runs ACE-Step in this terminal; Ctrl-C stops both.
    `just fake` runs a fake engine (sine tones, no GPU) instead of ACE-Step.
 3. Open http://localhost:8080 and sign in. Everything the web app does, the API at http://localhost:8080/api/v1
-   does too (SPEC 10).
+   does too (arc42 3.5).
 4. Press **Live** on a playlist to stream it: the strip shows MP3, AAC and HLS links (and RTSP, SRT, RTMP through
    MediaMTX), whether it is public or private, and who is listening.
 
@@ -36,4 +42,4 @@ browser through every screen against the fake engine (needs Node).
 
 Set `OTEL_EXPORTER_OTLP_ENDPOINT` (for example `http://localhost:4318`) for Maio and for `just engine`:
 Maio sends traces, metrics and logs over OTLP, and ACE-Step runs under OpenTelemetry's zero-code
-instrumentation, so one trace holds your request, the job and ACE-Step's own spans (SPEC 13).
+instrumentation, so one trace holds your request, the job and ACE-Step's own spans (arc42 8.6).

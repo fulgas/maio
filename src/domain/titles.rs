@@ -1,4 +1,4 @@
-//! Titles in layers (SPEC 5), layers 3 and 4: from the lyrics, and from word lists picked by the seed.
+//! Titles in layers (arc42 8.2), layers 3 and 4: from the lyrics, and from word lists picked by the seed.
 
 use crate::domain::MAX_TITLE;
 

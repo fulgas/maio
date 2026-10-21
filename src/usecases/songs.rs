@@ -1,4 +1,4 @@
-//! Song library use cases: look up, search, rename, delete (SPEC 5, 10).
+//! Song library use cases: look up, search, rename, delete (arc42 8.2, 3.5).
 
 use std::sync::{Arc, Mutex};
 
@@ -15,7 +15,7 @@ use crate::usecases::{
 pub const DEFAULT_LIMIT: usize = 50;
 pub const MAX_LIMIT: usize = 100;
 
-/// A song and the playlists it is in (SPEC 10, `GET /songs`).
+/// A song and the playlists it is in (arc42 3.5, `GET /songs`).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SongView {
     #[serde(flatten)]
@@ -30,7 +30,7 @@ pub struct SongPage {
     pub next: Option<String>,
 }
 
-/// A song ready to send in a download format (SPEC 10).
+/// A song ready to send in a download format (arc42 3.5).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Download {
     pub path: PathBuf,

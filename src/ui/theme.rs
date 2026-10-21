@@ -1,4 +1,4 @@
-//! Dark by default, light on request, remembered on this device (SPEC 12).
+//! Dark by default, light on request, remembered on this device (arc42 8.5).
 
 use leptos::prelude::*;
 use thaw::Theme;

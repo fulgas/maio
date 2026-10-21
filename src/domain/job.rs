@@ -1,4 +1,4 @@
-//! A job: one song being made (SPEC 5, jobs).
+//! A job: one song being made (arc42 8.2, jobs).
 
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +34,7 @@ pub struct Job {
     pub error: Option<String>,
     /// Something that happened along the way, such as a lyrics fallback.
     pub note: Option<String>,
-    /// A `limited` engine licence's terms (SPEC 5, licences).
+    /// A `limited` engine licence's terms (arc42 8.2, licences).
     pub licence_note: Option<String>,
     pub created_at: String,
 }

@@ -1,4 +1,4 @@
-//! Password hashes with Argon2id (SPEC 4).
+//! Password hashes with Argon2id (arc42 8.1).
 
 use std::sync::LazyLock;
 

@@ -1,4 +1,4 @@
-//! Live (SPEC 9): which song a live playlist plays next, and where it can be heard.
+//! Live (arc42 8.4): which song a live playlist plays next, and where it can be heard.
 
 use crate::domain::{Playlist, PlaylistRef, Visibility};
 
@@ -95,7 +95,7 @@ pub fn by_path<'a>(playlists: &'a [Playlist], kind: PathKind, name: &str) -> Opt
     })
 }
 
-/// `Some(live playlists)` when `id` going live would pass `max` (SPEC 1, `409 live_limit`).
+/// `Some(live playlists)` when `id` going live would pass `max` (arc42 1.2, `409 live_limit`).
 pub fn limit_reached(live_now: &[Playlist], id: &str, max: usize) -> Option<Vec<PlaylistRef>> {
     let live: Vec<&Playlist> = live_now.iter().filter(|p| p.live.on).collect();
     (live.len() >= max && !live.iter().any(|p| p.id == id))

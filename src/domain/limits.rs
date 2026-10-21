@@ -1,4 +1,4 @@
-//! Rate limits (SPEC 5, limits): at most `max` calls in any `window_s` seconds.
+//! Rate limits (arc42 8.2, limits): at most `max` calls in any `window_s` seconds.
 
 use std::collections::VecDeque;
 

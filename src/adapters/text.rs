@@ -1,4 +1,4 @@
-//! Text engines over HTTP (SPEC 7): the Anthropic Messages API and OpenAI-compatible chat APIs.
+//! Text engines over HTTP (arc42 3.4): the Anthropic Messages API and OpenAI-compatible chat APIs.
 
 use std::{
     sync::{
@@ -20,7 +20,7 @@ pub enum TextKind {
     Openai,
 }
 
-/// `[[text_engine]]` in config (SPEC 7), with the API key already read from its env var.
+/// `[[text_engine]]` in config (arc42 3.4), with the API key already read from its env var.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextEngineConfig {
     pub id: String,
@@ -65,7 +65,7 @@ pub fn parse_title(reply: &str) -> Option<SongName> {
     Some(SongName { title, description: trim_to(&description, 200) })
 }
 
-/// Drops `<think>...</think>` blocks that reasoning models put in their replies (SPEC 7).
+/// Drops `<think>...</think>` blocks that reasoning models put in their replies (arc42 3.4).
 fn strip_thinking(text: &str) -> String {
     let mut out = text.to_string();
     while let (Some(a), Some(b)) = (out.find("<think>"), out.find("</think>")) {
@@ -131,7 +131,7 @@ impl HttpTextEngine {
         text.map(|t| strip_thinking(&t)).context("the text engine's reply had no text")
     }
 
-    /// A one-token call (SPEC 7): healthy when it answers.
+    /// A one-token call (arc42 3.4): healthy when it answers.
     pub async fn check(&self) {
         let ok = self.complete("Reply with OK.", "OK", 1).await.is_ok();
         if self.healthy.swap(ok, Ordering::SeqCst) != ok {
@@ -144,7 +144,7 @@ impl HttpTextEngine {
     }
 }
 
-/// Checks at start and every 5 minutes (SPEC 7).
+/// Checks at start and every 5 minutes (arc42 3.4).
 pub async fn watch(engine: Arc<HttpTextEngine>) {
     loop {
         engine.check().await;

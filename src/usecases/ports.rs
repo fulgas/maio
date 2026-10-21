@@ -1,4 +1,4 @@
-//! The ports: small traits the use cases need and adapters implement (SPEC 3).
+//! The ports: small traits the use cases need and adapters implement (arc42 5).
 
 use std::{
     fmt,
@@ -17,7 +17,7 @@ pub enum SongSort {
     Title,
 }
 
-/// One page of songs: `q` matches titles, prompts, moods, genres and lyrics (SPEC 10, `GET /songs`).
+/// One page of songs: `q` matches titles, prompts, moods, genres and lyrics (arc42 3.5, `GET /songs`).
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SongQuery {
     pub q: Option<String>,
@@ -34,9 +34,9 @@ pub trait SongRepository: Send + Sync {
     fn update(&self, song: &Song) -> Result<()>;
     fn delete(&self, id: &str) -> Result<()>;
     fn search(&self, query: &SongQuery) -> Result<Vec<Song>>;
-    /// Bytes on disk taken by every song (SPEC 10, `/status`).
+    /// Bytes on disk taken by every song (arc42 3.5, `/status`).
     fn total_bytes(&self) -> Result<u64>;
-    /// Whether a song already has exactly this title (SPEC 5, layer 4).
+    /// Whether a song already has exactly this title (arc42 8.2, layer 4).
     fn title_taken(&self, title: &str) -> Result<bool>;
 }
 
@@ -62,13 +62,13 @@ pub struct Exported {
 pub trait AudioFiles: Send + Sync {
     /// A path for a temporary file, such as an engine's WAV before import.
     fn scratch(&self, name: &str) -> PathBuf;
-    /// Transcodes and loudness-normalises `wav` into the song's stored file (SPEC 5).
+    /// Transcodes and loudness-normalises `wav` into the song's stored file (arc42 8.2).
     fn import(&self, wav: &Path, song_id: &str) -> Result<Imported>;
-    /// Rewrites the file's tags from the song, without re-encoding (SPEC 5).
+    /// Rewrites the file's tags from the song, without re-encoding (arc42 8.2).
     fn retag(&self, song: &Song) -> Result<()>;
     /// `file` is relative to the data folder, as `Song::file`.
     fn delete(&self, file: &str) -> Result<()>;
-    /// The song in a download format (SPEC 10).
+    /// The song in a download format (arc42 3.5).
     fn export(&self, song: &Song, format: DownloadFormat) -> Result<Exported>;
 }
 
@@ -91,15 +91,15 @@ pub trait Clock: Send + Sync {
 pub trait Ids: Send + Sync {
     /// A new id for a song, a playlist or a job.
     fn id(&self) -> String;
-    /// A private live key: 32 random URL-safe characters (SPEC 9).
+    /// A private live key: 32 random URL-safe characters (arc42 8.4).
     fn key(&self) -> String;
     /// A random seed for a request that brings none: 0 to 2³² − 1.
     fn seed(&self) -> i64;
-    /// A session id: 32 random bytes as 64 hex characters (SPEC 4).
+    /// A session id: 32 random bytes as 64 hex characters (arc42 8.1).
     fn secret(&self) -> String;
 }
 
-/// The body of `POST /jobs` (SPEC 6).
+/// The body of `POST /jobs` (arc42 3.3).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct EngineRequest {
     pub prompt: String,
@@ -109,7 +109,7 @@ pub struct EngineRequest {
     pub lyrics: Option<String>,
     pub seed: i64,
     pub vocal_language: String,
-    /// Asks ACE-Step to write the lyrics itself (SPEC 5, the lyrics fallback).
+    /// Asks ACE-Step to write the lyrics itself (arc42 8.2, the lyrics fallback).
     pub write_lyrics: bool,
 }
 
@@ -128,7 +128,7 @@ impl From<&Normalized> for EngineRequest {
     }
 }
 
-/// `GET /jobs/{id}` (SPEC 6). `state` is `queued`, `running`, `done`, `failed` or `cancelled`.
+/// `GET /jobs/{id}` (arc42 3.3). `state` is `queued`, `running`, `done`, `failed` or `cancelled`.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 pub struct RemoteJob {
     pub job_id: String,
@@ -181,7 +181,7 @@ impl fmt::Display for CallError {
     }
 }
 
-/// One music engine server (SPEC 6). Health checks run inside the adapter; `status` reports the latest.
+/// One music engine server (arc42 3.3). Health checks run inside the adapter; `status` reports the latest.
 #[async_trait]
 pub trait MusicEngine: Send + Sync {
     fn status(&self) -> EngineStatus;
@@ -201,7 +201,7 @@ pub struct SongName {
     pub description: String,
 }
 
-/// A text engine (SPEC 7): writes lyrics and names songs, never music.
+/// A text engine (arc42 3.4): writes lyrics and names songs, never music.
 #[async_trait]
 pub trait TextEngine: Send + Sync {
     fn id(&self) -> &str;
@@ -211,13 +211,13 @@ pub trait TextEngine: Send + Sync {
     async fn name_song(&self, n: &Normalized, lyrics: Option<&str>) -> Result<SongName>;
 }
 
-/// Changes browsers hear about as events (SPEC 10, `/events`).
+/// Changes browsers hear about as events (arc42 3.5, `/events`).
 pub trait Notifier: Send + Sync {
     fn job(&self, job: &Job);
     fn song(&self, song: &Song);
 }
 
-/// The one account and its sessions (SPEC 4). Session ids arrive in the clear; how they are kept is the adapter's business.
+/// The one account and its sessions (arc42 8.1). Session ids arrive in the clear; how they are kept is the adapter's business.
 pub trait AccountStore: Send + Sync {
     /// The username and password hash, once the account exists.
     fn account(&self) -> Result<Option<(String, String)>>;
@@ -232,7 +232,7 @@ pub trait AccountStore: Send + Sync {
     fn delete_expired_sessions(&self, now: u64) -> Result<()>;
 }
 
-/// Password hashes (SPEC 4: Argon2id). Slow on purpose.
+/// Password hashes (arc42 8.1: Argon2id). Slow on purpose.
 pub trait Passwords: Send + Sync {
     fn hash(&self, password: &str) -> Result<String>;
     fn verify(&self, password: &str, hash: &str) -> bool;
@@ -284,7 +284,7 @@ pub struct OnAir {
     pub listeners: usize,
 }
 
-/// The live streams (SPEC 9): one per live playlist.
+/// The live streams (arc42 8.4): one per live playlist.
 pub trait LiveStreams: Send + Sync {
     /// Starts the playlist's stream, or brings a running one up to date: its songs in order, shuffle,
     /// visibility and key. A changed address disconnects the listeners on the old one.

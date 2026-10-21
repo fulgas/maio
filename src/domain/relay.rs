@@ -1,4 +1,4 @@
-//! MediaMTX as Maio last saw it (SPEC 9): what the header's MediaMTX panel shows.
+//! MediaMTX as Maio last saw it (arc42 8.4): what the header's MediaMTX panel shows.
 
 use serde::{Deserialize, Serialize};
 

@@ -56,6 +56,7 @@ test:
     cargo fmt --check
     cargo test
     cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+    node --test docs-site/tests/*.test.mjs
 
 # A real browser through every screen: builds the site, runs the fake engine and a throwaway server, runs e2e/smoke.mjs.
 e2e:
@@ -71,3 +72,11 @@ e2e:
     for _ in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:8099/sign-in && break; sleep 0.5; done
     cd e2e && npm install --silent && npx playwright install chromium >/dev/null
     E2E_USER=smoke E2E_PASSWORD=smoke-password-1 node smoke.mjs
+
+# The architecture website (C4 explorer, arc42, ADRs) into docs-site/dist; needs Node 20 or newer, nothing to install.
+docs:
+    node docs-site/build.mjs
+
+# Builds the website and serves it on http://localhost:8000 (DOCS_PORT to change it).
+docs-serve:
+    node docs-site/serve.mjs

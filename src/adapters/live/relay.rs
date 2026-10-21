@@ -1,4 +1,4 @@
-//! The MediaMTX relay (SPEC 9): anyone can pull a live playlist over RTSP, SRT and RTMP. Maio publishes each
+//! The MediaMTX relay (arc42 8.4): anyone can pull a live playlist over RTSP, SRT and RTMP. Maio publishes each
 //! live playlist to it, answers its auth hook, and reads and kicks its readers through its control API.
 
 use std::{collections::HashMap, sync::Mutex, time::Duration};

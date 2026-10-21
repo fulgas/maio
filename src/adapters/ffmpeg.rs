@@ -1,4 +1,4 @@
-//! Song files with ffmpeg (SPEC 5): import, tags, delete.
+//! Song files with ffmpeg (arc42 8.2): import, tags, delete.
 
 use std::{
     fs,
@@ -11,7 +11,7 @@ use crate::domain::{DownloadFormat, Song};
 use crate::usecases::ports::{AudioFiles, Exported, Imported};
 use anyhow::{Context, Result, bail, ensure};
 
-/// `[storage] format` (SPEC 11).
+/// `[storage] format` (arc42 7.3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StoreFormat {
     Opus,
@@ -55,7 +55,7 @@ pub fn duration(path: &Path) -> Result<f64> {
     String::from_utf8_lossy(&out).trim().parse().context("reading ffprobe's duration")
 }
 
-/// What goes into a file's tags (SPEC 5): title, artist, genre, BPM, lyrics, and a comment with engine, seed and licence.
+/// What goes into a file's tags (arc42 8.2): title, artist, genre, BPM, lyrics, and a comment with engine, seed and licence.
 fn tags(song: &Song) -> Vec<(&'static str, String)> {
     let mut t = vec![
         ("title", song.title.clone()),
@@ -129,7 +129,7 @@ impl AudioFiles for Ffmpeg {
         self.data_dir.join("tmp").join(name)
     }
 
-    /// Loudness-normalised to -16 LUFS, 48 kHz stereo, in the storage format (SPEC 5).
+    /// Loudness-normalised to -16 LUFS, 48 kHz stereo, in the storage format (arc42 8.2).
     fn import(&self, wav: &Path, song_id: &str) -> Result<Imported> {
         let file = format!("songs/{song_id}.{}", self.format.extension());
         let dst = self.data_dir.join(&file);
@@ -160,7 +160,7 @@ impl AudioFiles for Ffmpeg {
         write_tags(&song_path(&self.data_dir, &song.file)?, &tags(song))
     }
 
-    /// The stored file when it is already in `format`, else a converted copy in `tmp/` with the song's tags (SPEC 10).
+    /// The stored file when it is already in `format`, else a converted copy in `tmp/` with the song's tags (arc42 3.5).
     fn export(&self, song: &Song, format: DownloadFormat) -> Result<Exported> {
         let src = song_path(&self.data_dir, &song.file)?;
         ensure!(src.is_file(), "song {} has no file at {}", song.id, song.file);

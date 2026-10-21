@@ -1,4 +1,4 @@
-//! Asking for a song (SPEC 5, "Making a song"): the request, its rules and the engine prompt.
+//! Asking for a song (arc42 8.2, "Making a song"): the request, its rules and the engine prompt.
 
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +51,7 @@ pub enum Tempo {
     Bpm(u32),
 }
 
-/// The body of `POST /songs` (SPEC 5, the request table).
+/// The body of `POST /songs` (arc42 8.2, the request table).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SongRequest {
@@ -70,7 +70,7 @@ pub struct SongRequest {
     pub allow_noncommercial: Option<bool>,
 }
 
-/// What a request is checked against: config (SPEC 11) and the text engines that exist.
+/// What a request is checked against: config (arc42 7.3) and the text engines that exist.
 pub struct Rules<'a> {
     pub moods: &'a [String],
     pub genres: &'a [String],
@@ -107,7 +107,7 @@ pub fn valid_language(s: &str) -> bool {
 }
 
 impl SongRequest {
-    /// Checks the request against SPEC 5 and builds the engine prompt. `seed` is used when the request brings none.
+    /// Checks the request against arc42 8.2 and builds the engine prompt. `seed` is used when the request brings none.
     pub fn normalize(&self, rules: &Rules, seed: i64) -> Result<Normalized, Error> {
         let prompt = self.prompt.as_deref().map(|p| p.trim().to_string());
         if prompt.is_none() && self.mood.is_none() {

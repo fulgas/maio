@@ -12,7 +12,7 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 use sha2::{Digest, Sha256};
 
 /// `playlist_songs.song_id` has no `ON DELETE` action, so SQLite itself refuses to delete a song
-/// that a playlist holds (SPEC 1), even if a use case's check races.
+/// that a playlist holds (arc42 1.2), even if a use case's check races.
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS songs (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, title_source TEXT NOT NULL, description TEXT,
@@ -297,7 +297,7 @@ impl PlaylistRepository for SqlitePlaylists {
     }
 }
 
-/// The account and its sessions (SPEC 4). Session ids are kept only as SHA-256 hashes,
+/// The account and its sessions (arc42 8.1). Session ids are kept only as SHA-256 hashes,
 /// so a copy of the database file signs nobody in.
 pub struct SqliteAccount(pub Arc<Db>);
 

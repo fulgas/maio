@@ -1,4 +1,4 @@
-//! Errors as the API sends them (SPEC 10): `{"error": {"code", "message", ...}}` with a matching status.
+//! Errors as the API sends them (arc42 3.5): `{"error": {"code", "message", ...}}` with a matching status.
 
 use crate::domain::Error as Rule;
 use axum::{

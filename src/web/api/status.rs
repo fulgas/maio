@@ -1,4 +1,4 @@
-//! `GET /status` (SPEC 10): engines with health, live playlists, MediaMTX, disk usage, moods and genres.
+//! `GET /status` (arc42 3.5): engines with health, live playlists, MediaMTX, disk usage, moods and genres.
 
 use axum::{Json, extract::State};
 use serde_json::{Value, json};

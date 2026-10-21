@@ -1,5 +1,5 @@
-//! The player (SPEC 8): one <audio> for the whole app, above the routes, so it keeps playing across pages.
-//! A live playlist plays its stream (SPEC 9): what everyone listening hears, with no skipping.
+//! The player (arc42 8.3): one <audio> for the whole app, above the routes, so it keeps playing across pages.
+//! A live playlist plays its stream (arc42 8.4): what everyone listening hears, with no skipping.
 
 use leptos::{html::Audio, prelude::*};
 use leptos_router::hooks::use_location;

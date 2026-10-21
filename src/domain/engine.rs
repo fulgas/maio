@@ -1,4 +1,4 @@
-//! The music engine's model: ACE-Step 1.5 as Maio sees it (SPEC 6), and the choice of engine (SPEC 5).
+//! The music engine's model: ACE-Step 1.5 as Maio sees it (arc42 3.3), and the choice of engine (arc42 8.2).
 
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ pub struct Caps {
     pub concurrency: u32,
 }
 
-/// `GET /info` (SPEC 6).
+/// `GET /info` (arc42 3.3).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EngineInfo {
     pub id: String,
@@ -65,7 +65,7 @@ pub fn eta_s(info: &EngineInfo, seconds: u32) -> u32 {
     ((info.realtime_factor * seconds as f32) as u32).saturating_add(30)
 }
 
-/// The first healthy engine in config order that can meet the request, or the one the request names (SPEC 5).
+/// The first healthy engine in config order that can meet the request, or the one the request names (arc42 8.2).
 /// Returns its index in `engines`.
 pub fn choose(engines: &[EngineStatus], n: &Normalized, exclude: &[String]) -> Result<usize, Error> {
     if let Some(want) = n.engine.as_ref().filter(|w| !engines.iter().any(|e| &e.id == *w)) {

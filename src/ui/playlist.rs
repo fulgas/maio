@@ -1,4 +1,4 @@
-//! A playlist (SPEC 8, 12): its coloured band, and its songs in order, dragged to reorder.
+//! A playlist (arc42 8.3, 8.5): its coloured band, and its songs in order, dragged to reorder.
 
 use std::collections::HashSet;
 

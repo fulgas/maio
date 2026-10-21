@@ -1,4 +1,4 @@
-//! A playlist: a named, ordered collection of songs, with its live settings (SPEC 1, 8, 9).
+//! A playlist: a named, ordered collection of songs, with its live settings (arc42 1.2, 8.3, 8.4).
 
 use serde::{Deserialize, Serialize};
 
@@ -26,7 +26,7 @@ impl Visibility {
     }
 }
 
-/// A playlist's live settings (SPEC 9). `key` is the private address's secret.
+/// A playlist's live settings (arc42 8.4). `key` is the private address's secret.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Live {
     pub on: bool,
@@ -70,7 +70,7 @@ impl Playlist {
     }
 
     /// Adds songs at `position` (default the end, clamped to it). Songs already in the playlist,
-    /// or repeated in `ids`, are skipped (SPEC 8). Returns how many were added.
+    /// or repeated in `ids`, are skipped (arc42 8.3). Returns how many were added.
     pub fn add(&mut self, ids: &[SongId], position: Option<usize>) -> usize {
         let mut new: Vec<SongId> = Vec::new();
         for id in ids {
@@ -90,7 +90,7 @@ impl Playlist {
         Ok(())
     }
 
-    /// Sets the whole order: `ids` must hold exactly this playlist's songs, each once (SPEC 10).
+    /// Sets the whole order: `ids` must hold exactly this playlist's songs, each once (arc42 3.5).
     pub fn reorder(&mut self, ids: Vec<SongId>) -> Result<(), Error> {
         let (mut given, mut held) = (ids.clone(), self.song_ids.clone());
         given.sort();
@@ -102,13 +102,13 @@ impl Playlist {
         Ok(())
     }
 
-    /// A live playlist cannot be deleted (SPEC 1).
+    /// A live playlist cannot be deleted (arc42 1.2).
     pub fn ensure_deletable(&self) -> Result<(), Error> {
         if self.live.on { Err(Error::PlaylistLive) } else { Ok(()) }
     }
 }
 
-/// A change of live settings (SPEC 10, `PUT /playlists/{id}/live`): what is left out stays as it is.
+/// A change of live settings (arc42 3.5, `PUT /playlists/{id}/live`): what is left out stays as it is.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct LiveChange {
     pub live: bool,
@@ -129,7 +129,7 @@ impl Playlist {
         }
     }
 
-    /// A new private key: the old address stops at once (SPEC 9).
+    /// A new private key: the old address stops at once (arc42 8.4).
     pub fn new_key(&mut self, key: String) {
         self.live.key = key;
     }

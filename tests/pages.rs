@@ -30,6 +30,9 @@ async fn sign_in_renders_for_strangers_and_redirects_you_home() {
     let (status, _, html) = page(&w, "/sign-in", None).await;
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("Sign in"), "{html}");
+    assert!(html.contains(r#"<link rel="icon" href="/favicon.svg" type="image/svg+xml">"#), "a favicon: {html}");
+    assert!(html.contains("usic + "), "the tagline under the wordmark: {html}");
+    assert!(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("public/favicon.svg").exists(), "the favicon ships with the assets");
     let session = sign_in(&w).await;
     let (status, headers, _) = page(&w, "/sign-in", Some(&session)).await;
     assert_eq!(status, StatusCode::SEE_OTHER);
@@ -181,4 +184,14 @@ async fn unhashed_assets_are_checked_every_time() {
     let w = world();
     let res = w.router.clone().oneshot(axum::http::Request::get("/pkg/maio.css").body(axum::body::Body::empty()).unwrap()).await.unwrap();
     assert_eq!(res.headers()[axum::http::header::CACHE_CONTROL], "no-cache");
+}
+
+#[tokio::test]
+async fn the_favicon_is_served_to_anyone() {
+    let w = world();
+    let res = w.router.clone().oneshot(axum::http::Request::get("/favicon.svg").body(axum::body::Body::empty()).unwrap()).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.headers()[header::CONTENT_TYPE], "image/svg+xml");
+    let body = axum::body::to_bytes(res.into_body(), 1 << 16).await.unwrap();
+    assert!(body.starts_with(b"<svg"), "the icon itself");
 }

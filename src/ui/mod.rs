@@ -76,6 +76,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <head>
                     <meta charset="utf-8"/>
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                    <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
                     <script inner_html=theme::BOOT></script>
                     <AutoReload options=options.clone()/>
                     <HashedStylesheet options=options.clone() id="leptos"/>

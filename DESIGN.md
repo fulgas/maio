@@ -128,6 +128,7 @@ rounded:
 ## Components
 
 - **Icon buttons** for actions (play, shuffle, add, more, live, lock, refresh, copy, cancel, remove), each with a tooltip and an accessible label.
+- **The favicon** (`public/favicon.svg`): the wordmark's "ai", mustard strokes on a night rounded square, so it reads on light and dark tabs.
 - **Status icons** in the header: the engine (a chip) and MediaMTX (a broadcast mark), each with a 9 px status dot on its corner, green when all is well, ringed in the page colour; the state is the caption, never words on the bar.
 - **Tiles** on the shelf, in the playlist's colour (the tokens show the second playlist's).
 - **The band** heads a playlist page: its colour (the tokens show the third playlist's), its name and length, and solid round icon buttons.

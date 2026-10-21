@@ -37,6 +37,14 @@ pub fn options() -> LeptosOptions {
     opts
 }
 
+/// The browser tab's icon (DESIGN.md), built into the binary so it needs no site folder; kept for a day.
+async fn favicon() -> impl axum::response::IntoResponse {
+    (
+        [(axum::http::header::CONTENT_TYPE, "image/svg+xml"), (axum::http::header::CACHE_CONTROL, "public, max-age=86400")],
+        include_str!("../../public/favicon.svg"),
+    )
+}
+
 pub fn router(app: Shared) -> Router<Shared> {
     let opts = options();
     let hashed = opts.hash_files;
@@ -54,9 +62,14 @@ pub fn router(app: Shared) -> Router<Shared> {
         axum::http::header::CACHE_CONTROL,
         axum::http::HeaderValue::from_static(cache),
     ));
-    Router::new().nest("/pkg", pkg).nest_service("/fonts", ServeDir::new(site.join("fonts"))).merge(pages).fallback(|| async {
-        (StatusCode::NOT_FOUND, Html(r#"<!doctype html><title>Not found</title><p>There is nothing here. <a href="/">Go to your songs</a></p>"#))
-    })
+    Router::new()
+        .nest("/pkg", pkg)
+        .nest_service("/fonts", ServeDir::new(site.join("fonts")))
+        .route("/favicon.svg", axum::routing::get(favicon))
+        .merge(pages)
+        .fallback(|| async {
+            (StatusCode::NOT_FOUND, Html(r#"<!doctype html><title>Not found</title><p>There is nothing here. <a href="/">Go to your songs</a></p>"#))
+        })
 }
 
 /// Signed out: only `/sign-in`. Signed in: everything but `/sign-in`.

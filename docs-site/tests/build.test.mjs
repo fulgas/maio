@@ -253,3 +253,10 @@ test('the commit-msg hook takes Conventional Commits and refuses anything else',
     assert.ok(!verdict(bad), `accepted: ${bad}`);
 });
 
+
+test('the site carries the favicon inline, whole, so the one-file version keeps it', async () => {
+  const html = await readFile(path.join(result.outputRoot, 'index.html'), 'utf8');
+  const icon = html.match(/<link rel="icon" href="data:image\/svg\+xml,([^"]*)">/);
+  assert.ok(icon, 'an icon link whose address has no raw quote in it');
+  assert.equal(decodeURIComponent(icon[1]).trim(), (await readFile(path.join(repositoryRoot, 'public/favicon.svg'), 'utf8')).trim());
+});

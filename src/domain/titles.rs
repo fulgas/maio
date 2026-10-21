@@ -55,6 +55,11 @@ fn genre_nouns(genre: Option<&str>) -> &'static [&'static str] {
         Some("orchestral") => &["Halls", "Overtures", "Banners", "Kingdoms", "Storms", "Cathedrals"],
         Some("rock") => &["Engines", "Amps", "Streets", "Wires", "Garages", "Riots"],
         Some("electronic") => &["Circuits", "Pulses", "Currents", "Codes", "Frequencies", "Machines"],
+        Some("hip-hop") => &["Blocks", "Cyphers", "Corners", "Breaks", "Mics", "Stoops"],
+        Some("funk") => &["Grooves", "Strut", "Basslines", "Sundays", "Horns", "Platforms"],
+        Some("folk") => &["Hills", "Campfires", "Ballads", "Hollows", "Lanterns", "Harvests"],
+        Some("chillhop") => &["Windowsills", "Afternoons", "Tea", "Bicycles", "Pages", "Plants"],
+        Some("reggae") => &["Sunsplash", "Riddims", "Islands", "Yards", "Shores", "Dubplates"],
         _ => GENERAL_NOUNS,
     }
 }
@@ -109,6 +114,15 @@ mod tests {
         assert!(!from_words(None, None, 3).is_empty(), "no mood or genre uses the general lists");
         assert!(!from_words(Some("not-a-mood"), Some("not-a-genre"), -5).is_empty(), "negative seeds work");
         assert!(a.split(' ').all(|w| w.chars().next().unwrap().is_uppercase()));
+    }
+
+    #[test]
+    fn every_genre_in_the_example_config_has_its_own_title_words() {
+        let example = include_str!("../../maio.example.toml");
+        let line = example.lines().find(|l| l.starts_with("genres = [")).expect("the example lists genres");
+        for genre in line.split('"').skip(1).step_by(2) {
+            assert_ne!(genre_nouns(Some(genre)), GENERAL_NOUNS, "{genre} has no title words of its own");
+        }
     }
 
     #[test]

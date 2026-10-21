@@ -34,7 +34,7 @@ secure_cookies = false
 max_live = 4
 crossfade_s = 6.0
 moods = ["calm", "focused", "upbeat", "playful", "tense", "dreamy", "melancholy", "triumphant"]
-genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic"]
+genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic", "hip-hop", "funk", "folk", "chillhop", "reggae"]
 
 [limits]
 make = "20/10m"

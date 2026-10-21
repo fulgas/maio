@@ -7,7 +7,7 @@ secure_cookies = false
 # Log lines on stdout: "text" or "json". RUST_LOG filters them (default info).
 log_format = "text"
 moods = ["calm", "focused", "upbeat", "playful", "tense", "dreamy", "melancholy", "triumphant"]
-genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic"]
+genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic", "hip-hop", "funk", "folk", "chillhop", "reggae"]
 # A job whose engine shows no progress for this long fails, and is tried once more on another engine.
 engine_stall_s = 600
 # How often a song being made is polled; after a busy answer or a failed poll, the wait doubles up to engine_backoff_max_s.

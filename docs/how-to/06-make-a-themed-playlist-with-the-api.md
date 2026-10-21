@@ -46,23 +46,24 @@ Use this to fill a playlist with songs that share a mood and a genre, from a scr
 
 ## Playlists to start from
 
-Every mood and genre must be in `moods` and `genres` in `maio.toml`; Maio refuses any other with `unknown_mood` or `unknown_genre`. The genres marked * are not in `maio.example.toml`: add them to `genres` and restart Maio first. A tempo is `slow` (75 bpm), `medium` (105), `fast` (135) or a number from 40 to 220; `seconds` is 15 to 600.
+Every mood and genre must be in `moods` and `genres` in `maio.toml`; Maio refuses any other with `unknown_mood` or `unknown_genre`. All of these are in `maio.example.toml`; if your `maio.toml` is older, add the missing ones to `genres` and restart Maio. A tempo is `slow` (75 bpm), `medium` (105), `fast` (135) or a number from 40 to 220; `seconds` is 15 to 600.
 
 | Playlist | mood | genre | energy | tempo | vocals | seconds | prompt |
 |---|---|---|---|---|---|---|---|
 | Deep Work | focused | lo-fi | low | 85 | false | 210 | soft drums, warm keys, vinyl crackle |
-| Study Beats | focused | chillhop* | low | 88 | false | 180 | jazzy chords, dusty drums, mellow bass |
+| Study Beats | focused | chillhop | low | 88 | false | 180 | jazzy chords, dusty drums, mellow bass |
 | Night Drive | dreamy | synthwave | medium | 105 | some | 230 | analog pads, steady bass, neon city at 2am |
 | Morning Coffee | upbeat | jazz | medium | medium | false | 180 | brushed drums, upright bass, bright piano |
 | Sleep | calm | ambient | low | 55 | false | 420 | slow drones, no percussion, long reverb |
 | Rainy Day | melancholy | lo-fi | low | slow | some | 210 | rain texture, muted guitar, sparse beat |
-| Campfire | calm | folk* | low | 80 | true | 200 | acoustic guitar, soft voice, crackling fire |
-| Sunday Funk | upbeat | funk* | medium | 110 | some | 200 | slap bass, wah guitar, tight horns |
-| Late Night Cypher | tense | hip-hop* | medium | 90 | true | 180 | boom bap drums, dark piano loop |
+| Campfire | calm | folk | low | 80 | true | 200 | acoustic guitar, soft voice, crackling fire |
+| Sunday Funk | upbeat | funk | medium | 110 | some | 200 | slap bass, wah guitar, tight horns |
+| Late Night Cypher | tense | hip-hop | medium | 90 | true | 180 | boom bap drums, dark piano loop |
 | Workout | triumphant | electronic | high | 132 | some | 210 | punchy kick, build-ups, big drops |
 | Epic Focus | triumphant | orchestral | medium | 100 | false | 240 | strings, brass swells, film-score build |
 | Garage Energy | playful | rock | high | fast | true | 180 | driving guitars, loud drums, shout-along chorus |
 | Boss Fight | tense | orchestral | high | 150 | false | 180 | pounding drums, staccato strings, choir |
+| Reggae Sunsplash | upbeat | reggae | medium | 76 | some | 210 | roots reggae, one drop drums, deep bass, offbeat guitar skank |
 
 "some" in the vocals column means `true` for about a third of the songs and `false` for the rest. Change the tempo by up to 10 bpm from song to song; for Sleep, let it fall instead (65 down to 50), and for Workout let the energy go `medium`, `high`, `high`, `medium`.
 

@@ -8,7 +8,7 @@ use crate::{
     domain::relay::RelayState,
     ui::{
         api, format,
-        icons::{Icon, IconButton},
+        icons::{Icon, IconButton, Svg},
         menu::Dropdown,
         say,
         theme::Themes,
@@ -61,9 +61,11 @@ pub fn Frame(children: Children) -> impl IntoView {
                 <a href="/playlists" aria-current=move || current(&path.get(), "/playlists")>"Playlists"</a>
             </nav>
             // The browser's popover: opens on click, closes on Escape or a click outside, no script of ours.
+            // An icon with a status dot; the state ("ACE-Step 1.5 ready") is its caption and part of its name.
             <button type="button" class="engine" class:ready=move || engine().is_some_and(|e| e.1) popovertarget="engines"
+                data-tip=move || engine().map(|e| e.0).unwrap_or_default()
                 aria-label=move || engine().map(|e| format!("{}: show the engines", e.0))>
-                <i aria-hidden="true"></i>{move || engine().map(|e| e.0).unwrap_or_default()}
+                <Svg icon=Icon::Engine/><i aria-hidden="true"></i>
             </button>
             <section id="engines" class="engines" popover="auto" aria-label="Engines">
                 <h2>"Engines"</h2>
@@ -126,8 +128,8 @@ pub fn Frame(children: Children) -> impl IntoView {
                     };
                     view! {
                         <button type="button" class="engine relay" class:ready=move || line().1 popovertarget="relay"
-                            aria-label=move || format!("{}: show MediaMTX", line().0)>
-                            <i aria-hidden="true"></i>{move || line().0}
+                            data-tip=move || line().0 aria-label=move || format!("{}: show MediaMTX", line().0)>
+                            <Svg icon=Icon::Relay/><i aria-hidden="true"></i>
                         </button>
                         <section id="relay" class="engines" popover="auto" aria-label="MediaMTX" on:toggle=on_toggle>
                             <h2>"MediaMTX"</h2>

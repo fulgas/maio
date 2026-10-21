@@ -33,6 +33,8 @@ pub enum Icon {
     Refresh,
     Copy,
     Grip,
+    Engine,
+    Relay,
 }
 
 /// (filled, inner SVG markup) on a 24×24 grid.
@@ -56,6 +58,11 @@ fn shape(icon: Icon) -> (bool, &'static str) {
         Sun => (
             false,
             r#"<circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>"#,
+        ),
+        Engine => (false, r#"<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>"#),
+        Relay => (
+            false,
+            r#"<circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>"#,
         ),
         Moon => (false, r#"<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>"#),
         Make => (false, r#"<path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 7v10"/>"#),

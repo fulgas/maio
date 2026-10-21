@@ -129,6 +129,17 @@ await check("a taller prompt box leaves the Make button its size", async () => {
 step("make a song with a long prompt");
 await page.locator(".engine.ready").waitFor({ timeout: 60_000 });
 
+await check("the engine is an icon with a status dot: its state is in its caption and its name, not on screen", async () => {
+  const button = page.locator(".engine");
+  assert.equal((await button.innerText()).trim(), "", "no words in the header");
+  assert.equal(await button.locator("svg").count(), 1, "an icon");
+  assert.ok(await button.locator("i").count(), "a status dot");
+  assert.match(await button.getAttribute("data-tip"), /ACE-Step 1\.5/, "the caption says which engine and how it is");
+  assert.match(await button.getAttribute("aria-label"), /ACE-Step 1\.5.*show the engines/);
+  const box = await button.boundingBox();
+  assert.ok(box.width >= 44 && box.height >= 44, `${box.width}×${box.height}`);
+});
+
 await check("the engine line opens a panel that says what each engine is doing", async () => {
   await page.locator(".engine").click();
   const panel = page.getByRole("region", { name: "Engines" });
@@ -266,6 +277,25 @@ await check("the Playlists tab lists the playlist", async () => {
   await row.getByRole("link", { name: /Smoke test list/ }).click();
   await page.waitForURL(base + playlistPath);
   await page.locator(".track").nth(1).waitFor();
+});
+
+await check("Add songs offers only songs not in the playlist, under a search as wide as the dialog", async () => {
+  const inList = (await page.locator(".track .track-title").allInnerTexts()).map((t) => t.trim());
+  await page.getByRole("button", { name: "Add songs" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add songs" });
+  await dialog.waitFor();
+  // A plain labelled field, like the other dialogs' fields: no pill around it for the focus ring to clash with.
+  assert.equal(await dialog.locator(".search").count(), 0, "no search pill");
+  const field = dialog.getByRole("textbox", { name: "Search" });
+  await field.click();
+  const [box, body] = [await field.boundingBox(), await dialog.locator(".pick").boundingBox()];
+  assert.ok(Math.abs(box.width - body.width) <= 4, `the field is ${box.width}px wide, the list ${body.width}px`);
+  await dialog.locator(".pick-empty, .pick [role=checkbox]").first().waitFor();
+  const offered = (await dialog.locator(".pick").innerText()).split("\n").map((t) => t.trim()).filter(Boolean);
+  for (const title of inList) assert.ok(!offered.includes(title), `${title} is already in the playlist`);
+  // Every song in this library is on the playlist: the dialog says so instead of an empty list.
+  assert.deepEqual(offered, ["Every song is already in this playlist."]);
+  await dialog.getByRole("button", { name: "Cancel" }).click();
 });
 
 step("the player kept its song across pages");
@@ -586,6 +616,31 @@ await check("a search with no hits keeps the list valid and says how many songs 
   assert.equal(await page.locator("[role=list]:has(> p)").count(), 0, "a list holding a paragraph");
   await page.locator("[role=status]", { hasText: "No songs found" }).waitFor({ state: "attached", timeout: 5_000 });
   await page.getByRole("searchbox").fill("");
+});
+
+await check("Add songs is a table of songs that fits the dialog with no scrollbar; a row's click ticks it", async () => {
+  await page.goto(base + "/playlists");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: "New playlist" }).click();
+  await page.getByRole("dialog").getByLabel("Name").fill("Table test");
+  await page.getByRole("dialog").getByRole("button", { name: "Create" }).click();
+  await page.waitForURL(/\/playlists\/.+/);
+  const id = new URL(page.url()).pathname.split("/").at(-1);
+  await page.getByRole("button", { name: "Add songs" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add songs" });
+  const table = dialog.getByRole("table");
+  await table.locator("tbody tr").first().waitFor();
+  assert.deepEqual((await table.locator("thead th").allInnerTexts()).map((t) => t.trim()).slice(1), ["Title", "Mood", "Key, tempo", "Length"]);
+  const rows = table.locator("tbody tr");
+  assert.ok((await rows.count()) >= 2, "every song in the library is offered");
+  const scrolls = await dialog.evaluate((d) => [d, ...d.querySelectorAll("*")].some((el) => el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(el).overflowY)));
+  assert.ok(!scrolls, "nothing in the dialog scrolls");
+  const title = (await rows.first().locator("td").nth(1).innerText()).trim();
+  await rows.first().locator("td").nth(1).click();
+  assert.ok(await dialog.getByRole("checkbox", { name: `Add ${title}` }).isChecked(), "a click on the row ticks it");
+  await dialog.getByRole("button", { name: "Add 1 song" }).click();
+  await page.locator(".track", { hasText: title }).waitFor();
+  await page.request.delete(base + `/api/v1/playlists/${id}`, { headers: { origin: base } });
 });
 
 await check("the Playlists page renames and deletes a playlist from its row", async () => {

@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use leptos::{ev::KeyboardEvent, prelude::*};
 use leptos_router::hooks::{use_navigate, use_params_map};
-use thaw::{Button, ButtonAppearance, Checkbox, CheckboxGroup, Field, Input, ToastIntent, ToasterInjection};
+use thaw::{Button, ButtonAppearance, Field, Input, ToastIntent, ToasterInjection};
 use wasm_bindgen::JsCast;
 
 use crate::{
@@ -206,7 +206,7 @@ pub fn PlaylistPage() -> impl IntoView {
                 }).collect_view().into_any()
             }}
         </ol>
-        <AddSongs open=adding playlist=id/>
+        <AddSongs open=adding playlist=id in_playlist=Signal::derive(move || songs.with(|s| s.iter().map(|s| s.id.clone()).collect()))/>
         <crate::ui::details::SongDetails open=showing song=shown/>
         <PlaylistDialogs renaming deleting id name
             on_renamed=Callback::new(move |n| name.set(n))
@@ -285,9 +285,12 @@ pub fn PlaylistDialogs(
     }
 }
 
-/// "Add songs": search the library, tick songs, add them at the end (songs already in it are skipped).
+/// Songs the Add songs table shows at once: enough to pick from, few enough that the dialog never scrolls.
+const SHOWN: usize = 8;
+
+/// "Add songs": search the library, tick songs, add them at the end. Songs already in the playlist are not offered.
 #[component]
-fn AddSongs(open: RwSignal<bool>, playlist: Memo<String>) -> impl IntoView {
+fn AddSongs(open: RwSignal<bool>, playlist: Memo<String>, in_playlist: Signal<HashSet<String>>) -> impl IntoView {
     let toaster = ToasterInjection::expect_context();
     let query = RwSignal::new(String::new());
     let picked = RwSignal::new(HashSet::<String>::new());
@@ -309,15 +312,44 @@ fn AddSongs(open: RwSignal<bool>, playlist: Memo<String>) -> impl IntoView {
         })
     };
     view! {
-        <Modal open title="Add songs">
-                    <label class="search"><Svg icon=Icon::Search size=16/><span class="sr">"Search songs"</span>
-                        <input type="search" placeholder="Search titles, moods, lyrics" bind:value=query/></label>
+        <Modal open title="Add songs" class="wide">
+                    <Field label="Search"><Input value=query placeholder="Titles, moods, lyrics"/></Field>
                     <div class="pick">
-                        <CheckboxGroup value=picked>
-                            {move || found.get().unwrap_or_default().into_iter()
-                                .map(|s| view! { <Checkbox value=s.song.id.clone() label=s.song.title/> })
-                                .collect_view()}
-                        </CheckboxGroup>
+                        {move || {
+                            let offered: Vec<_> = in_playlist.with(|have| {
+                                found.get().unwrap_or_default().into_iter().filter(|s| !have.contains(&s.song.id)).collect()
+                            });
+                            if found.get().is_some() && offered.is_empty() {
+                                let why = if query.with(String::is_empty) { "Every song is already in this playlist." } else { "No songs match, or they are already in this playlist." };
+                                return view! { <p class="pick-empty">{why}</p> }.into_any();
+                            }
+                            // At most SHOWN rows, so the dialog never scrolls; a search finds the rest.
+                            let more = offered.len() > SHOWN;
+                            let rows = offered.into_iter().take(SHOWN).map(|s| {
+                                let (id, song) = (s.song.id.clone(), s.song);
+                                let ticked = { let id = id.clone(); Memo::new(move |_| picked.with(|p| p.contains(&id))) };
+                                let toggle = move || picked.update(|p| if !p.remove(&id) { p.insert(id.clone()); });
+                                let toggle_row = toggle.clone();
+                                let key_tempo = [song.key.clone(), song.bpm.map(|b| format!("{b} bpm"))].into_iter().flatten().collect::<Vec<_>>().join(" · ");
+                                view! {
+                                    <tr class:ticked=ticked on:click=move |_| toggle_row()>
+                                        <td><input type="checkbox" aria-label=format!("Add {}", song.title) prop:checked=ticked
+                                            on:click=|ev| ev.stop_propagation() on:change=move |_| toggle()/></td>
+                                        <td class="pick-title">{song.title.clone()}</td>
+                                        <td>{song.mood.clone().unwrap_or_default()}</td>
+                                        <td>{key_tempo}</td>
+                                        <td class="pick-length">{format::clock(song.seconds)}</td>
+                                    </tr>
+                                }
+                            }).collect_view();
+                            view! {
+                                <table class="pick-table">
+                                    <thead><tr><th><span class="sr">"Add"</span></th><th>"Title"</th><th>"Mood"</th><th>"Key, tempo"</th><th class="pick-length">"Length"</th></tr></thead>
+                                    <tbody>{rows}</tbody>
+                                </table>
+                                {more.then(|| view! { <p class="pick-more">{format!("Showing the first {SHOWN}. Search to find the others.")}</p> })}
+                            }.into_any()
+                        }}
                     </div>
                 <div class="modal-actions">
                     <Button on_click=move |_| open.set(false)>"Cancel"</Button>

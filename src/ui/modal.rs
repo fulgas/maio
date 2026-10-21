@@ -4,7 +4,14 @@
 use leptos::{html, prelude::*};
 
 #[component]
-pub fn Modal(open: RwSignal<bool>, #[prop(into)] title: Signal<String>, children: Children) -> impl IntoView {
+pub fn Modal(
+    open: RwSignal<bool>,
+    #[prop(into)] title: Signal<String>,
+    /// More classes for the dialog, such as `wide`.
+    #[prop(optional)]
+    class: &'static str,
+    children: Children,
+) -> impl IntoView {
     let dialog = NodeRef::<html::Dialog>::new();
     Effect::new(move |_| {
         let (Some(d), open) = (dialog.get(), open.get()) else { return };
@@ -16,7 +23,7 @@ pub fn Modal(open: RwSignal<bool>, #[prop(into)] title: Signal<String>, children
     });
     view! {
         // Escape closes it in the browser; `close` tells the signal.
-        <dialog node_ref=dialog class="modal" aria-label=move || title.get() on:close=move |_| open.set(false)>
+        <dialog node_ref=dialog class=format!("modal {class}") aria-label=move || title.get() on:close=move |_| open.set(false)>
             <h2 class="modal-title">{move || title.get()}</h2>
             {children()}
         </dialog>

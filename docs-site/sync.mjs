@@ -50,7 +50,7 @@ function frontMatter(markdown) {
 }
 
 function link(href, source) {
-  if (href.startsWith('#view/')) return `/${href}`;
+  if (href.startsWith('#view/')) return `/explore/${href}`;
   if (/^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('//') || href.startsWith('#')) return href;
   const [file, section] = href.split('#');
   const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(source), file)).replace(/^\.\.\/docs\//, '');
@@ -66,10 +66,10 @@ export async function sync() {
   const version = (await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8')).match(/^version = "([^"]+)"/m)[1];
   await cp(path.join(repositoryRoot, 'public/fonts'), path.join(siteRoot, 'static/fonts'), { recursive: true });
   await rm(out, { recursive: true, force: true });
-  for (const [dir, title, sort] of [['', 'maio', 'weight'], ['docs', 'Documentation', 'weight'], ['tutorials', 'Tutorials', 'weight'], ['how-to', 'How-to guides', 'weight'], ['architecture', 'Architecture', 'weight'], ['adr', 'Decision records', 'weight']]) {
+  for (const [dir, title, sort] of [['', 'maio', 'weight'], ['explore', 'Explore', 'weight'], ['tutorials', 'Tutorials', 'weight'], ['how-to', 'How-to guides', 'weight'], ['architecture', 'Architecture', 'weight'], ['adr', 'Decision records', 'weight']]) {
     await mkdir(path.join(out, dir), { recursive: true });
     // The root section carries the version Cargo.toml says, for the header.
-    await writeFile(path.join(out, dir, '_index.md'), `+++\ntitle = ${toml(title)}\nsort_by = ${toml(sort)}\n${dir === 'docs' ? 'template = "docs.html"\n' : ''}${dir ? '' : `template = "index.html"\n[extra]\nversion = ${toml(version)}\n`}+++\n`);
+    await writeFile(path.join(out, dir, '_index.md'), `+++\ntitle = ${toml(title)}\nsort_by = ${toml(sort)}\n${dir === 'explore' ? 'template = "index.html"\n' : ''}${dir ? '' : `template = "docs.html"\n[extra]\nversion = ${toml(version)}\n`}+++\n`);
   }
   
   let weight = 0;
@@ -87,8 +87,8 @@ export async function sync() {
         const lang = fence[1], start = i;
         while (++i < lines.length && !/^```\s*$/.test(lines[i]));
         const text = lines.slice(start + 1, i).join('\n');
-        // The preview's link opens the explorer, which lives on the home page.
-      if (lang === 'c4') result.push(block(renderC4Preview(text.trim()).replaceAll('href="#view/', 'href="/#view/')));
+        // The preview's link opens the explorer.
+      if (lang === 'c4') result.push(block(renderC4Preview(text.trim()).replaceAll('href="#view/', 'href="/explore/#view/')));
         else if (lang === 'tree') result.push(block(renderTree(text)));
         else if (lang === 'yaml' && designTokens) result.push(block(renderDesignTokens(text, designTokens)));
         else result.push(...lines.slice(start, i + 1));

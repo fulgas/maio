@@ -22,5 +22,7 @@ export async function build() {
     const html = page.match(/<article id="document" class="prose">([\s\S]*?)<\/article>/)[1];
     documents.push({ ...doc, markdown: await readFile(file, 'utf8'), html, page });
   }
-  return { documents, outputRoot, index: site(await readFile(path.join(outputRoot, 'index.html'), 'utf8')) };
+  // The compass is the home page; the C4 explorer has its own.
+  const page = file => readFile(path.join(outputRoot, file), 'utf8').then(site);
+  return { documents, outputRoot, compass: await page('index.html'), index: await page('explore/index.html') };
 }

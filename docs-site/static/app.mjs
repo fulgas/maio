@@ -218,7 +218,7 @@ function showView(id) {
     const at = [...$('breadcrumbs').querySelectorAll('button')].find(b => b.dataset.view === view.crumb);
     at.after(html('span', { class: 'crumb-divider crumb-deeper', 'aria-hidden': 'true' }, '›'), html('span', { class: 'crumb-here crumb-deeper', 'aria-current': 'step' }, view.title));
   }
-  document.title = `${view.title} · Maio architecture`;
+  document.title = `${view.title} · Maio docs`;
   draw(); select(null); requestAnimationFrame(fit);
 }
 function showDocument(id, section) {
@@ -241,7 +241,7 @@ function showDocument(id, section) {
     if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
   }
   revealCurrentDocument();
-  document.title = `${doc.title} · Maio architecture`;
+  document.title = `${doc.title} · Maio docs`;
   requestAnimationFrame(() => {
     const destination = section && [...$('document').querySelectorAll('[id]')].find(n => n.id === section);
     if (destination) destination.scrollIntoView({ block: 'start' }); else window.scrollTo(0, 0);
@@ -255,7 +255,7 @@ async function renderMermaid() {
     if (!mermaidReady && window.mermaid) mermaidReady = Promise.resolve();
     if (!mermaidReady) mermaidReady = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = './vendor/mermaid.min.js'; script.onload = resolve; script.onerror = reject;
+      script.src = '/vendor/mermaid.min.js'; script.onload = resolve; script.onerror = reject;
       document.head.append(script);
     });
     await mermaidReady;
@@ -439,7 +439,7 @@ async function start() {
     const embedded = $('documentation-data');
     if (embedded) documents = JSON.parse(embedded.textContent);
     else {
-      const response = await fetch('./documents.json');
+      const response = await fetch('/documents.json');
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       documents = await response.json();
     }

@@ -6,14 +6,14 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%231E1C21%22%2F%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23E8B04A%22%20stroke-width%3D%227%22%20stroke-linecap%3D%22round%22%3E%3Ccircle%20cx%3D%2224%22%20cy%3D%2239%22%20r%3D%2210%22%2F%3E%3Cpath%20d%3D%22M34%2029v20M46%2031v18%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2246%22%20cy%3D%2219%22%20r%3D%224.5%22%20fill%3D%22%23E8B04A%22%2F%3E%3C%2Fsvg%3E">
   <meta name="description" content="Explore the Maio architecture: interactive C4 diagrams, the arc42 documentation and the architecture decisions.">
   <meta name="color-scheme" content="dark light">
-  <title>{% block title %}Maio · Architecture{% endblock %}</title>
+  <title>{% block title %}Maio · Docs{% endblock %}</title>
   <link rel="stylesheet" href="/style.css">
   <script>try { document.documentElement.dataset.theme = localStorage.getItem('maio-architecture-theme') ?? 'dark'; } catch { document.documentElement.dataset.theme = 'dark'; }</script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
-    <a class="brand" href="/#view/context" aria-label="Maio architecture, home"><span class="brand-name">m<span>ai</span>o</span><small>ARCHITECTURE</small></a>
+    <a class="brand" href="/" aria-label="Maio docs, home"><span class="brand-name">m<span>ai</span>o</span><small>DOCS</small></a>
     <nav class="top-nav" aria-label="Workspace">{% set adrs = get_section(path="adr/_index.md") %}{% set records = [r for r in adrs.pages if r.extra?.number] %}{% block tabs %}{% endblock %}</nav>
     <div class="header-actions">{% set home = get_section(path="_index.md") %}<span class="baseline">v{{ home.extra.version }}</span><button id="theme" class="icon-button" aria-label="Switch color theme" title="Switch color theme">◐</button></div>
   </header>

@@ -29,8 +29,9 @@ test('links between documents, links to views, and the model\'s references all r
     if (section) assert.ok(target.headings.some(h => h.slug === decodeURIComponent(section)), `${source}: missing section ${id}#${section}`);
   };
   for (const doc of docs.values()) {
-    for (const m of doc.html.matchAll(/href="\/((?:architecture|adr)\/[^"#\/]+|[a-z-]+)\/(?:#([^"]+))?"/g)) check(m[1], m[2], doc.id);
-    for (const m of doc.html.matchAll(/href="\/#view\/([^"]+)"/g)) assert.ok(views[m[1]], `${doc.id}: missing C4 view ${m[1]}`);
+    for (const m of doc.html.matchAll(/href="\/((?:architecture|adr|tutorials|how-to)\/[^"#\/]+|(?!explore\/)[a-z-]+)\/(?:#([^"]+))?"/g)) check(m[1], m[2], doc.id);
+    for (const m of doc.html.matchAll(/href="\/explore\/#view\/([^"]+)"/g)) assert.ok(views[m[1]], `${doc.id}: missing C4 view ${m[1]}`);
+    assert.ok(!/href="\/#view\//.test(doc.html), `${doc.id}: a view link that misses the explorer`);
     assert.ok(!/href="(?!https?:)[^"#]*\.md(#[^"]*)?"/.test(doc.html), `${doc.id}: a link still points at a .md file`);
   }
   for (const item of Object.values(elements).filter(e => e.doc)) {
@@ -43,7 +44,7 @@ test('the arc42 sections draw each C4 level from the model, linked to the explor
   const previews = id => [...docs.get(id).html.matchAll(/<figure class="c4-preview" data-c4-view="([^"]+)">/g)].map(m => m[1]);
   assert.deepEqual(previews('architecture/03-system-scope-and-context'), ['context', 'containers']);
   assert.deepEqual(previews('architecture/05-building-block-view'), ['components', 'live', 'webapp']);
-  assert.match(docs.get('architecture/05-building-block-view').html, /href="\/#view\/live"/);
+  assert.match(docs.get('architecture/05-building-block-view').html, /href="\/explore\/#view\/live"/);
 });
 
 test('the site, its fonts, the explorer and Mermaid are written; the repository keeps the Markdown', async () => {
@@ -292,8 +293,8 @@ test('the docs follow Diátaxis: a tutorial, how-to guides, explanation and refe
     assert.ok(docs.get('reference').html.includes(`href="/${link}"`), `the reference points to ${link}`);
 });
 
-test('the compass at /docs/ leads to the four corners of Diátaxis, each listing its pages', async () => {
-  const compass = (await readFile(path.join(result.outputRoot, 'docs/index.html'), 'utf8')).replaceAll('href="http://localhost:8000/', 'href="/');
+test('the compass is the home page and leads to the four corners of Diátaxis, each listing its pages', async () => {
+  const compass = result.compass;
   const corners = [...compass.matchAll(/<div class="quadrant quadrant-([a-z-]+)">/g)].map(m => m[1]);
   assert.deepEqual(corners, ['tutorials', 'how-to', 'explanation', 'reference'], 'Tutorials and How-to on top, Explanation and Reference below');
   for (const axis of ['Doing', 'Understanding', 'Learning', 'Working']) assert.match(compass, new RegExp(`class="axis[^"]*">${axis}<`), axis);
@@ -301,6 +302,10 @@ test('the compass at /docs/ leads to the four corners of Diátaxis, each listing
     assert.ok(compass.includes(`href="/${id}/"`), `the compass links ${id}`);
   for (const id of ['overview', 'project-rules', 'contributing', 'security', 'code-of-conduct']) assert.ok(compass.includes(`href="/${id}/"`), `the project row links ${id}`);
   assert.match(compass, /data-tab="docs" class="active"/, 'the Docs tab is the compass');
+  assert.match(compass, /href="\/explore\/#view\/context">Explore the C4 model</, 'the explorer is part of the explanation');
+  assert.deepEqual([...compass.matchAll(/data-tab="([a-z]+)"/g)].map(m => m[1]), ['docs', 'view', 'decisions'], 'Docs first');
+  assert.match(compass, /<small>DOCS<\/small>/);
+  assert.match(compass, /#view\/[\s\S]*\/explore\//, 'old links to a view reach the explorer');
 });
 
 test('inside a page the sidebar shows only its corner, with a switch to the other three and the compass', () => {
@@ -308,7 +313,7 @@ test('inside a page the sidebar shows only its corner, with a switch to the othe
   const howto = sidebar('how-to/01-run-ace-step-on-another-machine');
   assert.match(howto, /<nav class="quadrant-switch"/);
   for (const corner of ['Tutorials', 'How-to guides', 'Explanation', 'Reference']) assert.match(howto, new RegExp(`>${corner}</a>`), corner);
-  assert.match(howto, /href="\/docs\/"/, 'back to the compass');
+  assert.match(howto, /href="\/" class="compass-link"/, 'back to the compass');
   assert.match(howto, /href="\/how-to\/05-back-up-the-library\/"/, 'its own pages');
   assert.ok(!howto.includes('href="/architecture/05-building-block-view/"'), 'no other corner\'s pages');
   assert.match(sidebar('architecture/05-building-block-view'), /href="\/product\/"[\s\S]*href="\/architecture\/12-glossary\/"/, 'explanation: product and arc42');

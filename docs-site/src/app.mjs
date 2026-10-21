@@ -164,7 +164,7 @@ function select(id) {
   panel.replaceChildren();
   $('clear-selection').disabled = !id;
   if (!id) {
-    panel.append(html('div', { class: 'empty-icon', 'aria-hidden': 'true' }, '⌖'), html('h2', {}, 'Explore the architecture'), html('p', {}, 'Select an element to inspect its responsibilities and connections. Double-click a box marked "Explore inside" to move to the next C4 level.'), html('h3', {}, 'The C4 levels'), html('p', {}, 'Context → Containers → Components. Live stations, the Web app and the Deployment open from their boxes and from the architecture.'), html('p', { class: 'quiet' }, 'This model describes Maio as it runs today. Each element links to the section of the architecture that describes it.'));
+    panel.append(html('div', { class: 'empty-icon', 'aria-hidden': 'true' }, '⌖'), html('h2', {}, 'Explore the architecture'), html('p', {}, 'Select an element to inspect its responsibilities and connections. Double-click a box marked "Explore inside" to move to the next C4 level.'), html('h3', {}, 'The C4 levels'), html('p', {}, 'Context → Containers → Components. Live stations, the Web app and the Deployment open from their boxes and from the architecture.'), html('p', { class: 'quiet' }, 'This model describes maio as it runs today. Each element links to the section of the architecture that describes it.'));
     return;
   }
   const item = elements[id];

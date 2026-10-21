@@ -69,3 +69,9 @@ test('the deployment view nests Docker compose inside the Mac, with ACE-Step on 
   assert.ok(inside(at('deployAcestep'), mac) && !inside(at('deployAcestep'), docker), 'ACE-Step on the Mac, outside Docker');
 });
 
+
+test('the C4 model writes the name maio, in lower case, as the wordmark does', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('../src/model.mjs', import.meta.url), 'utf8');
+  assert.deepEqual(source.match(/\bMaio\b/g) ?? [], []);
+});

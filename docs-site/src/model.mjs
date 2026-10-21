@@ -1,4 +1,4 @@
-// Maio's C4 model: the elements, and the views that place them. The explorer and the previews in the
+// maio's C4 model: the elements, and the views that place them. The explorer and the previews in the
 // documentation both draw from here. `doc` points into the arc42 documentation (document id, optional section).
 const element = (name, type, description, options = {}) => ({ name, type, description, ...options });
 const A = 'architecture/';
@@ -6,8 +6,8 @@ const A = 'architecture/';
 export const elements = {
   you: element('You', 'Person', 'The owner. Makes songs, keeps them, builds playlists, plays them and puts them on air.', { external: true, responsibilities: ['Make songs from prompts', 'Build and order playlists', 'Go live, public or private'], doc: `${A}01-introduction-and-goals?section=14-stakeholders` }),
   scripts: element('Scripts', 'Person', 'Programs with the API token. Anything the web app does, they can do through the JSON API.', { external: true, responsibilities: ['Call /api/v1 with a bearer token'], doc: `${A}03-system-scope-and-context?section=35-the-http-api` }),
-  listeners: element('Listeners', 'Person', 'Anyone with a live playlist\'s address, in any player, with no account.', { external: true, responsibilities: ['Pull MP3, AAC or HLS from Maio', 'Pull RTSP, SRT or RTMP from MediaMTX'], doc: `${A}08-crosscutting-concepts?section=84-live` }),
-  maio: element('Maio', 'Software system', 'Makes songs through music engines, keeps them in a library, builds playlists, plays them and streams live playlists.', { drill: 'containers', responsibilities: ['Make songs, one prompt each', 'Keep the library and playlists', 'Play on demand and stream live'], doc: `${A}01-introduction-and-goals?section=11-what-maio-is` }),
+  listeners: element('Listeners', 'Person', 'Anyone with a live playlist\'s address, in any player, with no account.', { external: true, responsibilities: ['Pull MP3, AAC or HLS from maio', 'Pull RTSP, SRT or RTMP from MediaMTX'], doc: `${A}08-crosscutting-concepts?section=84-live` }),
+  maio: element('maio', 'Software system', 'Makes songs through music engines, keeps them in a library, builds playlists, plays them and streams live playlists.', { drill: 'containers', responsibilities: ['Make songs, one prompt each', 'Keep the library and playlists', 'Play on demand and stream live'], doc: `${A}01-introduction-and-goals?section=11-what-maio-is` }),
   acestep: element('ACE-Step 1.5', 'External system', 'acestep-api on the Mac, with Metal. Makes the music, can write lyrics, reports progress and models.', { external: true, responsibilities: ['Generate songs', 'Write lyrics with its planning model', 'Load and switch models'], doc: `${A}03-system-scope-and-context?section=33-the-music-engine-ace-step-15` }),
   textengines: element('Text engines', 'External system', 'Anthropic or any OpenAI-compatible chat API. They write lyrics, titles and descriptions, never music.', { external: true, doc: `${A}03-system-scope-and-context?section=34-text-engines` }),
   otel: element('OpenTelemetry collector', 'External system', 'Optional. Receives traces, metrics and logs over OTLP/HTTP when an endpoint is set.', { external: true, optional: true, doc: `${A}08-crosscutting-concepts?section=86-logs-traces-and-metrics` }),
@@ -50,21 +50,21 @@ const edge = (from, to, label, options = {}) => ({ from, to, label, ...options }
 
 export const views = {
   context: {
-    title: 'System context', level: 'C4 · Level 1', scope: 'Maio', crumb: 'context',
-    description: 'Who uses Maio, and which systems surround it?',
-    hint: 'Double-click Maio to explore its containers.',
+    title: 'System context', level: 'C4 · Level 1', scope: 'maio', crumb: 'context',
+    description: 'Who uses maio, and which systems surround it?',
+    hint: 'Double-click maio to explore its containers.',
     nodes: [node('you', 30, 60), node('scripts', 30, 420), node('maio', 480, 240), node('listeners', 930, 60), node('acestep', 930, 420), node('textengines', 480, 560), node('otel', 930, 700)],
     edges: [edge('you', 'maio', 'Makes, plays, goes live', { channel: 'input' }), edge('scripts', 'maio', 'Same, by API'), edge('maio', 'acestep', 'Song requests', { channel: 'input' }), edge('acestep', 'maio', 'The audio, lyrics', { channel: 'output' }), edge('maio', 'listeners', 'Live streams', { channel: 'output' }), edge('maio', 'textengines', 'Lyrics, titles'), edge('maio', 'otel', 'Traces, metrics, logs', { dashed: true })],
     flows: [{ id: 'input', legs: [{ from: 'you', to: 'maio' }, { from: 'maio', to: 'acestep' }] }, { id: 'output', legs: [{ from: 'acestep', to: 'maio' }, { from: 'maio', to: 'listeners' }] }],
     parent: null,
   },
   containers: {
-    title: 'Containers', level: 'C4 · Level 2', scope: 'Inside Maio', crumb: 'containers',
+    title: 'Containers', level: 'C4 · Level 2', scope: 'Inside maio', crumb: 'containers',
     description: 'One Rust container and MediaMTX in Docker; the web app runs in your browser.',
     hint: 'Double-click maio for its components, or the web app for its parts.',
     nodes: [node('you', 20, 90), node('scripts', 20, 440), node('webapp', 420, 90), node('server', 800, 330), node('mediamtx', 1180, 90), node('db', 610, 610), node('files', 990, 610), node('listeners', 1600, 90), node('acestep', 1600, 400), node('textengines', 1600, 680)],
     edges: [edge('you', 'webapp', 'Uses'), edge('webapp', 'server', 'Everything · /api/v1, SSE'), edge('scripts', 'server', 'Everything · token'), edge('server', 'mediamtx', 'Publishes AAC'), edge('mediamtx', 'server', 'Who may read? /relay/auth'), edge('listeners', 'server', 'MP3 · AAC · HLS'), edge('listeners', 'mediamtx', 'RTSP · SRT · RTMP'), edge('server', 'db', 'Reads, writes'), edge('server', 'files', 'Song files'), edge('server', 'acestep', 'Makes songs · HTTP'), edge('server', 'textengines', 'Words · HTTPS')],
-    boundary: { x: 380, y: 40, width: 1090, height: 770, label: 'Maio · Docker compose on the Mac' }, parent: 'context',
+    boundary: { x: 380, y: 40, width: 1090, height: 770, label: 'maio · Docker compose on the Mac' }, parent: 'context',
   },
   components: {
     title: 'Components', level: 'C4 · Level 3', scope: 'Inside maio', crumb: 'components',

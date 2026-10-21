@@ -151,6 +151,9 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .list-head h1 { margin: 0; font-size: 34px; font-weight: 800; }
 .search { margin-left: auto; flex-direction: row; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border: 1px solid var(--line2); border-radius: 22px; background: var(--panel); }
 .search input { border: 0 !important; min-height: 0 !important; padding: 0 !important; background: transparent !important; width: 220px; max-width: 50vw; }
+/* The focus ring goes around the whole pill: on the field inside it, it would sit cut inside the pill's round ends. */
+.search:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+.search input:focus-visible { outline: none; }
 .songs { display: flex; flex-direction: column; }
 .song { display: grid; grid-template-columns: 44px minmax(0, 1fr) 120px 140px 56px 44px 44px; gap: 14px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
 .song .play { background: var(--panel); }

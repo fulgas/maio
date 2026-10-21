@@ -643,6 +643,20 @@ await check("Add songs is a table of songs that fits the dialog with no scrollba
   await page.request.delete(base + `/api/v1/playlists/${id}`, { headers: { origin: base } });
 });
 
+await check("the songs search shows its focus ring around the whole search pill, not inside it", async () => {
+  await page.goto(base + "/");
+  const box = page.getByRole("searchbox");
+  await box.focus();
+  await page.keyboard.press("a");
+  const ring = await page.evaluate(() => {
+    const input = document.querySelector(".search input"), pill = input.closest(".search");
+    return { input: getComputedStyle(input).outlineStyle, pill: getComputedStyle(pill).outlineStyle };
+  });
+  assert.equal(ring.input, "none", "no ring on the field inside the pill");
+  assert.equal(ring.pill, "solid", "the pill carries the ring");
+  await box.fill("");
+});
+
 await check("the Playlists page renames and deletes a playlist from its row", async () => {
   await page.goto(base + "/playlists");
   await page.waitForLoadState("networkidle");

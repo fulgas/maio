@@ -15,7 +15,7 @@ services:
       - mediamtx
     restart: unless-stopped
 
-  # Lets anyone pull every radio over RTSP, SRT and RTMP; Maio publishes to it and answers its auth.
+  # Lets anyone pull every live playlist over RTSP, SRT and RTMP; Maio publishes to it and answers its auth.
   # Host ports 8555, 8891 and 1936 leave 8554, 8890 and 1935 free for another MediaMTX on the same machine.
   mediamtx:
     image: bluenviron/mediamtx:1.21.2

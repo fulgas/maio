@@ -9,7 +9,7 @@ const result = await build();
 const docs = new Map(result.documents.map(d => [d.id, d]));
 
 test('every arc42 section and decision record is published, grouped for the reader', () => {
-  assert.deepEqual(result.documents.filter(d => d.group === 'project').map(d => d.id), ['overview', 'product', 'design', 'tech', 'project-rules']);
+  assert.deepEqual(result.documents.filter(d => d.group === 'project').map(d => d.id), ['overview', 'product', 'design', 'tech', 'project-rules', 'contributing', 'security', 'code-of-conduct']);
   assert.equal(docs.get('overview').source, 'README.md', 'the README is the project overview');
   const arc42 = result.documents.filter(d => d.group === 'architecture');
   assert.equal(arc42.length, 12);
@@ -212,3 +212,21 @@ test('section 5 says what hexagonal means, and 5.2 lists every port with its ada
   const glossary = docs.get('architecture/12-glossary').markdown;
   for (const term of ['Hexagon', 'Port', 'Adapter', 'Driving adapter', 'Driven adapter']) assert.match(glossary, new RegExp(`\\| \\*\\*${term}\\*\\* \\|`), term);
 });
+
+test('the README is a proper README: what it is, requirements, quick start, ports, configuration, docs, and the community files', () => {
+  const readme = docs.get('overview');
+  const sections = readme.headings.filter(h => h.depth === 2).map(h => h.text);
+  for (const s of ['Features', 'Requirements', 'Quick start', 'Engines and API keys', 'Ports', 'Configuration', 'Development', 'Documentation', 'Contributing', 'Credits', 'License']) assert.ok(sections.includes(s), `README has no ${s} section`);
+  for (const id of ['contributing', 'security', 'code-of-conduct']) assert.match(readme.html, new RegExp(`href="#doc/${id}"`), `README links ${id}`);
+  assert.match(docs.get('code-of-conduct').markdown, /Contributor Covenant/);
+  assert.match(docs.get('security').markdown, /## Reporting a vulnerability/);
+  for (const step of ['uv sync', 'ACE_STEP_API_KEY', 'api_key_env', 'ANTHROPIC_API_KEY', '[[text_engine]]', '--force-recreate']) assert.ok(readme.markdown.includes(step), `README does not explain ${step}`);
+});
+
+test('Maio is MIT licensed, and the fonts it ships carry their own licence', async () => {
+  assert.match(await readFile(path.join(repositoryRoot, 'LICENSE'), 'utf8'), /^MIT License\n\nCopyright \(c\) \d{4} fulgas/);
+  assert.match(await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8'), /^license = "MIT"$/m);
+  assert.match(docs.get('overview').markdown, /## License\n\n\[MIT\]\(LICENSE\)/);
+  for (const font of ['unbounded', 'albert-sans']) assert.match(await readFile(path.join(repositoryRoot, `public/fonts/${font}-OFL.txt`), 'utf8'), /SIL OPEN FONT LICENSE/);
+});
+

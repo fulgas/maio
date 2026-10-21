@@ -45,13 +45,14 @@ function groupOf(source) {
   return 'project';
 }
 
-// Files at the repository root, read from docs/: the README is the project overview; DESIGN.md the design.
-const rootIds = { '../README.md': 'overview', '../DESIGN.md': 'design' };
+// Files at the repository root, read from docs/: the README is the project overview, DESIGN.md the design, and the
+// community files sit with the project rules.
+const rootIds = { '../README.md': 'overview', '../DESIGN.md': 'design', '../CONTRIBUTING.md': 'contributing', '../SECURITY.md': 'security', '../CODE_OF_CONDUCT.md': 'code-of-conduct' };
 
 export async function build() {
   const docsRoot = path.join(repositoryRoot, 'docs');
   // The repository's README is the project overview: one file for GitHub and the site.
-  const files = ['../README.md', 'product.md', '../DESIGN.md', 'tech.md', 'project-rules.md', ...(await markdownIn('architecture')), ...(await markdownIn('adr')), 'adr/template.md'];
+  const files = ['../README.md', 'product.md', '../DESIGN.md', 'tech.md', 'project-rules.md', '../CONTRIBUTING.md', '../SECURITY.md', '../CODE_OF_CONDUCT.md', ...(await markdownIn('architecture')), ...(await markdownIn('adr')), 'adr/template.md'];
   const knownFiles = new Set(files);
   const documents = [], broken = [];
   for (const source of files) {
@@ -96,7 +97,7 @@ export async function build() {
       const line = `<p class="adr-meta">${number ? `<span class="adr-number">ADR ${number}</span>` : ''}<span class="adr-status adr-status-${escape((meta.status ?? '').split(' ')[0])}">${escape(status)}</span>${meta.date ? `<span>${escape(meta.date)}</span>` : ''}${meta['decision-makers'] ? `<span>decided by ${escape(meta['decision-makers'])}</span>` : ''}</p>\n`;
       html = html.replace(/(<\/h1>\n)/, `$1${line}`);
     }
-    const navTitle = { overview: 'Project overview' }[id];
+    const navTitle = { overview: 'Project overview', 'code-of-conduct': 'Code of conduct' }[id];
     documents.push({ id, source: source.replace(/^\.\.\//, ''), markdown, meta, title: headings.find(h => h.depth === 1)?.text ?? id, navTitle, group: groupOf(source), headings, html });
   }
   if (broken.length) throw new Error(`Links to missing documents:\n  ${broken.join('\n  ')}`);

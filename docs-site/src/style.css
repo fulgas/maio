@@ -136,3 +136,7 @@ h1{font-weight:700}.prose h1{font-weight:800;font-size:30px}.prose h2{font-weigh
 .prose .component-sample[data-token="components.tile"]{align-items:flex-start;justify-content:flex-start;padding-top:14px !important;font-weight:700}
 .prose .design-yaml{margin:6px 0 24px}
 .prose .design-yaml summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--accent)}
+
+/* Pictures in the reader fit the column; the favicon in DESIGN.md is shown at a size that reads. */
+.prose img { display: block; max-width: 100%; height: auto; margin: 10px 0 18px; }
+.prose img[alt="The favicon"] { width: 96px; border-radius: 21px; box-shadow: 0 0 0 1px var(--line), 0 6px 18px rgb(0 0 0 / .25); }

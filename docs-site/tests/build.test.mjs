@@ -260,3 +260,9 @@ test('the site carries the favicon inline, whole, so the one-file version keeps 
   assert.ok(icon, 'an icon link whose address has no raw quote in it');
   assert.equal(decodeURIComponent(icon[1]).trim(), (await readFile(path.join(repositoryRoot, 'public/favicon.svg'), 'utf8')).trim());
 });
+
+test('DESIGN.md shows the favicon itself, inlined so the one-file version keeps it', () => {
+  const design = docs.get('design');
+  assert.match(design.markdown, /!\[The favicon\]\(public\/favicon\.svg\)/);
+  assert.match(design.html, /<img src="data:image\/svg\+xml,[^"]+" alt="The favicon"/);
+});

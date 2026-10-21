@@ -2,6 +2,7 @@
 // document in docs/ rendered to HTML in documents.json, and architecture.html, one file that
 // works without a server. A link to a Markdown file that does not exist fails the build.
 import { readFile, writeFile, mkdir, cp, readdir, rm } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked, Renderer } from './vendor/marked.mjs';
@@ -66,6 +67,12 @@ export async function build() {
       const slug = count ? `${base}-${count}` : base;
       headings.push({ text: plain(text), depth, slug });
       return `<h${depth} id="${escape(slug)}">${text}</h${depth}>\n`;
+    };
+    // A local SVG image is inlined, so the site and its one-file version show it without copying files.
+    renderer.image = ({ href, title, text }) => {
+      const file = href && !/^[a-z][a-z\d+.-]*:/i.test(href) && href.endsWith('.svg') ? path.join(docsRoot, path.dirname(source), href) : undefined;
+      const src = file && existsSync(file) ? `data:image/svg+xml,${encodeURIComponent(readFileSync(file, 'utf8').trim())}` : href;
+      return `<img src="${escape(src)}" alt="${escape(text)}"${title ? ` title="${escape(title)}"` : ''}>`;
     };
     renderer.link = function ({ href, title, tokens }) {
       let target = href;

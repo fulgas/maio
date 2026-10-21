@@ -67,7 +67,7 @@ stateDiagram-v2
     down --> loading: answers, models loading
 ```
 
-- Health: checked at start and every 30 s. `up` when the models are initialised, `loading` before, `down` after 3 failed checks in a row, or at once when a call made for a job cannot connect (so new songs are refused with `engine_unavailable` instead of starting jobs that cannot run), `incompatible` when the URL answers but not as `acestep-api`.
+- Health: checked at start and every 30 s, every 5 s while `down`. `up` when the models are initialised, `loading` before, `down` after 3 failed checks in a row, or at once when a call made for a job cannot connect (so new songs are refused with `engine_unavailable` instead of starting jobs that cannot run), `incompatible` when the URL answers but not as `acestep-api`.
 - A running job is polled every `engine_poll_s` (2 s by default). Progress and stage come from ACE-Step (`query_result`); a song waiting in ACE-Step's own queue shows as waiting. An id ACE-Step answers with an empty result (lost in a restart) fails the job as lost, and it is tried once more on another engine when there is one.
 - When ACE-Step is busy, slow or gone, the health state works as a circuit breaker, and busy answers and failed polls are retried with exponential backoff: [arc42 8.8](08-crosscutting-concepts.md#88-when-the-engine-is-busy-or-down) has the rules and how they behave.
 - ACE-Step can neither cancel nor delete a task. Cancelling a song being made stops Maio waiting for it; ACE-Step finishes it, nobody fetches it, and ACE-Step's own cleanup removes the file.

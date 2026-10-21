@@ -45,6 +45,8 @@ struct Seen {
     started: HashMap<String, (Instant, u32)>,
     /// A model switch is under way: ACE-Step keeps reporting the old model as up until it ends.
     switching: bool,
+    /// The lyrics plan of a song ACE-Step was too busy to take, for when the same song is tried again.
+    kept_plan: Option<(EngineRequest, Plan)>,
 }
 
 pub struct HttpEngine {
@@ -78,6 +80,18 @@ fn http(e: reqwest::Error) -> CallError {
     })
 }
 
+/// What ACE-Step's planning model writes for a song with vocals (`/v1/create_sample`).
+#[derive(Deserialize, Clone)]
+struct Plan {
+    #[serde(default)]
+    lyrics: String,
+    bpm: Option<u32>,
+    #[serde(default)]
+    keyscale: String,
+    #[serde(default)]
+    timesignature: String,
+}
+
 /// Every `acestep-api` answer is `{"data": …, "code": 200, "error": null}`.
 #[derive(Deserialize)]
 struct Wrapped<T> {
@@ -93,7 +107,8 @@ impl HttpEngine {
             .timeout(Duration::from_secs(60))
             .build()
             .expect("an HTTP client builds");
-        let seen = Seen { info: None, health: Health::Unknown, failures: 0, rtf: FIRST_RTF, started: HashMap::new(), switching: false };
+        let seen =
+            Seen { info: None, health: Health::Unknown, failures: 0, rtf: FIRST_RTF, started: HashMap::new(), switching: false, kept_plan: None };
         Self { cfg, http, seen: Mutex::new(seen) }
     }
 
@@ -135,6 +150,10 @@ impl HttpEngine {
     async fn post<T: serde::de::DeserializeOwned>(&self, path: &str, body: Value, timeout: Duration) -> Result<T, CallError> {
         let r = self.traced(self.http.post(self.url(path))).json(&body).timeout(timeout).send().await.map_err(|e| self.call_failed(http(e)))?;
         let status = r.status();
+        // ACE-Step's queue is full: try again later, not a refusal (arc42 8.8).
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            return Err(CallError::Busy);
+        }
         let w: Wrapped<T> = r.json().await.map_err(http)?;
         match w.data {
             Some(d) if status.is_success() => Ok(d),
@@ -262,12 +281,17 @@ impl HttpEngine {
     }
 }
 
-/// Checks at start and every 30 s, for as long as the server runs (arc42 3.3).
+/// Checks at start and every 30 s, every 5 s while down, for as long as the server runs (arc42 3.3).
 pub async fn watch(engine: Arc<HttpEngine>) {
     loop {
         engine.check().await;
-        tokio::time::sleep(Duration::from_secs(30)).await;
+        tokio::time::sleep(next_check(engine.status().health)).await;
     }
+}
+
+/// How long until the next health check: sooner while down, so songs are taken again soon after it answers.
+fn next_check(health: Health) -> Duration {
+    Duration::from_secs(if health == Health::Down { 5 } else { 30 })
 }
 
 #[async_trait]
@@ -279,26 +303,25 @@ impl MusicEngine for HttpEngine {
 
     async fn submit(&self, request: &EngineRequest) -> Result<String, CallError> {
         #[derive(Deserialize)]
-        struct Plan {
-            #[serde(default)]
-            lyrics: String,
-            bpm: Option<u32>,
-            #[serde(default)]
-            keyscale: String,
-            #[serde(default)]
-            timesignature: String,
-        }
-        #[derive(Deserialize)]
         struct Released {
             task_id: String,
         }
         let (mut lyrics, mut bpm, mut key, mut time) = (request.lyrics.clone().unwrap_or_default(), request.bpm, String::new(), String::new());
+        let mut plan = None;
         if request.vocals && request.write_lyrics {
-            // ACE-Step's planning model writes them; loading it the first time takes a while.
-            let body = json!({ "query": request.prompt, "instrumental": false, "vocal_language": request.vocal_language });
-            let plan: Plan = self.post("/v1/create_sample", body, Duration::from_secs(300)).await?;
-            (lyrics, key, time) = (plan.lyrics, plan.keyscale, plan.timesignature);
-            bpm = bpm.or(plan.bpm);
+            // The plan of this same request, kept when ACE-Step was busy: written once, not again on each try.
+            let kept = self.seen().kept_plan.take().filter(|(r, _)| r == request).map(|(_, p)| p);
+            let p: Plan = match kept {
+                Some(p) => p,
+                None => {
+                    // ACE-Step's planning model writes them; loading it the first time takes a while.
+                    let body = json!({ "query": request.prompt, "instrumental": false, "vocal_language": request.vocal_language });
+                    self.post("/v1/create_sample", body, Duration::from_secs(300)).await?
+                }
+            };
+            (lyrics, key, time) = (p.lyrics.clone(), p.keyscale.clone(), p.timesignature.clone());
+            bpm = bpm.or(p.bpm);
+            plan = Some(p);
         }
         if !request.vocals {
             lyrics = "[Instrumental]".into();
@@ -309,7 +332,13 @@ impl MusicEngine for HttpEngine {
             "batch_size": 1, "audio_format": "wav", "thinking": false,
             "vocal_language": if request.vocals { request.vocal_language.as_str() } else { "unknown" },
         });
-        let released: Released = self.post("/release_task", body, Duration::from_secs(60)).await?;
+        let released: Released = match self.post("/release_task", body, Duration::from_secs(60)).await {
+            Err(CallError::Busy) => {
+                self.seen().kept_plan = plan.map(|p| (request.clone(), p));
+                return Err(CallError::Busy);
+            }
+            r => r?,
+        };
         self.seen().started.insert(released.task_id.clone(), (Instant::now(), request.seconds));
         Ok(released.task_id)
     }
@@ -413,6 +442,8 @@ mod tests {
         posted: Arc<Mutex<Vec<(String, Value)>>>,
         /// The Authorization header of every call, health checks included.
         auth: Arc<Mutex<Vec<String>>>,
+        /// Answers this many song submissions as ACE-Step does when its queue is full.
+        busy: Arc<Mutex<u32>>,
     }
 
     fn wrap(data: Value) -> Json<Value> {
@@ -422,9 +453,18 @@ mod tests {
     async fn serve(fake: Fake) -> String {
         let record = |path: &'static str| {
             move |State(f): State<Fake>, headers: axum::http::HeaderMap, Json(body): Json<Value>| async move {
+                use axum::response::IntoResponse;
                 f.auth.lock().unwrap().push(headers.get("authorization").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string());
                 f.posted.lock().unwrap().push((path.to_string(), body));
-                match path {
+                if path == "/release_task" {
+                    let mut busy = f.busy.lock().unwrap();
+                    if *busy > 0 {
+                        *busy -= 1;
+                        // release_task_route.py: HTTPException(status_code=429, detail="Server busy: queue is full")
+                        return (axum::http::StatusCode::TOO_MANY_REQUESTS, Json(json!({"detail": "Server busy: queue is full"}))).into_response();
+                    }
+                }
+                let answer = match path {
                     "/release_task" => wrap(json!({"task_id": "t1", "status": "queued", "queue_position": 1})),
                     "/v1/create_sample" => wrap(json!({"lyrics": "[verse]\nwritten", "bpm": 92, "keyscale": "A minor", "timesignature": "4"})),
                     "/v1/init" => {
@@ -437,18 +477,19 @@ mod tests {
                         // ACE-Step's own shapes (query_result_service.py): an unknown id is "[]" with status 0;
                         // a task being made carries its progress and stage.
                         if status < 0 {
-                            return wrap(json!([{"task_id": "t1", "result": "[]", "status": 0}]));
+                            return wrap(json!([{"task_id": "t1", "result": "[]", "status": 0}])).into_response();
                         }
                         if status == 0 {
                             let stage = *f.stage.lock().unwrap();
                             let result = json!([{"file": "", "status": 0, "progress": 0.4, "stage": stage}]);
-                            return wrap(json!([{"task_id": "t1", "status": 0, "result": result.to_string()}]));
+                            return wrap(json!([{"task_id": "t1", "status": 0, "result": result.to_string()}])).into_response();
                         }
                         let result = json!([{"file": "/v1/audio?path=%2Ftmp%2Ft1.wav", "lyrics": "[verse]\nsung",
                             "metas": {"bpm": 92, "keyscale": "A minor", "timesignature": "4", "duration": 30}, "seed_value": "7"}]);
                         wrap(json!([{"task_id": "t1", "status": status, "result": result.to_string()}]))
                     }
-                }
+                };
+                answer.into_response()
             }
         };
         let app = Router::new()
@@ -537,6 +578,35 @@ mod tests {
         let url = format!("http://{}", listener.local_addr().unwrap());
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         assert_eq!(engine(url).job("t1").await, Err(CallError::Transport("an answer Maio does not understand".into())));
+    }
+
+    #[tokio::test]
+    async fn a_full_queue_is_busy_not_a_refusal() {
+        let fake = Fake::default();
+        *fake.busy.lock().unwrap() = 1;
+        let e = engine(serve(fake.clone()).await);
+        assert_eq!(e.submit(&request()).await, Err(CallError::Busy));
+        assert_eq!(e.submit(&request()).await, Ok("t1".into()), "taken once the queue has room");
+    }
+
+    #[tokio::test]
+    async fn a_busy_engine_does_not_write_the_lyrics_again() {
+        let fake = Fake::default();
+        *fake.busy.lock().unwrap() = 1;
+        let e = engine(serve(fake.clone()).await);
+        let sung = EngineRequest { vocals: true, write_lyrics: true, ..request() };
+        assert_eq!(e.submit(&sung).await, Err(CallError::Busy));
+        assert_eq!(e.submit(&sung).await, Ok("t1".into()));
+        let posted: Vec<String> = fake.posted.lock().unwrap().iter().map(|(p, _)| p.clone()).collect();
+        assert_eq!(posted, ["/v1/create_sample", "/release_task", "/release_task"], "the lyrics are written once");
+        assert_eq!(fake.posted.lock().unwrap()[2].1["lyrics"], "[verse]\nwritten", "and sent again with the song");
+    }
+
+    #[test]
+    fn an_engine_that_is_down_is_checked_more_often() {
+        assert_eq!(next_check(Health::Down), Duration::from_secs(5), "back within 5 s of answering again");
+        assert_eq!(next_check(Health::Up), Duration::from_secs(30));
+        assert_eq!(next_check(Health::Loading), Duration::from_secs(30));
     }
 
     #[tokio::test]

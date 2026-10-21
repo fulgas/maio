@@ -152,13 +152,13 @@ stateDiagram-v2
     [*] --> closed: models loaded
     closed --> open: 3 failed checks in a row
     closed --> open: a call for a song cannot connect
-    open --> halfopen: 30 s later
+    open --> halfopen: 5 s later
     halfopen --> closed: answers with models loaded
     halfopen --> open: no answer
 ```
 
 - **Opens** after 3 failed health checks in a row (about 90 s), or at once when a call made for a song cannot connect at all.
-- **Half-open**: the health check runs every 30 s whatever the state; it is the one call let through.
+- **Half-open**: while the breaker is open, the health check runs every 5 s instead of every 30 s; it is the one call let through, so songs are taken again within 5 s of ACE-Step answering.
 - **Closes** when ACE-Step answers with its models loaded. While it answers but is still loading its models, it stays shut to songs.
 - The header shows the state: the status dot on the engine icon turns grey, and its caption says why, while the breaker is open.
 
@@ -169,7 +169,7 @@ stateDiagram-v2
 | Limits before Maio | Over either limit, a new song is refused with `429 rate_limited` and a `Retry-After` | 4 waiting songs; 20 songs per 10 minutes | `pending_jobs`, `[limits] make` in `maio.toml` |
 | Engine slots | Only this many songs are sent to the engine at once; the rest wait in Maio, in the order asked | 1 for ACE-Step | fixed by the engine adapter |
 | Steady polling | While ACE-Step answers, a song being made is polled at a steady pace, so progress moves smoothly and a finished song is seen at once | every 2 s | `engine_poll_s` in `maio.toml` |
-| Busy engine | When ACE-Step answers `429`, the song tries again after a wait that doubles each time, up to the most, until it is accepted or cancelled | 2 s, 4, 8, 16, then 30 s | `engine_poll_s` and `engine_backoff_max_s` in `maio.toml` |
+| Busy engine | When ACE-Step answers `429` (its queue is full), the song tries again after a wait that doubles each time, up to the most, until it is accepted or cancelled; lyrics ACE-Step wrote for it are kept and sent again, not written again | 2 s, 4, 8, 16, then 30 s | `engine_poll_s` and `engine_backoff_max_s` in `maio.toml` |
 | A poll fails | The poll is tried again after a wait that doubles; the third failure in a row fails the song; a good answer brings back the steady pace | 2 s, then 4 s | `engine_poll_s` and `engine_backoff_max_s` in `maio.toml` |
 | Stalled | A song whose state and progress have not changed for this long fails | 600 s | `engine_stall_s` in `maio.toml` |
 | Retry | A song that failed for a reason that may pass (lost, stalled, unreachable, or the engine says retryable) is tried once more on another engine, when there is one | once | fixed |

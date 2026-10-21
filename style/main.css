@@ -138,13 +138,14 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 /* Being made */
 .making { display: flex; flex-direction: column; gap: 8px; }
 .making h2 { margin: 0; font: 700 14px "Albert Sans", sans-serif; letter-spacing: 0; color: var(--muted); }
-.job { display: grid; grid-template-columns: minmax(0, 1fr) minmax(80px, 240px) auto 44px; gap: 16px; align-items: center; padding: 6px 6px 6px 14px; border-radius: 6px; background: var(--panel); }
+.job { display: grid; grid-template-columns: minmax(0, 1fr) minmax(80px, 240px) 7.5em 44px; gap: 16px; align-items: center; padding: 6px 6px 6px 14px; border-radius: 6px; background: var(--panel); }
 .job-label { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .job-detail { font-size: 13px; color: var(--muted); }
-.job.failed .job-detail { color: inherit; }
+.job.failed .job-detail { color: inherit; grid-column: 2 / 4; }
+.job.failed .bar { display: none; }
 .bar { height: 6px; border-radius: 3px; background: var(--line2); overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--mustard); }
-@media (max-width: 720px) { .job { grid-template-columns: minmax(0, 1fr) 44px; } .job .bar { grid-column: 1 / -1; grid-row: 2; } .job-detail { grid-column: 1; } }
+@media (max-width: 720px) { .job { grid-template-columns: minmax(0, 1fr) 44px; } .job .bar { grid-column: 1 / -1; grid-row: 2; } .job-detail, .job.failed .job-detail { grid-column: 1; } }
 
 /* Song list */
 .list-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }

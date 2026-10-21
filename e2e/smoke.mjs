@@ -152,6 +152,19 @@ await check("the engine line opens a panel that says what each engine is doing",
   await panel.waitFor({ state: "hidden" });
 });
 
+await check("every job's bar sits in the same place, whatever its text says", async () => {
+  // One slot: the first is making ("about … min"), the second waiting.
+  await makeSong("slow one", 600);
+  await page.locator(".job").first().getByText(/about/).waitFor();
+  await makeSong("slow two", 600);
+  await page.locator(".job").nth(1).getByText("waiting").waitFor();
+  const bars = await page.locator(".job .bar").evaluateAll((els) => els.map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.width)]; }));
+  assert.equal(bars.length, 2);
+  assert.deepEqual(bars[0], bars[1], `bars at ${JSON.stringify(bars)}`);
+  for (const name of ["Cancel slow one", "Cancel slow two"]) await page.getByRole("button", { name }).click();
+  await page.getByRole("heading", { name: "Being made" }).waitFor({ state: "hidden" });
+});
+
 await makeSong(longPrompt, 30);
 await page.getByRole("heading", { name: "Being made" }).waitFor();
 const firstSong = page.locator(".song").first();

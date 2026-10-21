@@ -1,5 +1,7 @@
 # Maio
 
+**M**usic + **AI** + **O**utput.
+
 Make songs with a music generation model, keep them in your own library, arrange them into playlists, and play them: in the browser, or as live streams anyone with the link can tune in to.
 
 Maio is a personal, self-hosted tool. One person runs it and owns everything in it.

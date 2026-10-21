@@ -217,6 +217,7 @@ test('the README is a proper README: what it is, requirements, quick start, port
   const readme = docs.get('overview');
   const sections = readme.headings.filter(h => h.depth === 2).map(h => h.text);
   for (const s of ['Features', 'Requirements', 'Quick start', 'Engines and API keys', 'Ports', 'Configuration', 'Development', 'Documentation', 'Contributing', 'Credits', 'License']) assert.ok(sections.includes(s), `README has no ${s} section`);
+  assert.match(readme.markdown, /^# Maio\n\n\*\*M\*\*usic \+ \*\*AI\*\* \+ \*\*O\*\*utput\./, 'the name says what it is');
   for (const id of ['contributing', 'security', 'code-of-conduct']) assert.match(readme.html, new RegExp(`href="#doc/${id}"`), `README links ${id}`);
   assert.match(docs.get('code-of-conduct').markdown, /Contributor Covenant/);
   assert.match(docs.get('security').markdown, /## Reporting a vulnerability/);

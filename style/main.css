@@ -95,7 +95,9 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .narrow { display: flex; flex-direction: column; gap: 16px; max-width: 420px; }
 .sign-in { flex: 1; display: grid; place-items: center; padding: 24px 16px; }
 .sign-in form { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 16px; padding: 28px; border-radius: 8px; background: var(--panel); }
-.sign-in .logo { margin: 0 0 8px; font-size: 30px; }
+.sign-in .logo { margin: 0; font-size: 30px; }
+.sign-in .tagline { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.sign-in .tagline b { color: var(--ink); }
 
 /* Shelf */
 .shelf { display: flex; gap: 12px; padding: 4px; margin: 0 -4px; overflow: hidden; } /* room for focus outlines */

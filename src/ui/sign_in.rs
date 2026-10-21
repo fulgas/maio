@@ -47,6 +47,7 @@ pub fn SignIn() -> impl IntoView {
             // method="post": a submit before the app loads never puts the password in the URL.
             <form method="post" on:submit=submit>
                 <h1 class="logo">"m"<span>"ai"</span>"o"</h1>
+                <p class="tagline"><b>"M"</b>"usic + "<b>"AI"</b>" + "<b>"O"</b>"utput"</p>
                 <label>"Username"<input name="username" autocomplete="username" required node_ref=user/></label>
                 <label>"Password"<input name="password" type="password" autocomplete="current-password" required node_ref=pass/></label>
                 <label class="check"><input type="checkbox" node_ref=remember/>"Keep me signed in"</label>

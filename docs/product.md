@@ -1,5 +1,7 @@
 # Product
 
+**M**usic + **AI** + **O**utput: that is what the name Maio says.
+
 Maio makes songs with music generation models, keeps them in your own library, lets you build playlists from them, and plays them: on demand in the browser, or as live streams anyone with the link can tune in to. The [architecture](architecture/01-introduction-and-goals.md) is the authority; this page is the short version.
 
 ## Who it is for

@@ -12,13 +12,13 @@ thaw's dialogs did not move focus in, let Tab walk behind the modal and had no a
 
 ## Considered Options
 
-- The browser's own <dialog> and popover
+- The browser's own dialog element and popover
 - Fix focus handling in thaw's dialogs
 - A focus-trap library
 
 ## Decision Outcome
 
-Chosen option: "The browser's own <dialog> and popover", because the platform already does it right: every dialog is the browser's `<dialog>` opened with `showModal()` (a small `Modal` component named by its title), the engine and MediaMTX panels use the popover API, and announcements go to a `role="status"` region. thaw stays for looks and toasts.
+Chosen option: "The browser's own dialog element and popover", because the platform already does it right: every dialog is the browser's own, opened as a modal (one small component, named by its title), the engine and MediaMTX panels use the popover API, and announcements go to a status region that screen readers read out. thaw stays for looks and toasts.
 
 ### Consequences
 

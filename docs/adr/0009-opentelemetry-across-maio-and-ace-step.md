@@ -18,7 +18,7 @@ A slow or failed song crosses Maio's request, the job and ACE-Step. Logs alone d
 
 ## Decision Outcome
 
-Chosen option: "OpenTelemetry over OTLP with traceparent to ACE-Step", because it gives one trace from the click to the audio with standard tools: with `OTEL_EXPORTER_OTLP_ENDPOINT` set, Maio sends traces, metrics and logs; each request is a span and each job a `job` span under it; calls to ACE-Step carry `traceparent`, and `just engine` runs ACE-Step under zero-code instrumentation.
+Chosen option: "OpenTelemetry over OTLP with traceparent to ACE-Step", because it gives one trace from the click to the audio with standard tools: with an OTLP endpoint set, Maio sends traces, metrics and logs; each request is a span and each song being made a span under it; calls to ACE-Step carry the trace context, and ACE-Step runs under zero-code instrumentation.
 
 ### Consequences
 
@@ -28,4 +28,4 @@ Chosen option: "OpenTelemetry over OTLP with traceparent to ACE-Step", because i
 
 ### Confirmation
 
-`tests/trace_context.rs` checks that `traceparent` reaches ACE-Step; `tests/logs.rs` keeps secrets out of logs.
+Tests check that the trace context reaches ACE-Step and that no secret reaches the logs.

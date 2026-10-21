@@ -18,7 +18,7 @@ The rules (what a song is, when a playlist may be deleted, how titles are chosen
 
 ## Decision Outcome
 
-Chosen option: "One crate, a module per layer, the direction checked by a test", because it keeps the rules free of infrastructure without a crate per layer: `domain` ← `usecases` ← `adapters` ← `web`, plus `ui`, which uses only `domain`. Use cases own small port traits; adapters implement them; tests use in-memory fakes.
+Chosen option: "One crate, a module per layer, the direction checked by a test", because it keeps the rules free of infrastructure without a crate per layer: the domain at the centre, then the use cases, the adapters and the web layer, each using only the ones inside it, plus the web app, which uses only the domain. Use cases own small port traits; adapters implement them; tests use in-memory fakes.
 
 ### Consequences
 
@@ -27,4 +27,4 @@ Chosen option: "One crate, a module per layer, the direction checked by a test",
 
 ### Confirmation
 
-`tests/layers.rs` reads the sources and fails the build when a layer uses one below it; it runs in `just test`.
+A test reads the sources and fails the build when a layer uses one it must not; it runs with every other test.

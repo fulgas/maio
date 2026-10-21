@@ -28,4 +28,4 @@ Chosen option: "Kept until deleted, Opus by default, normalised to -16 LUFS", be
 
 ### Confirmation
 
-The ffmpeg adapter's tests check normalisation, tags and export; `409 song_in_playlist` guards deletion.
+The ffmpeg adapter's tests check normalisation, tags and export; a song still in a playlist cannot be deleted.

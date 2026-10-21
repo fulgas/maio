@@ -96,6 +96,14 @@ test('section 9 is the decision index: it links every ADR with its status', () =
   assert.match(index.markdown, /\| Status \|/);
 });
 
+test('decision records say what was decided and why in words: no code, paths, commands or HTML', () => {
+  for (const doc of result.documents.filter(d => /^adr\/\d/.test(d.id))) {
+    const body = doc.markdown.replace(/^---\n[\s\S]*?\n---\n/, '');
+    assert.doesNotMatch(body, /`/, `${doc.id}: a code span`);
+    assert.doesNotMatch(body, /<\/?[a-z][\w-]*[\s>]/i, `${doc.id}: an HTML tag`);
+  }
+});
+
 test('decision records follow MADR 4.0.0, and the site shows their status instead of raw front matter', () => {
   const index = docs.get('architecture/09-architecture-decisions');
   for (const doc of result.documents.filter(d => /^adr\/\d/.test(d.id))) {

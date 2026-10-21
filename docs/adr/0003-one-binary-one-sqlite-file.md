@@ -27,4 +27,4 @@ Chosen option: "One Rust binary and one SQLite file", because it is all one pers
 
 ### Confirmation
 
-`compose.yaml` has two services, maio and mediamtx; `Cargo.toml` has no database server or broker client.
+The Docker setup has two services, Maio and MediaMTX, and Maio depends on no database server or message broker.

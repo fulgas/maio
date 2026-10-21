@@ -18,7 +18,7 @@ One person owns Maio; there is no one else to manage. It must never be open, and
 
 ## Decision Outcome
 
-Chosen option: "One account from the environment, sessions in a strict cookie, one API token", because it is safe by default with nothing to manage: the account is made on first start from `MAIO_ADMIN_USER` and `MAIO_ADMIN_PASSWORD`, or Maio refuses to start; browsers get a server-side session in an `HttpOnly`, `SameSite=Strict` cookie with an `Origin` check on changes; scripts send one token from `.env`.
+Chosen option: "One account from the environment, sessions in a strict cookie, one API token", because it is safe by default with nothing to manage: the account is made on first start from a user name and password in the environment, or Maio refuses to start; browsers get a server-side session in a cookie that scripts in the page cannot read and other sites cannot send, and every change checks where the request came from; scripts send one token kept with the other secrets.
 
 ### Consequences
 

@@ -18,7 +18,7 @@ The first records used a short format of our own. A known format makes records e
 
 ## Decision Outcome
 
-Chosen option: "MADR 4.0.0 with front matter and Confirmation", because it is widely used, names the considered options and the chosen one, separates good and bad consequences, and says how compliance is confirmed. Each record has front matter (`status`, `date`, `decision-makers`), then Context and Problem Statement, Considered Options, Decision Outcome with Consequences and Confirmation. New records start from the [template](template.md).
+Chosen option: "MADR 4.0.0 with front matter and Confirmation", because it is widely used, names the considered options and the chosen one, separates good and bad consequences, and says how compliance is confirmed. Each record starts with its status, date and who decided, then Context and Problem Statement, Considered Options, Decision Outcome with Consequences and Confirmation. New records start from the [template](template.md).
 
 ### Consequences
 
@@ -27,4 +27,4 @@ Chosen option: "MADR 4.0.0 with front matter and Confirmation", because it is wi
 
 ### Confirmation
 
-`docs-site/tests` checks every record for the front matter, the MADR sections and a matching status in section 9.
+The documentation tests check every record for its status, date and decision makers, the MADR sections and a matching status in section 9.

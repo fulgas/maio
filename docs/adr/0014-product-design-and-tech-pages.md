@@ -8,7 +8,7 @@ decision-makers: fulgas
 
 ## Context and Problem Statement
 
-arc42 is the authority ([ADR 0012](0012-arc42-is-the-authority.md)), but twelve sections are a lot to read before a first change, and tools that work on the code look for `product.md`, `DESIGN.md` and `tech.md`. The web app's look also sat in one long bullet of arc42 8.5, mixed with what each screen does. Should Maio have those three pages, and what do they own?
+arc42 is the authority ([ADR 0012](0012-arc42-is-the-authority.md)), but twelve sections are a lot to read before a first change, and tools that work on the code look for a product page, a design page and a tech page. The web app's look also sat in one long bullet of arc42 8.5, mixed with what each screen does. Should Maio have those three pages, and what do they own?
 
 ## Considered Options
 
@@ -18,7 +18,7 @@ arc42 is the authority ([ADR 0012](0012-arc42-is-the-authority.md)), but twelve 
 
 ## Decision Outcome
 
-Chosen option: "Three short pages that summarise and link into arc42; Design owns the look", because it gives a one-page way in without a second copy to drift. `docs/product.md` is what Maio is, for whom, its goals and non-goals; `DESIGN.md`, at the repository root in the [DESIGN.md format](https://github.com/google-labs-code/design.md/blob/main/docs/spec.md), is the look: tokens for colour in both themes, type, spacing, shapes and components, with the reasons in prose; arc42 8.5 points to it; `docs/tech.md` is the stack, the code layout and the `just` commands. Where a page disagrees with a section, the section wins, except for the look.
+Chosen option: "Three short pages that summarise and link into arc42; Design owns the look", because it gives a one-page way in without a second copy to drift. The product page is what Maio is, for whom, its goals and non-goals; the design page, at the repository root in the [DESIGN.md format](https://github.com/google-labs-code/design.md/blob/main/docs/spec.md), is the look: tokens for colour in both themes, type, spacing, shapes and components, with the reasons in prose; arc42 8.5 points to it; the tech page is the stack, the code layout and the commands. Where a page disagrees with a section, the section wins, except for the look.
 
 ### Consequences
 
@@ -28,4 +28,4 @@ Chosen option: "Three short pages that summarise and link into arc42; Design own
 
 ### Confirmation
 
-`docs-site/tests` checks that each page links into arc42 and arc42 1.5 links back, that `DESIGN.md` has the format's sections in order and a token for every colour in `style/main.css`, and that every `just` recipe appears in `docs/tech.md`.
+The documentation tests check that each page links into arc42 and arc42 1.5 links back, that the design page has the format's sections in order and a token for every colour the web app uses, and that the tech page names every command.

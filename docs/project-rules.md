@@ -6,7 +6,7 @@ How changes to Maio are made. What Maio does and how it is built is in the [arch
 
 - The arc42 sections in `docs/architecture/` are the authority. Read the section you are touching before changing code; code points to it as `arc42 x.y`.
 - A change to what Maio does changes its section first, then the code.
-- A decision that would surprise the next reader gets a record in `docs/adr/`, in [MADR 4.0.0](https://adr.github.io/madr/), started from the [template](adr/template.md), and a row in [section 9](architecture/09-architecture-decisions.md). A replaced decision keeps its file, with `status: superseded by ADR NNNN`.
+- A decision that would surprise the next reader gets a record in `docs/adr/`, in [MADR 4.0.0](https://adr.github.io/madr/), started from the [template](adr/template.md), and a row in [section 9](architecture/09-architecture-decisions.md). A replaced decision keeps its file, with `status: superseded by ADR NNNN`. A record says what was decided and why, in words: no code, file paths, commands, config keys or HTML; those belong in the arc42 section it points to.
 - The C4 model (`docs-site/static/model.mjs`) changes with the building blocks it draws.
 
 ## Principles

@@ -28,4 +28,4 @@ Chosen option: "Songs and playlists, with any playlist able to go live", because
 
 ### Confirmation
 
-The domain has `Song`, `Playlist` and `Live` and nothing for radios, stations or queues; arc42 1.2 lists the rules.
+The domain knows songs, playlists and live streams, and nothing of radios, stations or queues; arc42 1.2 lists the rules.

@@ -18,7 +18,7 @@ A web app with private endpoints grows behaviour scripts cannot reach, and two w
 
 ## Decision Outcome
 
-Chosen option: "Leptos SSR with hydration, calling the public JSON API", because it keeps one way to do everything: the web app renders on the server, hydrates, and calls `/api/v1` like any script. thaw supplies the look and toasts; the `ui` module uses only `domain` types.
+Chosen option: "Leptos SSR with hydration, calling the public JSON API", because it keeps one way to do everything: the web app renders on the server, hydrates, and calls the public API like any script. thaw supplies the look and toasts; the web app uses only the domain's types.
 
 ### Consequences
 
@@ -28,4 +28,4 @@ Chosen option: "Leptos SSR with hydration, calling the public JSON API", because
 
 ### Confirmation
 
-`tests/layers.rs` keeps `ui` off the server modules; the e2e suite drives every screen through the API.
+The layers test keeps the web app off the server's code; the browser tests drive every screen through the API.

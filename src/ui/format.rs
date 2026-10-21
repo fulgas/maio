@@ -91,7 +91,7 @@ pub fn engine_card(e: &EngineStatus) -> (String, String, Vec<String>) {
         Health::Up => "Ready to make songs.",
         Health::Loading => "Started, and loading its model; songs can be made in a minute or two.",
         Health::Unknown => "Checking whether it answers.",
-        Health::Down => "Not answering. Start it on the Mac with `just engine`.",
+        Health::Down => "Not answering. Check that its server is running and reachable at the address in maio.toml.",
         Health::Incompatible => "It speaks another version of the engine protocol; update maio-engine.",
     };
     let facts = e.info.as_ref().map_or_else(Vec::new, |i| {
@@ -342,7 +342,10 @@ mod tests {
         use crate::domain::{Commercial, Licence};
         use crate::ui::api::EngineStatus;
         let down = EngineStatus { id: "ace-step".into(), info: None, health: Health::Down };
-        assert_eq!(engine_card(&down), ("ace-step".into(), "Not answering. Start it on the Mac with `just engine`.".into(), vec![]));
+        assert_eq!(
+            engine_card(&down),
+            ("ace-step".into(), "Not answering. Check that its server is running and reachable at the address in maio.toml.".into(), vec![])
+        );
         let info = EngineInfo {
             id: "ace-step".into(),
             name: "ACE-Step 1.5".into(),

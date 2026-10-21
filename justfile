@@ -1,4 +1,4 @@
-# Maio: the container stack (Maio + MediaMTX) and the ACE-Step engine on this Mac.
+# Maio: the container stack (Maio + MediaMTX) and, on a Mac with Apple silicon, the ACE-Step engine.
 # `just` runs both; Ctrl-C stops both.
 
 set dotenv-load := true
@@ -19,7 +19,8 @@ stack:
     docker compose up -d --build
     @echo "Maio on http://localhost:8080"
 
-# Run ACE-Step 1.5's own API server in the foreground (models load on first start).
+# On a Mac with Apple silicon, run ACE-Step 1.5's own API server in the foreground on MPS (models load on first start).
+# Elsewhere, start acestep-api as ACE-Step's own instructions say and point the [[engine]] url at it.
 engine:
     #!/usr/bin/env bash
     set -euo pipefail

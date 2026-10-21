@@ -8,7 +8,7 @@ export const elements = {
   scripts: element('Scripts', 'Person', 'Programs with the API token. Anything the web app does, they can do through the JSON API.', { external: true, responsibilities: ['Call /api/v1 with a bearer token'], doc: `${A}03-system-scope-and-context?section=35-the-http-api` }),
   listeners: element('Listeners', 'Person', 'Anyone with a live playlist\'s address, in any player, with no account.', { external: true, responsibilities: ['Pull MP3, AAC or HLS from maio', 'Pull RTSP, SRT or RTMP from MediaMTX'], doc: `${A}08-crosscutting-concepts?section=84-live` }),
   maio: element('maio', 'Software system', 'Makes songs through music engines, keeps them in a library, builds playlists, plays them and streams live playlists.', { drill: 'containers', responsibilities: ['Make songs, one prompt each', 'Keep the library and playlists', 'Play on demand and stream live'], doc: `${A}01-introduction-and-goals?section=11-what-maio-is` }),
-  acestep: element('ACE-Step 1.5', 'External system', 'acestep-api on the Mac, with Metal. Makes the music, can write lyrics, reports progress and models.', { external: true, responsibilities: ['Generate songs', 'Write lyrics with its planning model', 'Load and switch models'], doc: `${A}03-system-scope-and-context?section=33-the-music-engine-ace-step-15` }),
+  acestep: element('ACE-Step 1.5', 'External system', 'acestep-api on a machine with a GPU: CUDA, Apple silicon, ROCm, XPU or CPU. Makes the music, can write lyrics, reports progress and models.', { external: true, responsibilities: ['Generate songs', 'Write lyrics with its planning model', 'Load and switch models'], doc: `${A}03-system-scope-and-context?section=33-the-music-engine-ace-step-15` }),
   textengines: element('Text engines', 'External system', 'Anthropic or any OpenAI-compatible chat API. They write lyrics, titles and descriptions, never music.', { external: true, doc: `${A}03-system-scope-and-context?section=34-text-engines` }),
   otel: element('OpenTelemetry collector', 'External system', 'Optional. Receives traces, metrics and logs over OTLP/HTTP when an endpoint is set.', { external: true, optional: true, doc: `${A}08-crosscutting-concepts?section=86-logs-traces-and-metrics` }),
 
@@ -41,7 +41,7 @@ export const elements = {
   deployServer: element('maio', 'Container instance · Docker', 'host 8080 → 8080. Config /etc/maio/maio.toml, read-only; data on /data.', { responsibilities: ['Serve the web app, API and streams', 'Publish live playlists to MediaMTX'], doc: `${A}07-deployment-view?section=71-nodes` }),
   deployMediamtx: element('MediaMTX', 'Container instance · Docker', 'host 8555 → 8554 RTSP, 8891 → 8890/udp SRT, 1936 → 1935 RTMP; control API :9997 on the network only.', { doc: `${A}07-deployment-view?section=71-nodes` }),
   deployData: element('Data volume', 'Volume · ./data → /data', 'library.db, songs/, tmp/, live/{playlist}/hls and on-air.', { doc: `${A}07-deployment-view?section=72-the-data-volume` }),
-  deployAcestep: element('ACE-Step 1.5', 'Process · acestep-api', '127.0.0.1:7801 with Metal, from the checkout beside this repo; started by just engine.', { external: true, doc: `${A}03-system-scope-and-context?section=33-the-music-engine-ace-step-15` }),
+  deployAcestep: element('ACE-Step 1.5', 'Process · acestep-api', 'Port 7801 on its GPU, set up as ACE-Step says; on a Mac, just engine starts it.', { external: true, doc: `${A}03-system-scope-and-context?section=33-the-music-engine-ace-step-15` }),
   client: element('API client', 'Component · ui/api.rs', 'Typed calls to /api/v1; server-sent events nudge lists to reload.', { doc: 'adr/0004-the-web-app-uses-only-the-public-api' }),
 };
 
@@ -93,12 +93,12 @@ export const views = {
     boundary: { x: -20, y: -10, width: 1260, height: 590, label: 'Web app · Leptos, hydrated in the browser' }, parent: 'containers',
   },
   deployment: {
-    title: 'Deployment', level: 'C4 · Deployment', scope: 'Docker host and Mac', crumb: 'containers', deeper: true,
-    description: 'Where each part runs: Docker compose on any Docker host; ACE-Step on a Mac with Apple silicon, for Metal.',
+    title: 'Deployment', level: 'C4 · Deployment', scope: 'Docker host and ACE-Step machine', crumb: 'containers', deeper: true,
+    description: 'Where each part runs: Docker compose on any Docker host; ACE-Step on the machine with the GPU, the same one or another.',
     hint: 'The ports are the ones listeners and browsers use; MediaMTX\'s control API stays inside Docker.',
     nodes: [node('you', 20, 120), node('listeners', 20, 520), node('deployServer', 470, 130), node('deployMediamtx', 890, 300), node('deployData', 890, 560), node('deployAcestep', 1395, 130)],
     edges: [edge('you', 'deployServer', 'HTTP · 8080'), edge('listeners', 'deployServer', 'MP3 · AAC · HLS · 8080'), edge('listeners', 'deployMediamtx', 'RTSP 8555 · SRT 8891 · RTMP 1936'), edge('deployServer', 'deployMediamtx', 'Publishes AAC'), edge('deployMediamtx', 'deployServer', 'POST /relay/auth'), edge('deployServer', 'deployData', 'Reads, writes'), edge('deployServer', 'deployAcestep', 'HTTP :7801 · the [[engine]] url')],
-    boundaries: [{ x: 380, y: 20, width: 880, height: 740, label: 'Docker host · any machine with Docker' }, { x: 420, y: 70, width: 800, height: 660, label: 'Docker compose · maio' }, { x: 1340, y: 80, width: 360, height: 260, label: 'Mac · Apple silicon' }], parent: 'containers',
+    boundaries: [{ x: 380, y: 20, width: 880, height: 740, label: 'Docker host · any machine with Docker' }, { x: 420, y: 70, width: 800, height: 660, label: 'Docker compose · maio' }, { x: 1340, y: 80, width: 360, height: 260, label: 'ACE-Step machine · its GPU' }], parent: 'containers',
   },
 };
 

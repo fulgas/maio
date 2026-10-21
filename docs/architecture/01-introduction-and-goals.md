@@ -27,7 +27,7 @@ Rules:
 
 | Priority | Goal | What it means here |
 |----------|------|--------------------|
-| 1 | Simple to run | One container plus MediaMTX, one config file, one SQLite file. ACE-Step runs from a terminal on the Mac. |
+| 1 | Simple to run | One container plus MediaMTX, one config file, one SQLite file. ACE-Step runs as its own server, beside it. |
 | 2 | Changeable | A hexagon in one crate: the rules know nothing about HTTP, SQLite, ffmpeg or Leptos, and `tests/layers.rs` keeps it so. |
 | 3 | Never open | No start without an account; every API call needs the session or the API token; secrets never reach a log. |
 | 4 | Usable by everyone | WCAG 2.1 AA: keyboard throughout, visible focus, 4.5:1 text contrast, from 360 px wide. |

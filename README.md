@@ -18,7 +18,7 @@ Maio is a personal, self-hosted tool. One person runs it and owns everything in 
 ## Requirements
 
 - Docker with Compose, for Maio and MediaMTX.
-- A Mac with Apple silicon for ACE-Step 1.5, which runs outside Docker so it can use Metal. Clone it beside this repository, or set `ACE_ROOT` to its folder; it runs with [uv](https://docs.astral.sh/uv/).
+- ACE-Step 1.5 on a machine with a GPU: CUDA is recommended; Apple silicon, AMD ROCm, Intel XPU and CPU work too. It can be this machine or another; set it up as [ACE-Step's own instructions](https://github.com/ace-step/ACE-Step-1.5#readme) say.
 - [just](https://github.com/casey/just), to run the commands below.
 
 ## Quick start
@@ -38,24 +38,20 @@ Maio is a personal, self-hosted tool. One person runs it and owns everything in 
 
 ### ACE-Step, the music engine
 
-ACE-Step 1.5 runs on the Mac, outside Docker, so it can use the GPU (Metal). Once:
+ACE-Step 1.5 runs as its own server, `acestep-api`, outside Maio's Docker Compose project, on whichever machine has the GPU. Install and start it as [ACE-Step's own instructions](https://github.com/ace-step/ACE-Step-1.5#readme) say: they cover CUDA, Apple silicon, AMD ROCm, Intel XPU and CPU. The first start downloads the models, about 9.4 GB, and takes a minute or two. Then point the `[[engine]]` `url` in `maio.toml` at it:
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh     # uv, if you do not have it
-git clone https://github.com/ACE-Step/ACE-Step-1.5.git ../ACE-Step-1.5
-cd ../ACE-Step-1.5 && uv sync                        # Python 3.11 or 3.12
-```
+- **The same machine as Maio**: `http://host.docker.internal:7801`, as in the example config.
+- **Another machine**: that machine's address, with ACE-Step listening on it rather than only on `127.0.0.1` (ACE-Step's `ACESTEP_API_HOST`).
 
-Clone it anywhere and set `ACE_ROOT` (in `.env` or your shell) to its folder if it is not beside this repository.
+On a Mac with Apple silicon there is a shortcut. With ACE-Step cloned beside this repository (or `ACE_ROOT` set to its folder) and `uv sync` run in it, `just engine` starts `acestep-api` on 127.0.0.1:7801 with the models loaded, on MPS, and `just`, with no recipe, starts the stack first.
 
-Then `just engine` starts ACE-Step's own API server on 127.0.0.1:7801 with the models loaded, on Metal (`just`, with no recipe, starts the stack first). The first start downloads the models, about 9.4 GB, and takes a minute or two. Maio reaches it from Docker at `http://host.docker.internal:7801`, the `[[engine]]` in `maio.toml`; the header's engine icon turns green when it is ready.
+The header's engine icon turns green when ACE-Step is ready.
 
 To protect ACE-Step with a key:
 
-1. Put `ACE_STEP_API_KEY=<a long random string>` in `.env`. `just engine` starts ACE-Step with it.
+1. Start ACE-Step with a key (its `ACESTEP_API_KEY`) and put the same key in `.env` as `ACE_STEP_API_KEY=<a long random string>`. `just engine` passes it to ACE-Step for you.
 2. In `maio.toml`, uncomment `api_key_env = "ACE_STEP_API_KEY"` under `[[engine]]`, so Maio sends it.
 
-ACE-Step can run on another machine too: point the `[[engine]]` `url` at it.
 
 ### Text engines, for lyrics and titles
 
@@ -85,7 +81,7 @@ and restart `just engine` after changing ACE-Step's key.
 | 8891/udp | Live streams over SRT (MediaMTX) |
 | 1936 | Live streams over RTMP (MediaMTX) |
 
-ACE-Step listens on 127.0.0.1:7801 on the Mac. MediaMTX's control API stays inside Docker.
+ACE-Step listens on port 7801 wherever it runs. MediaMTX's control API stays inside Docker.
 
 ## Configuration
 

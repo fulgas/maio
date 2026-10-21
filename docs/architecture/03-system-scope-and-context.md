@@ -14,7 +14,7 @@
 ## 3.2 Technical context: the shape
 
 - Maio is one container: one binary plus ffmpeg, one config file (`maio.toml`), one data volume. MediaMTX runs beside it in the same compose file.
-- Engine servers are separate programs Maio neither starts nor supervises. On the Mac, ACE-Step runs from a terminal (`just engine`).
+- Engine servers are separate programs Maio neither starts nor supervises. ACE-Step runs as its own server on the machine with the GPU; on a Mac, `just engine` starts it from a terminal.
 - Port 8080 serves the web app, the JSON API and the live streams.
 
 Drawn from the C4 model; open it to inspect each element:
@@ -31,7 +31,7 @@ containers
 
 ## 3.3 The music engine: ACE-Step 1.5
 
-Maio makes music with ACE-Step 1.5, through ACE-Step's own HTTP server, `acestep-api`, run on the Mac (`just engine`, which loads the models at start; it binds `127.0.0.1`, so only this Mac and its containers reach it). See [ADR 0006](../adr/0006-ace-steps-own-api.md).
+Maio makes music with ACE-Step 1.5, through ACE-Step's own HTTP server, `acestep-api`, run on the machine with the GPU and set up as [ACE-Step's own instructions](https://github.com/ace-step/ACE-Step-1.5#readme) say. On a Mac, `just engine` starts it with the models loaded; it binds `127.0.0.1`, so only that Mac and its containers reach it. See [ADR 0006](../adr/0006-ace-steps-own-api.md).
 
 ```toml
 [[engine]]

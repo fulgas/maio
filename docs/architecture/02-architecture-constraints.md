@@ -8,7 +8,7 @@
 | Leptos 0.8 with SSR and hydration, thaw for dialogs' looks and toasts, axum underneath | The web app is Rust too and renders on the server ([ADR 0004](../adr/0004-the-web-app-uses-only-the-public-api.md)). |
 | SQLite (rusqlite), one file in the data volume | Nothing to run beside it ([ADR 0003](../adr/0003-one-binary-one-sqlite-file.md)). |
 | ffmpeg in the container | Import, loudness normalisation, tags, export, decoding for live, the live encoders. |
-| ACE-Step 1.5 on the Mac, through its own `acestep-api` | Music generation needs Metal; the container cannot have it ([ADR 0006](../adr/0006-ace-steps-own-api.md)). |
+| ACE-Step 1.5 as its own server, through its own `acestep-api` | Music generation needs a GPU (CUDA, Apple silicon, AMD ROCm, Intel XPU), set up as ACE-Step's instructions say; it stays outside Maio's container ([ADR 0006](../adr/0006-ace-steps-own-api.md)). |
 | MediaMTX beside Maio | RTSP, SRT and RTMP without writing them ([ADR 0007](../adr/0007-live-playout-on-the-server-mediamtx-as-relay.md)). |
 | Docker Compose | Maio and MediaMTX in their own compose project and network. |
 | Browsers | Current evergreen browsers; native `<dialog>` and popover are relied on ([ADR 0010](../adr/0010-native-browser-features-first.md)). |

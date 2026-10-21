@@ -266,3 +266,10 @@ test('DESIGN.md shows the favicon itself, inlined so the one-file version keeps 
   assert.match(design.markdown, /!\[The favicon\]\(public\/favicon\.svg\)/);
   assert.match(design.html, /<img src="data:image\/svg\+xml,[^"]+" alt="The favicon"/);
 });
+
+test('ACE-Step is not tied to a Mac: the docs send people to its own setup instructions', () => {
+  for (const doc of result.documents) assert.ok(!/\bMetal\b/.test(doc.markdown), `${doc.id} says ACE-Step needs Metal`);
+  assert.match(docs.get('overview').markdown, /CUDA/);
+  assert.match(docs.get('overview').markdown, /\[ACE-Step's own instructions\]\(https:\/\/github\.com\/ace-step\/ACE-Step-1\.5/);
+});
+

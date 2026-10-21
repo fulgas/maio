@@ -7,7 +7,7 @@ deployment
 ```
 
 - The compose project is `maio`, on its own network `maio_default`.
-- The compose project runs on any Docker host; only ACE-Step needs a Mac with Apple silicon, for Metal. On one Mac, the `[[engine]]` url is `http://host.docker.internal:7801`; on two machines, it is the Mac's address.
+- The compose project runs on any Docker host. ACE-Step runs as its own server on the machine with the GPU (CUDA, Apple silicon, AMD ROCm, Intel XPU or CPU), set up as [ACE-Step's own instructions](https://github.com/ace-step/ACE-Step-1.5#readme) say. On the same machine, the `[[engine]]` url is `http://host.docker.internal:7801`; on another, it is that machine's address.
 - `just` starts Maio and MediaMTX in Docker and runs ACE-Step in the terminal; Ctrl-C stops both. `just fake` runs a fake engine (sine tones, no GPU) instead.
 - The host ports 8555, 8891 and 1936 leave 8554, 8890 and 1935 free for another MediaMTX on the same machine. From another container, use `host.docker.internal:8555`; inside Maio's compose network, `mediamtx:8554`.
 - MediaMTX asks Maio at `http://maio:8080/relay/auth` about every publish, read and API call.

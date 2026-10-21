@@ -52,6 +52,7 @@ stateDiagram-v2
 ```
 
 - A job is `waiting`, `making` (with `progress` 0 to 1 and `eta_s`), `done` (with the new song's id), `failed` (with a reason) or `cancelled`. Jobs run one at a time per engine slot, in the order asked. You can cancel a job that is waiting or making.
+- A failed job's reason is written for a person, naming the engine and what to do: "the engine ace-step is not answering at host.docker.internal:7801; check that it is running, then make the song again" when nothing answers at its address; "the engine ace-step failed: …" with the cause (no answer in time, an answer Maio does not understand, the status it answered) otherwise. Which call failed goes to the log.
 - With `vocals` and no `lyrics`: the lyrics come from `lyrics_by`. A text engine is asked first (30 s limit); if it fails, answers empty or times out, ACE-Step writes them (`/v1/create_sample`, arc42 3.3), and the job notes the fallback.
 - Licences: an engine marked `commercial: "no"` is used only with `allow_noncommercial`; otherwise `409 noncommercial_engine`, and the web app asks before resending. An engine marked `"limited"` is allowed, and its licence note travels with the job and the song.
 - Rate limits (`[limits]`): `make` (default `20/10m`) and `pending_jobs` (default 4). Over a limit: `429 rate_limited` with `Retry-After`.

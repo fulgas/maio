@@ -223,6 +223,8 @@ pub enum Outcome {
     Lost,
     /// `POST /jobs` is refused.
     Rejected,
+    /// Nothing answers at the engine's address.
+    Unreachable,
 }
 
 /// An engine that finishes every job on the first poll, unless told otherwise.
@@ -262,8 +264,10 @@ impl MusicEngine for FakeEngine {
     }
 
     async fn submit(&self, request: &EngineRequest) -> std::result::Result<String, CallError> {
-        if *self.outcome.lock().unwrap() == Outcome::Rejected {
-            return Err(CallError::Rejected("422: bad request".into()));
+        match *self.outcome.lock().unwrap() {
+            Outcome::Rejected => return Err(CallError::Rejected("422: bad request".into())),
+            Outcome::Unreachable => return Err(CallError::Unreachable("127.0.0.1:9".into())),
+            _ => {}
         }
         let mut submitted = self.submitted.lock().unwrap();
         submitted.push(request.clone());
@@ -287,7 +291,7 @@ impl MusicEngine for FakeEngine {
                 Ok(RemoteJob { state: "failed".into(), error: Some(error), ..running })
             }
             Outcome::Lost => Err(CallError::NotFound),
-            Outcome::Rejected => unreachable!("a rejected job is never submitted"),
+            Outcome::Rejected | Outcome::Unreachable => unreachable!("a job the engine never took is never polled"),
         }
     }
 

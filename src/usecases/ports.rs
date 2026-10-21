@@ -166,7 +166,9 @@ pub enum CallError {
     NotFound,
     /// The engine refused the request (`422` and other client errors).
     Rejected(String),
-    /// No answer, or one that made no sense.
+    /// Nothing answers at the engine's address (`host:port`).
+    Unreachable(String),
+    /// No answer in time, or one that made no sense.
     Transport(String),
 }
 
@@ -176,6 +178,7 @@ impl fmt::Display for CallError {
             Self::Busy => f.write_str("the engine is busy"),
             Self::NotFound => f.write_str("the engine has no such job"),
             Self::Rejected(m) => write!(f, "the engine refused: {m}"),
+            Self::Unreachable(address) => write!(f, "nothing answers at {address}"),
             Self::Transport(m) => f.write_str(m),
         }
     }

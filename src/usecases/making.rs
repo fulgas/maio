@@ -109,6 +109,18 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> anyhow::Result<T> + Sen
     tokio::task::spawn_blocking(f).await.map_err(|e| anyhow::anyhow!("blocking task: {e}"))?
 }
 
+/// A call to the engine that failed, said so a person knows what to do; the step goes to the log (arc42 8.2).
+fn engine_trouble(job: &str, engine: &str, step: &str, e: &CallError) -> Failure {
+    tracing::warn!(job = %job, engine = %engine, step, error = %e, "engine call failed");
+    let message = match e {
+        CallError::Unreachable(address) => {
+            format!("the engine {engine} is not answering at {address}; check that it is running, then make the song again")
+        }
+        e => format!("the engine {engine} failed: {e}"),
+    };
+    Failure { retryable: true, message }
+}
+
 /// Keeps every open job and the most recent finished ones.
 fn prune(jobs: &mut Vec<Entry>) {
     let finished = jobs.iter().filter(|e| !e.job.state.is_open()).count();
@@ -351,7 +363,7 @@ impl Making {
                     }
                 }
                 Err(CallError::Rejected(m)) => return Err(Failure { retryable: false, message: m }),
-                Err(e) => return Err(Failure { retryable: true, message: format!("submit: {e}") }),
+                Err(e) => return Err(engine_trouble(id, engine_id, "submit", &e)),
             }
         };
         let mut transport_errors = 0;
@@ -371,7 +383,7 @@ impl Making {
                 Err(e) => {
                     transport_errors += 1;
                     if transport_errors >= 3 {
-                        return Err(Failure { retryable: true, message: format!("polling: {e}") });
+                        return Err(engine_trouble(id, engine_id, "polling", &e));
                     }
                     continue;
                 }
@@ -715,6 +727,17 @@ mod tests {
         *w.engines[0].outcome.lock().unwrap() = Outcome::Rejected;
         let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
         assert_eq!((job.state, job.error.as_deref()), (JobState::Failed, Some("422: bad request")));
+    }
+
+    #[tokio::test]
+    async fn an_engine_that_cannot_be_reached_fails_the_job_with_what_to_do() {
+        let w = world_with(vec![FakeEngine::up("ace-step")], vec![], settings());
+        *w.engines[0].outcome.lock().unwrap() = Outcome::Unreachable;
+        let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
+        assert_eq!(
+            (job.state, job.error.as_deref()),
+            (JobState::Failed, Some("the engine ace-step is not answering at 127.0.0.1:9; check that it is running, then make the song again"))
+        );
     }
 
     #[tokio::test]

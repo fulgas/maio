@@ -61,13 +61,13 @@ stateDiagram-v2
     [*] --> loading: started, models not ready
     [*] --> incompatible: answers, but not as acestep-api
     loading --> up: models_initialized
-    up --> down: 3 failed checks in a row
+    up --> down: 3 failed checks in a row, or a job's call cannot connect
     loading --> down: 3 failed checks in a row
     down --> up: answers with models loaded
     down --> loading: answers, models loading
 ```
 
-- Health: checked at start and every 30 s. `up` when the models are initialised, `loading` before, `down` after 3 failed checks in a row, `incompatible` when the URL answers but not as `acestep-api`.
+- Health: checked at start and every 30 s. `up` when the models are initialised, `loading` before, `down` after 3 failed checks in a row, or at once when a call made for a job cannot connect (so new songs are refused with `engine_unavailable` instead of starting jobs that cannot run), `incompatible` when the URL answers but not as `acestep-api`.
 - A running job is polled every 2 s. Progress and stage come from ACE-Step (`query_result`); a song waiting in ACE-Step's own queue shows as waiting. An id ACE-Step answers with an empty result (lost in a restart) fails the job as lost, and it is tried once more on another engine when there is one.
 - ACE-Step can neither cancel nor delete a task. Cancelling a song being made stops Maio waiting for it; ACE-Step finishes it, nobody fetches it, and ACE-Step's own cleanup removes the file.
 - A song with no change for `engine_stall_s` fails, and is tried once more on another engine when there is one.

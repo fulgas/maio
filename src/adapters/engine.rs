@@ -57,6 +57,27 @@ fn transport(e: impl std::fmt::Display) -> CallError {
     CallError::Transport(e.to_string())
 }
 
+/// An HTTP failure, said by its cause rather than reqwest's "error sending request for url" (arc42 8.2).
+fn http(e: reqwest::Error) -> CallError {
+    if e.is_connect() {
+        let address = e.url().map(|u| format!("{}:{}", u.host_str().unwrap_or_default(), u.port_or_known_default().unwrap_or_default()));
+        return CallError::Unreachable(address.unwrap_or_default());
+    }
+    CallError::Transport(if e.is_timeout() {
+        "no answer in time".into()
+    } else if e.is_decode() {
+        "an answer Maio does not understand".into()
+    } else if let Some(status) = e.status() {
+        format!("answered {status}")
+    } else {
+        let mut cause: &dyn std::error::Error = &e;
+        while let Some(next) = cause.source() {
+            cause = next;
+        }
+        cause.to_string()
+    })
+}
+
 /// Every `acestep-api` answer is `{"data": …, "code": 200, "error": null}`.
 #[derive(Deserialize)]
 struct Wrapped<T> {
@@ -106,15 +127,15 @@ impl HttpEngine {
     }
 
     async fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T, CallError> {
-        let r = self.traced(self.http.get(self.url(path))).timeout(Duration::from_secs(10)).send().await.map_err(transport)?;
-        let w: Wrapped<T> = r.error_for_status().map_err(transport)?.json().await.map_err(transport)?;
+        let r = self.traced(self.http.get(self.url(path))).timeout(Duration::from_secs(10)).send().await.map_err(http)?;
+        let w: Wrapped<T> = r.error_for_status().map_err(http)?.json().await.map_err(http)?;
         w.data.ok_or_else(|| CallError::Transport(w.error.unwrap_or_else(|| format!("{path}: no data"))))
     }
 
     async fn post<T: serde::de::DeserializeOwned>(&self, path: &str, body: Value, timeout: Duration) -> Result<T, CallError> {
-        let r = self.traced(self.http.post(self.url(path))).json(&body).timeout(timeout).send().await.map_err(transport)?;
+        let r = self.traced(self.http.post(self.url(path))).json(&body).timeout(timeout).send().await.map_err(|e| self.call_failed(http(e)))?;
         let status = r.status();
-        let w: Wrapped<T> = r.json().await.map_err(transport)?;
+        let w: Wrapped<T> = r.json().await.map_err(http)?;
         match w.data {
             Some(d) if status.is_success() => Ok(d),
             _ => Err(CallError::Rejected(format!("{status}: {}", w.error.unwrap_or_default()))),
@@ -200,6 +221,20 @@ impl HttpEngine {
             queued: jobs.queued,
             running: jobs.running,
         });
+    }
+
+    /// A job's call that cannot connect marks the engine down at once, so new songs are refused before a job
+    /// starts; the next health check that gets an answer brings it back (arc42 3.3).
+    fn call_failed(&self, e: CallError) -> CallError {
+        if matches!(e, CallError::Unreachable(_)) {
+            let before = self.seen().health;
+            {
+                let mut s = self.seen();
+                (s.failures, s.health) = (3, Health::Down);
+            }
+            self.log_change(before);
+        }
+        e
     }
 
     fn fail(&self) {
@@ -324,14 +359,14 @@ impl MusicEngine for HttpEngine {
     async fn download(&self, id: &str, to: &Path) -> Result<(), CallError> {
         let (_, first) = self.result(id).await?;
         let file = first["file"].as_str().ok_or_else(|| CallError::Transport("the finished task names no file".into()))?;
-        let r = self.traced(self.http.get(self.url(file))).timeout(Duration::from_secs(600)).send().await.map_err(transport)?;
+        let r = self.traced(self.http.get(self.url(file))).timeout(Duration::from_secs(600)).send().await.map_err(|e| self.call_failed(http(e)))?;
         if !r.status().is_success() {
             return Err(CallError::Transport(format!("audio status {}", r.status())));
         }
         let mut out = tokio::fs::File::create(to).await.map_err(transport)?;
         let mut body = r.bytes_stream();
         while let Some(chunk) = body.next().await {
-            out.write_all(&chunk.map_err(transport)?).await.map_err(transport)?;
+            out.write_all(&chunk.map_err(http)?).await.map_err(transport)?;
         }
         out.flush().await.map_err(transport)
     }
@@ -486,6 +521,22 @@ mod tests {
             e.check().await;
         }
         assert_eq!(e.status().health, Health::Down);
+    }
+
+    #[tokio::test]
+    async fn a_call_that_cannot_connect_names_the_address_and_marks_the_engine_down() {
+        let e = engine("http://127.0.0.1:9".into());
+        assert_eq!(e.submit(&request()).await, Err(CallError::Unreachable("127.0.0.1:9".into())));
+        assert_eq!(e.status().health, Health::Down, "down at once, not after three health checks");
+    }
+
+    #[tokio::test]
+    async fn an_answer_that_is_not_json_says_so() {
+        let app = Router::new().route("/query_result", post(|| async { "not json" }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        assert_eq!(engine(url).job("t1").await, Err(CallError::Transport("an answer Maio does not understand".into())));
     }
 
     #[tokio::test]

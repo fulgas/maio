@@ -2,6 +2,7 @@
 // matter, headings, and the HTML Zola wrote for it, with links made site-relative (/architecture/…/#section).
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { sync, siteRoot, repositoryRoot } from '../sync.mjs';
 
@@ -15,7 +16,8 @@ export async function build() {
   execFileSync(zola, ['--root', siteRoot, 'build'], { stdio: 'pipe' });
   const documents = [];
   for (const doc of index) {
-    const file = /\//.test(doc.source) || ['product.md', 'tech.md', 'project-rules.md'].includes(doc.source) ? path.join(repositoryRoot, 'docs', doc.source) : path.join(repositoryRoot, doc.source);
+    // A document is in docs/, except the ones at the repository root (README, DESIGN and the community files).
+    const file = existsSync(path.join(repositoryRoot, 'docs', doc.source)) ? path.join(repositoryRoot, 'docs', doc.source) : path.join(repositoryRoot, doc.source);
     const page = site(await readFile(path.join(outputRoot, doc.id, 'index.html'), 'utf8'));
     const html = page.match(/<article id="document" class="prose">([\s\S]*?)<\/article>/)[1];
     documents.push({ ...doc, markdown: await readFile(file, 'utf8'), html, page });

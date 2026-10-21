@@ -277,3 +277,19 @@ test('the header shows the version Cargo.toml carries, and claims nothing about 
     assert.ok(!/running/.test(html.match(/<div class="header-actions">[\s\S]*?<\/div>/)[0]), `${file}: no "running"`);
   }
 });
+
+test('the docs follow Diátaxis: a tutorial, how-to guides and a reference sit beside the architecture', () => {
+  const group = g => result.documents.filter(d => d.group === g);
+  assert.ok(group('tutorials').length >= 1, 'a tutorial');
+  assert.ok(group('how-to').length >= 5, 'how-to guides');
+  assert.deepEqual(group('reference').map(d => d.id), ['reference']);
+  for (const doc of [...group('tutorials'), ...group('how-to')]) {
+    assert.match(doc.html, /<ol>/, `${doc.id}: steps in order`);
+    assert.match(doc.html, /href="\/architecture\//, `${doc.id}: leads into the architecture`);
+  }
+  for (const link of ['architecture/03-system-scope-and-context/#35-the-http-api', 'architecture/07-deployment-view/#73-config', 'architecture/12-glossary/', 'design/', 'tech/'])
+    assert.ok(docs.get('reference').html.includes(`href="/${link}"`), `the reference points to ${link}`);
+  const groups = [...docs.get('overview').page.matchAll(/<p class="nav-group">([^<]+)<\/p>/g)].map(m => m[1]);
+  assert.deepEqual(groups, ['PROJECT', 'TUTORIALS', 'HOW-TO GUIDES', 'REFERENCE', 'ARCHITECTURE']);
+  assert.match(docs.get('how-to/01-run-ace-step-on-another-machine').page, /<span id="doc-label">HOW-TO GUIDE<\/span>/);
+});

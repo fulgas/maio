@@ -48,3 +48,5 @@ These twelve arc42 sections are the authority: what Maio must do and how it is b
 
 Three short pages lead into these sections: [Product](../product.md) (what Maio is, for whom, its goals and non-goals), [Design](../../DESIGN.md) (the web app's look: colours, type, shape, components) and [Tech](../tech.md) (the stack, the code layout and the commands). They summarise and link; where one disagrees with a section here, the section wins, except for the look, which Design owns ([ADR 0014](../adr/0014-product-design-and-tech-pages.md)).
 
+The documentation follows [Diátaxis](https://diataxis.fr): these sections and the decision records are the explanation; [a tutorial](../tutorials/01-your-first-song-on-air.md) and [how-to guides](../how-to/01-run-ace-step-on-another-machine.md) are for doing things; [Reference](../reference.md) says where to look things up.
+

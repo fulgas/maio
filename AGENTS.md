@@ -4,7 +4,7 @@ Instructions for coding agents working on Maio. People start with [README.md](RE
 
 ## What this is
 
-Maio makes songs with ACE-Step 1.5, keeps them in a library, arranges them into playlists and plays them, in the browser or as live streams. One Rust crate, one binary, one SQLite file; MediaMTX beside it in Docker; ACE-Step on the Mac.
+Maio makes songs with ACE-Step 1.5, keeps them in a library, arranges them into playlists and plays them, in the browser or as live streams. One Rust crate, one binary, one SQLite file; MediaMTX beside it in Docker; ACE-Step on a machine with a GPU.
 
 ## Where the truth is
 
@@ -30,6 +30,7 @@ Maio makes songs with ACE-Step 1.5, keeps them in a library, arranges them into 
 - **Layers**: one crate, one module per layer: `domain` ← `usecases` ← `adapters` ← `web`, plus `ui`, the Leptos web app, which uses only `domain` and reaches the server through `/api/v1`. Dependencies point inward. `tests/layers.rs` fails the build when a layer uses one it must not, or when a `web` file other than `start.rs` and `config.rs` names an adapter.
 - **Hexagon**: rules live in `domain`; one use case per thing a person does, in `usecases`; ports are the use cases' own small traits, in `src/usecases/ports.rs`, each with an in-memory fake in `src/usecases/testing.rs`; adapters implement ports. A request handler only translates HTTP to a use case call; it holds no rule and no adapter.
 - **SOLID, KISS, YAGNI** (arc42 2.3): one reason to change per module; the simplest thing that meets the documentation; nothing for a second user, a second engine kind or a future feature until the documentation asks for it. No abstraction with one implementation, no config for a value that never changes.
+- **Proven crates first**: a solved problem (retries and backoff, parsing, dates, encoding) uses a well-used crate that does that job, not code of our own.
 - **Web app**: native browser features first: `<dialog>` through the `Modal` component, the popover API for panels. Actions are icon buttons with a caption (`data-tip`) and an accessible name. WCAG 2.1 AA: keyboard throughout, visible focus, text contrast of 4.5:1 or more, targets of 24 px or more (44 px for icon buttons), from 360 px wide.
 
 ## Making a change

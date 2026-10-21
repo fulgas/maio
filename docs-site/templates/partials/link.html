@@ -1,0 +1,1 @@
+<a href="{{ p.permalink | safe }}" data-id="{{ p.relative_path | replace(from=".md", to="") }}"{{ (' class="active" aria-current="page"' if p.path == current else "") | safe }}>{{ p.extra.nav_title }}</a>

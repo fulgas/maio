@@ -9,7 +9,7 @@ const result = await build();
 const docs = new Map(result.documents.map(d => [d.id, d]));
 
 test('every arc42 section and decision record is published, grouped for the reader', () => {
-  assert.deepEqual(result.documents.filter(d => d.group === 'project').map(d => d.id), ['overview', 'product', 'design', 'tech', 'project-rules', 'contributing', 'security', 'code-of-conduct']);
+  assert.deepEqual(result.documents.filter(d => d.group === 'project').map(d => d.id), ['overview', 'project-rules', 'contributing', 'security', 'code-of-conduct']);
   assert.equal(docs.get('overview').source, 'README.md', 'the README is the project overview');
   const arc42 = result.documents.filter(d => d.group === 'architecture');
   assert.equal(arc42.length, 12);
@@ -278,18 +278,40 @@ test('the header shows the version Cargo.toml carries, and claims nothing about 
   }
 });
 
-test('the docs follow Diátaxis: a tutorial, how-to guides and a reference sit beside the architecture', () => {
-  const group = g => result.documents.filter(d => d.group === g);
+test('the docs follow Diátaxis: a tutorial, how-to guides, explanation and reference', () => {
+  const group = g => result.documents.filter(d => d.group === g).map(d => d.id);
   assert.ok(group('tutorials').length >= 1, 'a tutorial');
   assert.ok(group('how-to').length >= 5, 'how-to guides');
-  assert.deepEqual(group('reference').map(d => d.id), ['reference']);
-  for (const doc of [...group('tutorials'), ...group('how-to')]) {
-    assert.match(doc.html, /<ol>/, `${doc.id}: steps in order`);
-    assert.match(doc.html, /href="\/architecture\//, `${doc.id}: leads into the architecture`);
+  assert.deepEqual(group('reference'), ['reference', 'tech', 'design']);
+  assert.deepEqual(group('explanation'), ['product']);
+  for (const id of [...group('tutorials'), ...group('how-to')]) {
+    assert.match(docs.get(id).html, /<ol>/, `${id}: steps in order`);
+    assert.match(docs.get(id).html, /href="\/architecture\//, `${id}: leads into the architecture`);
   }
   for (const link of ['architecture/03-system-scope-and-context/#35-the-http-api', 'architecture/07-deployment-view/#73-config', 'architecture/12-glossary/', 'design/', 'tech/'])
     assert.ok(docs.get('reference').html.includes(`href="/${link}"`), `the reference points to ${link}`);
-  const groups = [...docs.get('overview').page.matchAll(/<p class="nav-group">([^<]+)<\/p>/g)].map(m => m[1]);
-  assert.deepEqual(groups, ['PROJECT', 'TUTORIALS', 'HOW-TO GUIDES', 'REFERENCE', 'ARCHITECTURE']);
+});
+
+test('the compass at /docs/ leads to the four corners of Diátaxis, each listing its pages', async () => {
+  const compass = (await readFile(path.join(result.outputRoot, 'docs/index.html'), 'utf8')).replaceAll('href="http://localhost:8000/', 'href="/');
+  const corners = [...compass.matchAll(/<div class="quadrant quadrant-([a-z-]+)">/g)].map(m => m[1]);
+  assert.deepEqual(corners, ['tutorials', 'how-to', 'explanation', 'reference'], 'Tutorials and How-to on top, Explanation and Reference below');
+  for (const axis of ['Doing', 'Understanding', 'Learning', 'Working']) assert.match(compass, new RegExp(`class="axis[^"]*">${axis}<`), axis);
+  for (const id of ['tutorials/01-your-first-song-on-air', 'how-to/02-add-a-text-engine', 'product', 'architecture/01-introduction-and-goals', 'architecture/09-architecture-decisions', 'reference', 'design'])
+    assert.ok(compass.includes(`href="/${id}/"`), `the compass links ${id}`);
+  for (const id of ['overview', 'project-rules', 'contributing', 'security', 'code-of-conduct']) assert.ok(compass.includes(`href="/${id}/"`), `the project row links ${id}`);
+  assert.match(compass, /data-tab="docs" class="active"/, 'the Docs tab is the compass');
+});
+
+test('inside a page the sidebar shows only its corner, with a switch to the other three and the compass', () => {
+  const sidebar = id => docs.get(id).page.match(/<nav id="docs-nav"[\s\S]*?<\/details><\/aside>/)[0];
+  const howto = sidebar('how-to/01-run-ace-step-on-another-machine');
+  assert.match(howto, /<nav class="quadrant-switch"/);
+  for (const corner of ['Tutorials', 'How-to guides', 'Explanation', 'Reference']) assert.match(howto, new RegExp(`>${corner}</a>`), corner);
+  assert.match(howto, /href="\/docs\/"/, 'back to the compass');
+  assert.match(howto, /href="\/how-to\/05-back-up-the-library\/"/, 'its own pages');
+  assert.ok(!howto.includes('href="/architecture/05-building-block-view/"'), 'no other corner\'s pages');
+  assert.match(sidebar('architecture/05-building-block-view'), /href="\/product\/"[\s\S]*href="\/architecture\/12-glossary\/"/, 'explanation: product and arc42');
   assert.match(docs.get('how-to/01-run-ace-step-on-another-machine').page, /<span id="doc-label">HOW-TO GUIDE<\/span>/);
+  assert.match(docs.get('product').page, /<span id="doc-label">EXPLANATION<\/span>/);
 });

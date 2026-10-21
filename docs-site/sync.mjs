@@ -60,15 +60,16 @@ function link(href, source) {
 
 /** Writes content/ (and the explorer's document index) for Zola, and copies the fonts into static/. */
 export async function sync() {
-  const files = ['../README.md', 'product.md', '../DESIGN.md', 'tech.md', 'project-rules.md', '../CONTRIBUTING.md', '../SECURITY.md', '../CODE_OF_CONDUCT.md', ...(await markdownIn('tutorials')), ...(await markdownIn('how-to')), 'reference.md', ...(await markdownIn('architecture')), ...(await markdownIn('adr')), 'adr/template.md'];
+  // In the order the compass and the sidebars show them: the project, then the four kinds of Diátaxis.
+  const files = ['../README.md', 'project-rules.md', '../CONTRIBUTING.md', '../SECURITY.md', '../CODE_OF_CONDUCT.md', ...(await markdownIn('tutorials')), ...(await markdownIn('how-to')), 'reference.md', 'tech.md', '../DESIGN.md', 'product.md', ...(await markdownIn('architecture')), ...(await markdownIn('adr')), 'adr/template.md'];
   known.clear(); for (const f of files) known.add(f);
   const version = (await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8')).match(/^version = "([^"]+)"/m)[1];
   await cp(path.join(repositoryRoot, 'public/fonts'), path.join(siteRoot, 'static/fonts'), { recursive: true });
   await rm(out, { recursive: true, force: true });
-  for (const [dir, title, sort] of [['', 'maio', 'weight'], ['tutorials', 'Tutorials', 'weight'], ['how-to', 'How-to guides', 'weight'], ['architecture', 'Architecture', 'weight'], ['adr', 'Decision records', 'weight']]) {
+  for (const [dir, title, sort] of [['', 'maio', 'weight'], ['docs', 'Documentation', 'weight'], ['tutorials', 'Tutorials', 'weight'], ['how-to', 'How-to guides', 'weight'], ['architecture', 'Architecture', 'weight'], ['adr', 'Decision records', 'weight']]) {
     await mkdir(path.join(out, dir), { recursive: true });
     // The root section carries the version Cargo.toml says, for the header.
-    await writeFile(path.join(out, dir, '_index.md'), `+++\ntitle = ${toml(title)}\nsort_by = ${toml(sort)}\n${dir ? '' : `template = "index.html"\n[extra]\nversion = ${toml(version)}\n`}+++\n`);
+    await writeFile(path.join(out, dir, '_index.md'), `+++\ntitle = ${toml(title)}\nsort_by = ${toml(sort)}\n${dir === 'docs' ? 'template = "docs.html"\n' : ''}${dir ? '' : `template = "index.html"\n[extra]\nversion = ${toml(version)}\n`}+++\n`);
   }
   
   let weight = 0;
@@ -120,7 +121,7 @@ export async function sync() {
       }
     }
     // Diátaxis: tutorials, how-to guides and the reference sit beside the architecture (explanation) and the project.
-  const group = source.startsWith('adr/') ? 'decisions' : source.startsWith('architecture/') ? 'architecture' : source.startsWith('tutorials/') ? 'tutorials' : source.startsWith('how-to/') ? 'how-to' : source === 'reference.md' ? 'reference' : 'project';
+  const group = source.startsWith('adr/') ? 'decisions' : source.startsWith('architecture/') ? 'architecture' : source.startsWith('tutorials/') ? 'tutorials' : source.startsWith('how-to/') ? 'how-to' : ['reference.md', 'tech.md', '../DESIGN.md'].includes(source) ? 'reference' : source === 'product.md' ? 'explanation' : 'project';
     const number = source.match(/^adr\/(\d{4})/)?.[1];
     const extra = { group, nav_title: navTitles[id] ?? title, ...(number ? { number, short: title } : {}), ...(meta ?? {}) };
     const fm = `+++\ntitle = ${toml(title)}\nweight = ${++weight}\n[extra]\n${Object.entries(extra).map(([k, v]) => `${k.replaceAll('-', '_')} = ${toml(v)}`).join('\n')}\n+++\n`;

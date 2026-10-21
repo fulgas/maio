@@ -273,3 +273,12 @@ test('ACE-Step is not tied to a Mac: the docs send people to its own setup instr
   assert.match(docs.get('overview').markdown, /\[ACE-Step's own instructions\]\(https:\/\/github\.com\/ace-step\/ACE-Step-1\.5/);
 });
 
+
+test('the header shows the version Cargo.toml carries, and claims nothing about a running app', async () => {
+  const version = (await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8')).match(/^version = "([^"]+)"/m)[1];
+  for (const file of ['index.html', 'architecture.html']) {
+    const html = await readFile(path.join(result.outputRoot, file), 'utf8');
+    assert.match(html, new RegExp(`<span class="baseline">v${version.replaceAll('.', '\\.')}</span>`), file);
+    assert.ok(!/running/.test(html.match(/<div class="header-actions">[\s\S]*?<\/div>/)[0]), `${file}: no "running"`);
+  }
+});

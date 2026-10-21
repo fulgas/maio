@@ -118,7 +118,10 @@ export async function build() {
   await cp(path.join(siteRoot, 'vendor/LICENSE.marked'), path.join(outputRoot, 'vendor/LICENSE.marked'));
   await cp(path.join(siteRoot, 'vendor/mermaid.min.js'), path.join(outputRoot, 'vendor/mermaid.min.js'));
   await writeFile(path.join(outputRoot, 'documents.json'), JSON.stringify(documents));
-  const template = await readFile(path.join(siteRoot, 'src/index.html'), 'utf8');
+  // The header shows the version Cargo.toml carries, so it moves with each release.
+  const version = (await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8')).match(/^version = "([^"]+)"/m)[1];
+  const template = (await readFile(path.join(siteRoot, 'src/index.html'), 'utf8')).replace('{{version}}', version);
+  await writeFile(path.join(outputRoot, 'index.html'), template);
   const css = await readFile(path.join(siteRoot, 'src/style.css'), 'utf8');
   const model = (await readFile(path.join(siteRoot, 'src/model.mjs'), 'utf8')).replace(/^export /gm, '');
   const application = (await readFile(path.join(siteRoot, 'src/app.mjs'), 'utf8')).replace(/^import .* from '\.\/model\.mjs';\n/m, '');

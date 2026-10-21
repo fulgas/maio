@@ -42,7 +42,7 @@ Maio makes songs with ACE-Step 1.5, keeps them in a library, arranges them into 
 ## Documentation rules
 
 - The documentation describes Maio only: no references to the tools or assistants used to write it.
-- Structure (context, containers, components, deployment) is drawn by the C4 model in `docs-site/src/model.mjs` and embedded with a ` ```c4 <view> ` block; Mermaid draws sequence and state diagrams only, and never contains a semicolon (Mermaid reads it as the end of a statement). A folder tree is a ` ```tree ` block.
+- Structure (context, containers, components, deployment) is drawn by the C4 model in `docs-site/static/model.mjs` and embedded with a ` ```c4 <view> ` block; Mermaid draws sequence and state diagrams only, and never contains a semicolon (Mermaid reads it as the end of a statement). A folder tree is a ` ```tree ` block.
 - Every colour in `style/main.css` has a token in `DESIGN.md`, and every `just` recipe is in `docs/tech.md`; tests check both.
 - State only what the code or the configuration confirms. Check a value in the source before writing it down.
 

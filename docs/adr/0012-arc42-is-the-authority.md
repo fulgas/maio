@@ -19,7 +19,7 @@ decision-makers: fulgas
 
 ## Decision Outcome
 
-Chosen option: "arc42 sections with ADRs and a C4 model", because it is a structure readers know and keeps decisions with their reasons: the twelve arc42 sections in `docs/architecture/` replace `SPEC.md`, section 9 indexes the ADRs, and the documentation is published as a standalone website (`docs-site/`) with an interactive C4 explorer from `docs-site/src/model.mjs` and a reader rendered at build time. A ```` ```c4 <view> ```` block draws a view in the Markdown; Mermaid draws sequence and state diagrams. Implementation plans are not kept in the repository.
+Chosen option: "arc42 sections with ADRs and a C4 model", because it is a structure readers know and keeps decisions with their reasons: the twelve arc42 sections in `docs/architecture/` replace `SPEC.md`, section 9 indexes the ADRs, and the documentation is published as a standalone website (`docs-site/`) with an interactive C4 explorer from `docs-site/static/model.mjs` and a reader rendered at build time (built with Zola since [ADR 0016](0016-zola-builds-the-documentation-site.md)). A ```` ```c4 <view> ```` block draws a view in the Markdown; Mermaid draws sequence and state diagrams. Implementation plans are not kept in the repository.
 
 ### Consequences
 

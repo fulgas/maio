@@ -1,4 +1,4 @@
-import { elements, views, resolveView, boundsFor, boundariesOf, relationshipGeometry, wrapText, nodeShape } from './src/model.mjs';
+import { elements, views, resolveView, boundsFor, boundariesOf, relationshipGeometry, wrapText, nodeShape } from './static/model.mjs';
 
 const escape = text => String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 

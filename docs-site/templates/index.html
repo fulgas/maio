@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block tabs %}{% set adrs = get_section(path="adr/_index.md") %}{% set records = [r for r in adrs.pages if r.extra?.number] %}<a href="/#view/context" data-tab="view"{{ (' class="active" aria-current="page"' if "view" == "view" else "") | safe }}>Explore</a><a href="/architecture/01-introduction-and-goals/" data-tab="architecture"{{ (' class="active" aria-current="page"' if "view" == "architecture" else "") | safe }}>Architecture</a><a href="/architecture/09-architecture-decisions/" data-tab="decisions"{{ (' class="active" aria-current="page"' if "view" == "decisions" else "") | safe }}>Decisions <span id="adr-count">{{ records | length }}</span></a>{% endblock %}
+{% block main %}
+    <section id="explorer" aria-label="Interactive C4 architecture">
+      <div class="view-heading"><div><p class="eyebrow" id="view-level">C4 · Level 1</p><h1 id="view-title">System context</h1><p id="view-description"></p></div><a class="text-link" href="/architecture/01-introduction-and-goals/">Read the architecture <span aria-hidden="true">↗</span></a></div>
+      <div class="toolbar">
+        <nav id="breadcrumbs" aria-label="C4 views"><button data-view="context">01 <span>Context</span></button><span class="crumb-divider">/</span><button data-view="containers">02 <span>Containers</span></button><span class="crumb-divider">/</span><button data-view="components">03 <span>Components</span></button></nav>
+          <div class="toolbar-actions"><button id="fit" title="Fit diagram (F)">Fit</button><button id="export" title="Download the visible diagram as SVG">Export SVG</button><button id="fullscreen" class="icon-button" title="Toggle fullscreen" aria-label="Toggle fullscreen">⛶</button></div>
+      </div>
+      <div class="explorer-body">
+        <div class="canvas-panel" id="canvas-panel">
+          <div class="canvas-topline"><span id="scope"></span><span class="canvas-badge">INTERACTIVE C4</span></div>
+          <svg id="diagram" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="C4 diagram. Select an element for details; double-click to explore its next level." tabindex="0">
+            <defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="var(--grid)"/></pattern><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--edge)"/></marker><marker id="flow-input-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--flow-input)"/></marker><marker id="flow-output-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--flow-output)"/></marker></defs>
+            <rect width="100%" height="100%" fill="url(#grid)" class="canvas-background"/>
+            <g id="viewport"></g>
+          </svg>
+          <div class="canvas-bottomline"><span><i class="legend-dot owned"></i> In scope <i class="legend-dot external"></i> External <span class="optional-key">┄ Optional</span><span id="flow-key"> <i class="legend-dot input"></i> Requests <i class="legend-dot output"></i> Audio</span></span><div class="zoom-controls"><button id="zoom-out" aria-label="Zoom out">−</button><output id="zoom-label">100%</output><button id="zoom-in" aria-label="Zoom in">+</button></div></div>
+        </div>
+        <aside class="details" aria-label="Element details"><div class="details-heading"><span>INSPECTOR</span><button id="clear-selection" class="icon-button" aria-label="Clear selection" title="Clear selection">×</button></div><div id="details-content"></div></aside>
+      </div>
+      <div class="explorer-footer"><p id="view-hint"></p><span>Drag canvas to pan · Scroll to zoom · Enter to inspect · Esc to clear</span></div>
+    </section>
+    <section id="reader" hidden aria-label="Architecture documentation"><aside class="docs-navigation"><details id="document-navigation" open><summary>Browse documentation</summary><input id="doc-search" type="search" hidden><nav id="docs-nav"></nav></details></aside><div class="reading-area"><span id="doc-label"></span><article id="document" class="prose"></article></div><aside class="toc"><nav id="toc"></nav></aside></section>
+{% endblock %}
+{% block scripts %}
+  <script>
+    // The explorer's links into the documentation name a #doc/… route; on this site each document is its own page.
+    const toPage = () => { const m = location.hash.match(/^#doc\/([^?]+)(?:\?section=(.+))?/); if (m) location.replace(`/${m[1]}/${m[2] ? `#${decodeURIComponent(m[2])}` : ''}`); };
+    toPage(); addEventListener('hashchange', toPage);
+  </script>
+  <script type="module" src="/app.mjs"></script>
+{% endblock %}

@@ -15,5 +15,9 @@ maio.toml.*
 /target/e2e-data
 !e2e/maio.toml
 
-# The architecture website, built by docs-site/build.mjs
+# The architecture website: what sync.mjs generates for Zola, the pinned Zola itself, and the built site
+/docs-site/content
+/docs-site/static/documents.json
+/docs-site/static/fonts
+/docs-site/.zola
 /docs-site/dist

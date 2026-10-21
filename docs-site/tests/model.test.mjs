@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { elements, views, connectedIds, edgeGeometry, boundsFor, flowChannelsFor } from '../src/model.mjs';
+import { elements, views, connectedIds, edgeGeometry, boundsFor, flowChannelsFor } from '../static/model.mjs';
 
 test('every view places real elements, drills into real views and has a parent on the way up', () => {
   for (const [id, view] of Object.entries(views)) {
@@ -78,6 +78,6 @@ test('the deployment view puts Docker compose on any Docker host, and ACE-Step o
 
 test('the C4 model writes the name maio, in lower case, as the wordmark does', async () => {
   const { readFile } = await import('node:fs/promises');
-  const source = await readFile(new URL('../src/model.mjs', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../static/model.mjs', import.meta.url), 'utf8');
   assert.deepEqual(source.match(/\bMaio\b/g) ?? [], []);
 });

@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, access } from 'node:fs/promises';
 import path from 'node:path';
-import { build, repositoryRoot } from '../build.mjs';
-import { elements, views } from '../src/model.mjs';
+import { build, repositoryRoot } from './site.mjs';
+import { elements, views } from '../static/model.mjs';
 
 const result = await build();
 const docs = new Map(result.documents.map(d => [d.id, d]));
@@ -14,12 +14,12 @@ test('every arc42 section and decision record is published, grouped for the read
   const arc42 = result.documents.filter(d => d.group === 'architecture');
   assert.equal(arc42.length, 12);
   assert.deepEqual(arc42.map(d => d.title.match(/^\d+/)[0]), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']);
-  assert.equal(result.documents.filter(d => /^adr\/\d/.test(d.id)).length, 15);
+  assert.equal(result.documents.filter(d => /^adr\/\d/.test(d.id)).length, 16);
   for (const id of ['overview', 'project-rules']) assert.ok(docs.get(id), `missing ${id}`);
   assert.ok(!docs.has('adr/README'), 'section 9 is the decision index');
   assert.ok(!docs.has('index') && !docs.has('ARCHITECTURE'), 'no separate index pages');
-  assert.match(docs.get('overview').html, /href="#doc\/project-rules"/, 'the overview links the rules');
-  assert.match(docs.get('overview').html, /href="#doc\/architecture\/01-introduction-and-goals"/, 'the overview links the architecture');
+  assert.match(docs.get('overview').html, /href="\/project-rules\/"/, 'the overview links the rules');
+  assert.match(docs.get('overview').html, /href="\/architecture\/01-introduction-and-goals\/"/, 'the overview links the architecture');
 });
 
 test('links between documents, links to views, and the model\'s references all resolve', () => {
@@ -29,8 +29,8 @@ test('links between documents, links to views, and the model\'s references all r
     if (section) assert.ok(target.headings.some(h => h.slug === decodeURIComponent(section)), `${source}: missing section ${id}#${section}`);
   };
   for (const doc of docs.values()) {
-    for (const m of doc.html.matchAll(/href="#doc\/([^"?]+)(?:\?section=([^"]+))?"/g)) check(m[1], m[2], doc.id);
-    for (const m of doc.html.matchAll(/href="#view\/([^"]+)"/g)) assert.ok(views[m[1]], `${doc.id}: missing C4 view ${m[1]}`);
+    for (const m of doc.html.matchAll(/href="\/((?:architecture|adr)\/[^"#\/]+|[a-z-]+)\/(?:#([^"]+))?"/g)) check(m[1], m[2], doc.id);
+    for (const m of doc.html.matchAll(/href="\/#view\/([^"]+)"/g)) assert.ok(views[m[1]], `${doc.id}: missing C4 view ${m[1]}`);
     assert.ok(!/href="(?!https?:)[^"#]*\.md(#[^"]*)?"/.test(doc.html), `${doc.id}: a link still points at a .md file`);
   }
   for (const item of Object.values(elements).filter(e => e.doc)) {
@@ -43,30 +43,26 @@ test('the arc42 sections draw each C4 level from the model, linked to the explor
   const previews = id => [...docs.get(id).html.matchAll(/<figure class="c4-preview" data-c4-view="([^"]+)">/g)].map(m => m[1]);
   assert.deepEqual(previews('architecture/03-system-scope-and-context'), ['context', 'containers']);
   assert.deepEqual(previews('architecture/05-building-block-view'), ['components', 'live', 'webapp']);
-  assert.match(docs.get('architecture/05-building-block-view').html, /href="#view\/live"/);
+  assert.match(docs.get('architecture/05-building-block-view').html, /href="\/#view\/live"/);
 });
 
-test('the site, its fonts and the one-file version are written; no Markdown downloads, the repository has the sources', async () => {
-  for (const asset of ['index.html', 'app.mjs', 'model.mjs', 'style.css', 'documents.json', 'fonts/unbounded.woff2', 'fonts/albert-sans.woff2', 'vendor/LICENSE.marked']) await access(path.join(result.outputRoot, asset));
-  await assert.rejects(access(path.join(result.outputRoot, 'source')), 'no copies of the Markdown');
-  assert.ok(!(await readFile(path.join(result.outputRoot, 'index.html'), 'utf8')).includes('Markdown source'), 'no download link');
-  const html = await readFile(path.join(result.outputRoot, 'architecture.html'), 'utf8');
-  assert.ok(!html.includes('src="./app.mjs"') && !html.includes('href="./style.css"') && !html.includes("from './model.mjs'"));
-  const embedded = html.match(/<script id="documentation-data" type="application\/json">([\s\S]*?)<\/script>/);
-  assert.equal(JSON.parse(embedded[1]).length, result.documents.length);
-  assert.match(html, /function showView/);
+test('the site, its fonts, the explorer and Mermaid are written; the repository keeps the Markdown', async () => {
+  for (const asset of ['index.html', 'app.mjs', 'model.mjs', 'style.css', 'reader.js', 'documents.json', 'fonts/unbounded.woff2', 'fonts/albert-sans.woff2', 'vendor/mermaid.min.js']) await access(path.join(result.outputRoot, asset));
+  assert.equal(JSON.parse(await readFile(path.join(result.outputRoot, 'documents.json'), 'utf8')).length, result.documents.length, 'the explorer knows every document');
+  for (const doc of result.documents) assert.ok(!doc.page.includes('Markdown source'), `${doc.id}: no download link`);
 });
 
-test('every page link in the site itself (header, buttons, fallbacks) reaches a real document or view', async () => {
-  for (const file of ['src/index.html', 'src/app.mjs']) {
-    const text = await readFile(path.join(result.outputRoot, '..', file), 'utf8');
-    for (const m of text.matchAll(/#doc\/([A-Za-z0-9_\/.-]+)/g)) assert.ok(docs.get(m[1]), `${file}: #doc/${m[1]} is no document`);
-    for (const m of text.matchAll(/#view\/([a-z]+)/g)) assert.ok(views[m[1]], `${file}: #view/${m[1]} is no view`);
+test('every page link in the site itself (header, buttons, the explorer) reaches a real document or view', async () => {
+  const shell = [result.index, docs.get('overview').page, await readFile(path.join(result.outputRoot, 'app.mjs'), 'utf8')];
+  for (const text of shell) {
+    for (const m of text.matchAll(/#doc\/([A-Za-z0-9_\/.-]+)/g)) assert.ok(docs.get(m[1]), `#doc/${m[1]} is no document`);
+    for (const m of text.matchAll(/href="\/((?:architecture|adr)\/[^"#\/]+)\/"/g)) assert.ok(docs.get(m[1]), `/${m[1]}/ is no document`);
+    for (const m of text.matchAll(/#view\/([a-z]+)/g)) assert.ok(views[m[1]], `#view/${m[1]} is no view`);
   }
 });
 
 test('the C4 levels read Context, Containers, Components', async () => {
-  const html = await readFile(path.join(result.outputRoot, '..', 'src/index.html'), 'utf8');
+  const html = result.index;
   assert.match(html, /01 <span>Context<\/span>[\s\S]*02 <span>Containers<\/span>[\s\S]*03 <span>Components<\/span>/);
   const crumbs = html.match(/<nav id="breadcrumbs"[\s\S]*?<\/nav>/)[0];
   assert.equal([...crumbs.matchAll(/data-view=/g)].length, 3, 'only the three C4 levels; deeper views are reached by drilling in');
@@ -75,16 +71,16 @@ test('the C4 levels read Context, Containers, Components', async () => {
 
 test('the runtime view draws its scenarios as sequence diagrams, and the site carries Mermaid to render them', async () => {
   const runtime = docs.get('architecture/06-runtime-view');
-  const diagrams = [...runtime.html.matchAll(/<pre class="mermaid">([\s\S]*?)<\/pre>/g)].map(m => m[1]);
+  const diagrams = [...runtime.html.matchAll(/<code data-lang="mermaid">([\s\S]*?)<\/code>/g)].map(m => m[1]);
   assert.ok(diagrams.length >= 5, `only ${diagrams.length} diagrams`);
   for (const d of diagrams) assert.match(d, /^sequenceDiagram/);
   assert.ok(!/[│─┼]/.test(runtime.markdown), 'no hand-drawn box diagrams left');
   await access(path.join(result.outputRoot, 'vendor/mermaid.min.js'));
-  assert.match(await readFile(path.join(result.outputRoot, 'architecture.html'), 'utf8'), /mermaid/);
+  assert.match(runtime.page, /reader\.js/, 'the reader draws them');
 });
 
 test('no section is drawn with box characters: shapes, nodes and lifecycles are Mermaid diagrams', () => {
-  const kinds = id => [...docs.get(id).html.matchAll(/<pre class="mermaid">([\w-]+)/g)].map(m => m[1]);
+  const kinds = id => [...docs.get(id).html.matchAll(/<code data-lang="mermaid">([\w-]+)/g)].map(m => m[1]);
   for (const doc of result.documents.filter(d => d.group === 'architecture')) assert.ok(!/[│┌└├─┼]/.test(doc.markdown), `${doc.id} still has a box drawing`);
   assert.ok(kinds('architecture/03-system-scope-and-context').includes('stateDiagram-v2'), 'engine health');
   for (const doc of result.documents) assert.ok(!kinds(doc.id).includes('flowchart'), `${doc.id}: structure is drawn by the C4 model, not Mermaid`);
@@ -95,7 +91,7 @@ test('no section is drawn with box characters: shapes, nodes and lifecycles are 
 test('section 9 is the decision index: it links every ADR with its status', () => {
   const index = docs.get('architecture/09-architecture-decisions');
   const adrs = result.documents.filter(d => /^adr\/\d/.test(d.id));
-  for (const adr of adrs) assert.match(index.html, new RegExp(`href="#doc/${adr.id}"`), `${adr.id} is not in section 9`);
+  for (const adr of adrs) assert.match(index.html, new RegExp(`href="/${adr.id}/"`), `${adr.id} is not in section 9`);
   assert.match(index.markdown, /\| Status \|/);
 });
 
@@ -115,7 +111,7 @@ test('decision records follow MADR 4.0.0, and the site shows their status instea
     assert.match(row, new RegExp(`\\| ${doc.meta.status[0].toUpperCase()}${doc.meta.status.slice(1)} \\|$`), `${doc.id}: section 9 shows another status`);
   }
   assert.ok(docs.get('adr/template'), 'a template to start from');
-  assert.match(index.html, /href="#doc\/adr\/template"/);
+  assert.match(index.html, /href="\/adr\/template\/"/);
 });
 
 
@@ -133,17 +129,17 @@ test('no Mermaid diagram has a semicolon: Mermaid reads it as the end of a state
 });
 
 test('a Mermaid diagram opens in a zoom dialog: the browser\'s own <dialog>, with zoom out, zoom in and fit', async () => {
-  const html = await readFile(path.join(result.outputRoot, 'index.html'), 'utf8');
+  const html = docs.get('architecture/06-runtime-view').page;
   const dialog = html.match(/<dialog id="diagram-zoom"[\s\S]*?<\/dialog>/)?.[0];
   assert.ok(dialog, 'a zoom dialog');
   for (const label of ['Zoom out', 'Zoom in', 'Fit', 'Close']) assert.match(dialog, new RegExp(`aria-label="${label}"|>${label}<`), label);
-  const app = await readFile(path.join(result.outputRoot, 'app.mjs'), 'utf8');
+  const app = await readFile(path.join(result.outputRoot, 'reader.js'), 'utf8');
   assert.match(app, /setAttribute\('role', 'button'\)[\s\S]*?Zoom the diagram/, 'the diagram itself opens the dialog');
   assert.ok(!app.includes("'Zoom')"), 'no separate Zoom button');
 });
 
 test('product, design and tech lead into arc42, and arc42 points back to them', () => {
-  const links = id => [...docs.get(id).html.matchAll(/href="#doc\/([^"?]+)/g)].map(m => m[1]);
+  const links = id => [...docs.get(id).html.matchAll(/href="\/([^"#]+?)\/(?:#[^"]*)?"/g)].map(m => m[1]);
   assert.deepEqual(['product', 'design', 'tech'].filter(id => !links('architecture/01-introduction-and-goals').includes(id)), [], '1.5 names all three');
   assert.ok(links('architecture/08-crosscutting-concepts').includes('design'), '8.5 points to the design');
   assert.deepEqual(['product', 'design', 'tech'].filter(id => !links('overview').includes(id)), [], 'the README names all three');
@@ -218,7 +214,7 @@ test('the README is a proper README: what it is, requirements, quick start, port
   const sections = readme.headings.filter(h => h.depth === 2).map(h => h.text);
   for (const s of ['Features', 'Requirements', 'Quick start', 'Engines and API keys', 'Ports', 'Configuration', 'Development', 'Documentation', 'Contributing', 'Credits', 'License']) assert.ok(sections.includes(s), `README has no ${s} section`);
   assert.match(readme.markdown, /^# Maio\n\n\*\*M\*\*usic \+ \*\*AI\*\* \+ \*\*O\*\*utput\./, 'the name says what it is');
-  for (const id of ['contributing', 'security', 'code-of-conduct']) assert.match(readme.html, new RegExp(`href="#doc/${id}"`), `README links ${id}`);
+  for (const id of ['contributing', 'security', 'code-of-conduct']) assert.match(readme.html, new RegExp(`href="/${id}/"`), `README links ${id}`);
   assert.match(docs.get('code-of-conduct').markdown, /Contributor Covenant/);
   assert.match(docs.get('security').markdown, /## Reporting a vulnerability/);
   for (const step of ['uv sync', 'ACE_STEP_API_KEY', 'api_key_env', 'ANTHROPIC_API_KEY', '[[text_engine]]', '--force-recreate']) assert.ok(readme.markdown.includes(step), `README does not explain ${step}`);
@@ -254,14 +250,14 @@ test('the commit-msg hook takes Conventional Commits and refuses anything else',
 });
 
 
-test('the site carries the favicon inline, whole, so the one-file version keeps it', async () => {
-  const html = await readFile(path.join(result.outputRoot, 'index.html'), 'utf8');
+test('every page carries the favicon inline, whole', async () => {
+  const html = docs.get('overview').page;
   const icon = html.match(/<link rel="icon" href="data:image\/svg\+xml,([^"]*)">/);
   assert.ok(icon, 'an icon link whose address has no raw quote in it');
   assert.equal(decodeURIComponent(icon[1]).trim(), (await readFile(path.join(repositoryRoot, 'public/favicon.svg'), 'utf8')).trim());
 });
 
-test('DESIGN.md shows the favicon itself, inlined so the one-file version keeps it', () => {
+test('DESIGN.md shows the favicon itself, inlined', () => {
   const design = docs.get('design');
   assert.match(design.markdown, /!\[The favicon\]\(public\/favicon\.svg\)/);
   assert.match(design.html, /<img src="data:image\/svg\+xml,[^"]+" alt="The favicon"/);
@@ -276,8 +272,7 @@ test('ACE-Step is not tied to a Mac: the docs send people to its own setup instr
 
 test('the header shows the version Cargo.toml carries, and claims nothing about a running app', async () => {
   const version = (await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8')).match(/^version = "([^"]+)"/m)[1];
-  for (const file of ['index.html', 'architecture.html']) {
-    const html = await readFile(path.join(result.outputRoot, file), 'utf8');
+  for (const [file, html] of [['index.html', result.index], ['a document', docs.get('overview').page]]) {
     assert.match(html, new RegExp(`<span class="baseline">v${version.replaceAll('.', '\\.')}</span>`), file);
     assert.ok(!/running/.test(html.match(/<div class="header-actions">[\s\S]*?<\/div>/)[0]), `${file}: no "running"`);
   }

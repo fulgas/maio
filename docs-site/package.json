@@ -4,8 +4,7 @@
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {
-    "build": "node build.mjs",
-    "serve": "node serve.mjs",
+    "sync": "node sync.mjs",
     "test": "node --test tests/*.test.mjs"
   }
 }

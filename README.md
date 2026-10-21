@@ -111,7 +111,7 @@ Every endpoint is in [arc42 3.5](docs/architecture/03-system-scope-and-context.m
 
 ## Development
 
-You need Rust 1.88 or later with the `wasm32-unknown-unknown` target, `cargo-leptos` 0.3.5, `ffmpeg` and `ffprobe`, and Node 20 or later.
+You need Rust 1.88 or later with the `wasm32-unknown-unknown` target, `cargo-leptos` 0.3.5, `ffmpeg` and `ffprobe`, and Node 20 or later. `just` downloads the pinned [Zola](https://www.getzola.org) for the documentation site.
 
 | Command | Does |
 |---------|------|
@@ -129,7 +129,7 @@ The full list, the stack and the code layout are in [Tech](docs/tech.md).
 - [Decisions](docs/architecture/09-architecture-decisions.md): arc42 section 9, the index of the decision records and their reasons.
 - [Project rules](docs/project-rules.md): how changes are made.
 
-`just docs-serve` shows all of it as a website with an interactive C4 explorer; `docs-site/dist/architecture.html` is the same site in one file.
+`just docs-serve` shows all of it as a website with an interactive C4 explorer, built with Zola.
 
 ## Contributing
 
@@ -144,7 +144,7 @@ Maio stands on other people's work:
 - [FFmpeg](https://ffmpeg.org) decodes, normalises, tags and encodes every song and stream.
 - [Leptos](https://leptos.dev) and [thaw](https://github.com/thaw-ui/thaw) build the web app; [axum](https://github.com/tokio-rs/axum) and [Tokio](https://tokio.rs) serve it; [SQLite](https://sqlite.org), through [rusqlite](https://github.com/rusqlite/rusqlite), keeps the library; [OpenTelemetry](https://opentelemetry.io) traces it.
 - [Unbounded](https://fonts.google.com/specimen/Unbounded) and [Albert Sans](https://fonts.google.com/specimen/Albert+Sans) are the typefaces, under the SIL Open Font License (`public/fonts/*-OFL.txt`).
-- The documentation site renders Markdown with [marked](https://marked.js.org) and diagrams with [Mermaid](https://mermaid.js.org), both MIT licensed and vendored in `docs-site/vendor`.
+- [Zola](https://www.getzola.org) builds the documentation site, and [Mermaid](https://mermaid.js.org), MIT licensed and vendored in `docs-site/static/vendor`, draws its diagrams.
 - The documentation follows [arc42](https://arc42.org), the [C4 model](https://c4model.com), [MADR](https://adr.github.io/madr/) and the [DESIGN.md format](https://github.com/google-labs-code/design.md); the code of conduct is the [Contributor Covenant](https://www.contributor-covenant.org).
 
 ## License

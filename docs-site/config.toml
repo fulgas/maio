@@ -1,0 +1,10 @@
+# The architecture website (arc42 1.5, ADR 0016): sync.mjs writes content/ from docs/, Zola builds it into dist/.
+base_url = "http://localhost:8000"
+title = "maio"
+output_dir = "dist"
+compile_sass = false
+build_search_index = false
+
+[markdown]
+smart_punctuation = false
+render_emoji = false

@@ -5,6 +5,8 @@ set dotenv-load := true
 
 ace_root := env("ACE_ROOT", home_directory() / "Projects/fulgas/ACE-Step-1.5")
 engine_port := "7801"
+zola_version := "0.23.6"
+zola := justfile_directory() / "docs-site/.zola/zola"
 
 # Start the stack, then run ACE-Step in this terminal; Ctrl-C stops the engine and the stack.
 run:
@@ -57,6 +59,7 @@ test:
     cargo fmt --check
     cargo test
     cargo build --lib --target wasm32-unknown-unknown --no-default-features --features hydrate
+    just zola
     node --test docs-site/tests/*.test.mjs
 
 # A real browser through every screen: builds the site, runs the fake engine and a throwaway server, runs e2e/smoke.mjs.
@@ -74,10 +77,26 @@ e2e:
     cd e2e && npm install --silent && npx playwright install chromium >/dev/null
     E2E_USER=smoke E2E_PASSWORD=smoke-password-1 node smoke.mjs
 
-# The architecture website (C4 explorer, arc42, ADRs) into docs-site/dist; needs Node 20 or newer, nothing to install.
-docs:
-    node docs-site/build.mjs
+# Zola, pinned, downloaded once into docs-site/.zola: nothing to install by hand.
+zola:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -x "{{zola}}" ] && "{{zola}}" --version | grep -q "{{zola_version}}"; then exit 0; fi
+    case "$(uname -s)-$(uname -m)" in
+        Darwin-arm64) target=aarch64-apple-darwin ;;
+        Darwin-x86_64) target=x86_64-apple-darwin ;;
+        Linux-x86_64) target=x86_64-unknown-linux-gnu ;;
+        Linux-aarch64) target=aarch64-unknown-linux-gnu ;;
+        *) echo "no Zola {{zola_version}} download for $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+    esac
+    mkdir -p "$(dirname "{{zola}}")"
+    curl -fsSL "https://github.com/getzola/zola/releases/download/v{{zola_version}}/zola-v{{zola_version}}-$target.tar.gz" | tar xz -C "$(dirname "{{zola}}")"
 
-# Builds the website and serves it on http://localhost:8000 (DOCS_PORT to change it).
-docs-serve:
-    node docs-site/serve.mjs
+# The architecture website (C4 explorer, arc42, ADRs) into docs-site/dist: sync.mjs writes Zola's content from docs/, then Zola builds it.
+docs: zola
+    node docs-site/sync.mjs
+    "{{zola}}" --root docs-site build
+
+# Builds the website and serves it on http://localhost:8000 with live reload (DOCS_PORT to change it); re-run after editing docs/.
+docs-serve: docs
+    "{{zola}}" --root docs-site serve --interface 0.0.0.0 --port "${DOCS_PORT:-8000}" --base-url localhost

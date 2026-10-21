@@ -14,7 +14,7 @@ test('every arc42 section and decision record is published, grouped for the read
   const arc42 = result.documents.filter(d => d.group === 'architecture');
   assert.equal(arc42.length, 12);
   assert.deepEqual(arc42.map(d => d.title.match(/^\d+/)[0]), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']);
-  assert.equal(result.documents.filter(d => /^adr\/\d/.test(d.id)).length, 14);
+  assert.equal(result.documents.filter(d => /^adr\/\d/.test(d.id)).length, 15);
   for (const id of ['overview', 'project-rules']) assert.ok(docs.get(id), `missing ${id}`);
   assert.ok(!docs.has('adr/README'), 'section 9 is the decision index');
   assert.ok(!docs.has('index') && !docs.has('ARCHITECTURE'), 'no separate index pages');
@@ -228,5 +228,27 @@ test('Maio is MIT licensed, and the fonts it ships carry their own licence', asy
   assert.match(await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8'), /^license = "MIT"$/m);
   assert.match(docs.get('overview').markdown, /## License\n\n\[MIT\]\(LICENSE\)/);
   for (const font of ['unbounded', 'albert-sans']) assert.match(await readFile(path.join(repositoryRoot, `public/fonts/${font}-OFL.txt`), 'utf8'), /SIL OPEN FONT LICENSE/);
+});
+
+test('releases follow Semantic Versioning, worked out from Conventional Commits', () => {
+  const rules = docs.get('project-rules').markdown;
+  assert.match(rules, /## Releases/);
+  for (const words of ['Semantic Versioning 2.0.0', 'BREAKING CHANGE', '`feat`', '`fix`', 'v0.1.0', 'Cargo.toml']) assert.ok(rules.includes(words), `the release rules do not mention ${words}`);
+});
+
+test('the commit-msg hook takes Conventional Commits and refuses anything else', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const { writeFileSync, mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const dir = mkdtempSync(path.join(tmpdir(), 'hook-'));
+  const verdict = message => {
+    const file = path.join(dir, 'MSG');
+    writeFileSync(file, message);
+    return spawnSync('sh', [path.join(repositoryRoot, '.githooks/commit-msg'), file]).status === 0;
+  };
+  for (const ok of ['feat(player): Pause turns to Play\n', 'fix: a typo\n\nbody\n', 'refactor(live)!: drop the old route\n\nBREAKING CHANGE: gone\n', 'docs(docs-site): no downloads\n', '# a comment\nchore: tidy\n', 'fixup! feat: x\n'])
+    assert.ok(verdict(ok), `refused: ${ok}`);
+  for (const bad of ['Added a thing\n', 'feature: x\n', 'feat(Player): x\n', 'feat:x\n', 'fix: \n'])
+    assert.ok(!verdict(bad), `accepted: ${bad}`);
 });
 

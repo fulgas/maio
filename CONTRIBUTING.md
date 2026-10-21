@@ -10,7 +10,7 @@ Thank you for wanting to help. Maio is a personal project with one maintainer, s
 
 ## Setting up
 
-Follow [Development](README.md#development) in the README. `just stack` and `just fake` give you a running Maio without ACE-Step or a GPU.
+Follow [Development](README.md#development) in the README, and turn on the commit message check once: `git config core.hooksPath .githooks`. `just stack` and `just fake` give you a running Maio without ACE-Step or a GPU.
 
 ## Making a change
 

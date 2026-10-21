@@ -610,10 +610,7 @@ mod tests {
         assert_eq!(job.state, JobState::Done, "{job:?}");
         let song = song_of(&w, &job);
         assert_eq!((song.prompt.as_str(), song.mood.as_deref(), song.seconds, song.seed), ("warm pads", Some("calm"), 179.5, 1234));
-        assert_eq!(
-            (song.engine.as_str(), song.artist.as_str(), song.vocals, song.title_source),
-            ("ace-step", "Maio", false, TitleSource::Words)
-        );
+        assert_eq!((song.engine.as_str(), song.artist.as_str(), song.vocals, song.title_source), ("ace-step", "Maio", false, TitleSource::Words));
         assert_eq!(song.file, format!("songs/{}.opus", song.id));
         assert_eq!(w.engines[0].submitted.lock().unwrap()[0].prompt, "warm pads, jazz, calm mood, instrumental");
         assert_eq!(*w.engines[0].deleted.lock().unwrap(), ["remote1"], "the engine job is freed");

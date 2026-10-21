@@ -22,3 +22,4 @@ Decisions that still shape Maio are recorded as architecture decision records (A
 | [0012](../adr/0012-arc42-is-the-authority.md) | arc42 is the authority | Accepted |
 | [0013](../adr/0013-madr-decision-records.md) | Decision records follow MADR 4.0.0 | Accepted |
 | [0014](../adr/0014-product-design-and-tech-pages.md) | Product, Design and Tech pages lead into arc42 | Accepted |
+| [0015](../adr/0015-conventional-commits-decide-semantic-versions.md) | Conventional Commits decide semantic versions | Accepted |

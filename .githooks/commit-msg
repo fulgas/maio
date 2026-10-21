@@ -1,0 +1,13 @@
+#!/bin/sh
+# Commit messages follow Conventional Commits 1.0.0 (docs/project-rules.md): `type(scope)!: subject`.
+# Turn it on once per clone: git config core.hooksPath .githooks
+subject=$(grep -v '^#' "$1" | sed '/^[[:space:]]*$/d' | head -n 1)
+case "$subject" in
+  "fixup! "* | "squash! "* | "amend! "* | "Merge "* | "Revert \""*) exit 0 ;;
+esac
+if printf '%s\n' "$subject" | grep -Eq '^(feat|fix|docs|test|refactor|perf|build|ci|chore|style|revert)(\([a-z0-9-]+\))?!?: [^[:space:]].*$'; then
+  exit 0
+fi
+echo "commit-msg: \"$subject\" is not a Conventional Commit." >&2
+echo "  Write type(scope)!: subject, with a type from docs/project-rules.md, for example: fix(player): Pause turns to Play" >&2
+exit 1

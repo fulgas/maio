@@ -36,8 +36,7 @@ async fn serve(cfg: Config) -> anyhow::Result<()> {
             app.stop();
         }
     };
-    let server =
-        axum::serve(listener, maio::web::router(app).into_make_service_with_connect_info::<SocketAddr>()).with_graceful_shutdown(signal);
+    let server = axum::serve(listener, maio::web::router(app).into_make_service_with_connect_info::<SocketAddr>()).with_graceful_shutdown(signal);
     // Docker kills after 10 s; stop waiting for slow requests (an audio download) before that, so telemetry still flushes.
     let deadline = async move {
         let _ = stopping.wait_for(|s| *s).await;

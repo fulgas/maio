@@ -45,6 +45,21 @@ The subject says what changed in plain words (`fix(player): Pause while listenin
 
 Scopes, when they help: `songs`, `playlists`, `player`, `live`, `relay`, `engine`, `text`, `account`, `api`, `ui`, `config`, `telemetry`, `docs-site`. One logical change per commit.
 
+Every commit follows it. The `commit-msg` hook in `.githooks/` refuses any other message; turn it on once per clone with `git config core.hooksPath .githooks`.
+
+## Releases
+
+Releases follow [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html), and the commits decide the number ([ADR 0015](adr/0015-conventional-commits-decide-semantic-versions.md)). Since the last release:
+
+| The commits include | The next version |
+| --- | --- |
+| a `BREAKING CHANGE:` footer or a `!` after the type | major (while the version is 0.x, minor) |
+| a `feat` | minor |
+| only `fix` or `perf` | patch |
+| nothing else (`docs`, `test`, `refactor`, `build`, `ci`, `chore`, `style`) | no release |
+
+A release sets `version` in `Cargo.toml`, is committed as `chore(release): vX.Y.Z`, and is tagged `vX.Y.Z` on `main`, annotated and signed, with its notes made from the commit subjects grouped by type. Maio has not been released yet; the first release is v0.1.0, the version `Cargo.toml` already carries.
+
 ## Secrets
 
 - Secrets live in `.env` and are never printed, logged or committed: the account password, the API token, engine keys.

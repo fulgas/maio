@@ -14,6 +14,9 @@
 | **Live edge** | Where a stream is now; joining a stream starts there, not where you paused. |
 | **Engine**, **music engine** | A program that makes music; here ACE-Step 1.5 through `acestep-api` (arc42 3.3). |
 | **Text engine** | A language model that writes lyrics, titles and descriptions (arc42 3.4). |
+| **Event** | A message on `/api/v1/events` that carries the new state of one thing (a job, song, playlist, live playlist, engine or MediaMTX); the web app updates from it and never polls (arc42 3.5, 8.5). |
+| **Circuit breaker** | The engine's health used as a gate: while ACE-Step is down, new songs are refused before a job starts, and a health check lets one call through to close it again (arc42 8.8). |
+| **Backoff** | Waiting longer between each try after ACE-Step says it is busy or a poll fails: from `engine_poll_s` doubling up to `engine_backoff_max_s` (arc42 8.8). |
 | **Job** | One song being made: waiting, making, done, failed or cancelled. |
 | **Relay** | MediaMTX, which carries live playlists over RTSP, SRT and RTMP. |
 | **Reader** | Someone pulling a live playlist from MediaMTX. |

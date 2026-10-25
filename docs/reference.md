@@ -9,6 +9,7 @@ The facts to look up while you work. They live in the architecture, next to the 
 | What is in the data folder | [arc42 7.2, the data volume](architecture/07-deployment-view.md#72-the-data-volume) |
 | Live stream addresses and formats | [arc42 8.4, Live](architecture/08-crosscutting-concepts.md#84-live) |
 | What a song carries | [arc42 8.2](architecture/08-crosscutting-concepts.md#82-songs) |
+| What each server-sent event carries | [arc42 3.5, the HTTP API](architecture/03-system-scope-and-context.md#35-the-http-api) |
 | When the engine is busy or down: circuit breaker, backoff, limits | [arc42 8.8](architecture/08-crosscutting-concepts.md#88-when-the-engine-is-busy-or-down) |
 | The `just` commands and the stack | [Tech](tech.md) |
 | Colours, type and components | [Design](../DESIGN.md) |

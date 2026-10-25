@@ -112,7 +112,7 @@ struct Info {
 }
 
 /// MediaMTX as the last check found it.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Seen {
     /// A check has run since Maio started.
     checked: bool,
@@ -122,7 +122,7 @@ pub struct Seen {
     paths: HashMap<String, PathSeen>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 struct PathSeen {
     ready_since: Option<DateTime<Utc>>,
     ready: bool,
@@ -228,7 +228,7 @@ struct PathList {
 }
 
 /// Asks MediaMTX how it is and what it carries, every 5 s.
-pub async fn watch(t: Target, seen: std::sync::Arc<Mutex<Seen>>) {
+pub async fn watch(t: Target, seen: std::sync::Arc<Mutex<Seen>>, tell: super::station::Tell) {
     let http = client();
     loop {
         let now = match check(&http, &t).await {
@@ -238,8 +238,21 @@ pub async fn watch(t: Target, seen: std::sync::Arc<Mutex<Seen>>) {
                 Seen { checked: true, ..Seen::default() }
             }
         };
-        *seen.lock().unwrap_or_else(|e| e.into_inner()) = now;
+        store(&seen, now, &tell);
         tokio::time::sleep(Duration::from_secs(5)).await;
+    }
+}
+
+/// Keeps what a check found; tells when it differs from the last.
+fn store(seen: &Mutex<Seen>, now: Seen, tell: &super::station::Tell) {
+    let changed = {
+        let mut s = seen.lock().unwrap_or_else(|e| e.into_inner());
+        let changed = *s != now;
+        *s = now;
+        changed
+    };
+    if changed {
+        tell();
     }
 }
 
@@ -277,6 +290,22 @@ pub async fn kick(t: Target, path: String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_check_that_finds_something_new_is_told_once() {
+        let told = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let t = told.clone();
+        let tell: super::super::station::Tell = std::sync::Arc::new(move || {
+            t.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        });
+        let seen = Mutex::new(Seen::default());
+        let up = Seen { checked: true, version: Some("1.21.2".into()), ..Seen::default() };
+        store(&seen, up.clone(), &tell);
+        store(&seen, up, &tell);
+        assert_eq!(told.load(std::sync::atomic::Ordering::Relaxed), 1, "MediaMTX came up, then nothing changed");
+        store(&seen, Seen { checked: true, ..Seen::default() }, &tell);
+        assert_eq!(told.load(std::sync::atomic::Ordering::Relaxed), 2, "MediaMTX stopped answering");
+    }
 
     fn target() -> Target {
         Target {

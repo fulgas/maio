@@ -33,8 +33,12 @@ pub struct Setlist {
     pub shuffle: bool,
 }
 
+/// Told when something a listener sees changes (the song on air, who listens), so the web app can show it.
+pub type Tell = Arc<dyn Fn() + Send + Sync>;
+
 pub struct Station {
     pub id: String,
+    pub tell: Tell,
     pub data_dir: PathBuf,
     pub setlist: Mutex<Setlist>,
     pub now: Mutex<Option<LiveSong>>,
@@ -54,9 +58,10 @@ pub struct Station {
 }
 
 impl Station {
-    pub fn new(p: &Playlist, songs: &[LiveSong], data_dir: PathBuf, relay: Option<super::relay::Target>) -> Arc<Self> {
+    pub fn new(p: &Playlist, songs: &[LiveSong], data_dir: PathBuf, relay: Option<super::relay::Target>, tell: Tell) -> Arc<Self> {
         Arc::new(Self {
             id: p.id.clone(),
+            tell,
             data_dir,
             setlist: Mutex::new(Setlist { songs: songs.to_vec(), shuffle: p.live.shuffle }),
             now: Mutex::new(None),
@@ -238,6 +243,7 @@ pub async fn playout(st: Arc<Station>, crossfade_s: f32) {
                     .filter(|s| s.id == id)
                     .or_else(|| st.setlist.lock().unwrap().songs.iter().find(|s| s.id == id).cloned());
                 *st.now.lock().unwrap() = song;
+                (st.tell)();
             }
         }
         let mut bytes = Vec::with_capacity(CHUNK * 2);
@@ -325,24 +331,41 @@ pub async fn encoder(
 }
 
 /// Counts one listener until dropped.
-pub struct ListenerGuard(Arc<AtomicUsize>);
+pub struct ListenerGuard(Arc<AtomicUsize>, Tell);
 
 impl ListenerGuard {
-    pub fn new(count: Arc<AtomicUsize>) -> Self {
+    pub fn new(count: Arc<AtomicUsize>, tell: Tell) -> Self {
         count.fetch_add(1, Ordering::Relaxed);
-        Self(count)
+        tell();
+        Self(count, tell)
     }
 }
 
 impl Drop for ListenerGuard {
     fn drop(&mut self) {
         self.0.fetch_sub(1, Ordering::Relaxed);
+        (self.1)();
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_listener_joining_and_leaving_is_told() {
+        let told = Arc::new(AtomicUsize::new(0));
+        let t = told.clone();
+        let guard = ListenerGuard::new(
+            Arc::new(AtomicUsize::new(0)),
+            Arc::new(move || {
+                t.fetch_add(1, Ordering::Relaxed);
+            }),
+        );
+        assert_eq!(told.load(Ordering::Relaxed), 1, "joined");
+        drop(guard);
+        assert_eq!(told.load(Ordering::Relaxed), 2, "left");
+    }
 
     #[test]
     fn the_song_on_air_is_remembered_until_the_stream_goes_off_air() {

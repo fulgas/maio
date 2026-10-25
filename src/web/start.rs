@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::adapters::{
     engine::{self, HttpEngine},
     ffmpeg::Ffmpeg,
-    live::{Stations, StationsConfig, relay},
+    live::{Changed, Stations, StationsConfig, relay},
     passwords::Argon2Passwords,
     sqlite::{Db, SqliteAccount, SqlitePlaylists, SqliteSongs},
     system::{RandomIds, SystemClock},
@@ -38,6 +38,10 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
     account.ensure(admin.0, admin.1)?;
 
     let engines: Vec<Arc<HttpEngine>> = cfg.engine_configs().into_iter().map(|c| Arc::new(HttpEngine::new(c))).collect();
+    for e in &engines {
+        let (events, id) = (events.clone(), e.status().id);
+        e.on_change(move |_| events.engine_changed(&id));
+    }
     for e in &engines {
         tokio::spawn(engine::watch(e.clone()));
     }
@@ -75,6 +79,11 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         aac: cfg.serve.aac,
         hls: cfg.serve.hls,
         relay,
+    });
+    let told = events.clone();
+    stations.on_change(move |c| match c {
+        Changed::Live(id) => told.live_changed(&id),
+        Changed::Relay => told.relay_changed(),
     });
     let app = Arc::new(App {
         account,

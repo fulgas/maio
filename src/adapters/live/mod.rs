@@ -21,6 +21,16 @@ use crate::{
 pub use station::ListenerGuard;
 use station::{Station, aac_args, encoder, hls_args, mp3_args, playout};
 
+/// A `Tell` that passes `what` to the hook, once one is set.
+fn tell(hook: &Hook, what: Changed) -> station::Tell {
+    let hook = hook.clone();
+    Arc::new(move || {
+        if let Some(f) = hook.get() {
+            f(what.clone());
+        }
+    })
+}
+
 pub struct StationsConfig {
     pub data_dir: PathBuf,
     pub crossfade_s: f32,
@@ -31,20 +41,37 @@ pub struct StationsConfig {
     pub relay: Option<relay::Target>,
 }
 
+/// What changed on its own, for the web app (arc42 3.5).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Changed {
+    /// A live playlist's song on air or its listeners.
+    Live(String),
+    /// MediaMTX's state or what it carries.
+    Relay,
+}
+
+type Hook = Arc<std::sync::OnceLock<Box<dyn Fn(Changed) + Send + Sync>>>;
+
 pub struct Stations {
     cfg: StationsConfig,
     on: Mutex<HashMap<String, Arc<Station>>>,
     seen: Arc<Mutex<relay::Seen>>,
+    hook: Hook,
 }
 
 impl Stations {
     /// Call inside the tokio runtime: with a relay, it starts watching MediaMTX.
     pub fn new(cfg: StationsConfig) -> Arc<Self> {
-        let seen = Arc::new(Mutex::new(relay::Seen::default()));
+        let (seen, hook): (_, Hook) = (Arc::new(Mutex::new(relay::Seen::default())), Arc::default());
         if let Some(t) = cfg.relay.clone() {
-            tokio::spawn(relay::watch(t, seen.clone()));
+            tokio::spawn(relay::watch(t, seen.clone(), tell(&hook, Changed::Relay)));
         }
-        Arc::new(Self { cfg, on: Mutex::new(HashMap::new()), seen })
+        Arc::new(Self { cfg, on: Mutex::new(HashMap::new()), seen, hook })
+    }
+
+    /// Sets what to tell when a live playlist or MediaMTX changes on its own; set once, at start.
+    pub fn on_change(&self, f: impl Fn(Changed) + Send + Sync + 'static) {
+        let _ = self.hook.set(Box::new(f));
     }
 
     fn get(&self, id: &str) -> Option<Arc<Station>> {
@@ -56,7 +83,7 @@ impl Stations {
     }
 
     fn start(&self, p: &Playlist, songs: &[LiveSong]) -> Arc<Station> {
-        let st = Station::new(p, songs, self.cfg.data_dir.clone(), self.cfg.relay.clone());
+        let st = Station::new(p, songs, self.cfg.data_dir.clone(), self.cfg.relay.clone(), tell(&self.hook, Changed::Live(p.id.clone())));
         tokio::spawn(playout(st.clone(), self.cfg.crossfade_s));
         if self.cfg.mp3 {
             tokio::spawn(encoder(st.clone(), "mp3", mp3_args, Some(st.mp3.clone()), false));
@@ -88,7 +115,7 @@ impl LiveListening for Stations {
             StreamFormat::Aac if self.cfg.aac => st.aac.subscribe(),
             _ => return None,
         };
-        Some(Listen { bytes, moved: st.moved.subscribe(), guard: Box::new(ListenerGuard::new(st.listeners.clone())) })
+        Some(Listen { bytes, moved: st.moved.subscribe(), guard: Box::new(ListenerGuard::new(st.listeners.clone(), st.tell.clone())) })
     }
 
     fn now_title(&self, id: &str) -> Option<String> {

@@ -52,6 +52,16 @@ impl Events {
         self.send("live", json!({"id": id}));
     }
 
+    /// MediaMTX's state or its readers changed: the web app looks at the status again.
+    pub fn relay_changed(&self) {
+        self.send("relay", json!({}));
+    }
+
+    /// An engine's health changed: the web app looks at the status again.
+    pub fn engine_changed(&self, id: &str) {
+        self.send("engine", json!({"id": id}));
+    }
+
     pub fn playlist_changed(&self, id: &str, deleted: bool) {
         self.send("playlist", json!({"id": id, "deleted": deleted}));
     }
@@ -65,5 +75,18 @@ impl Notifier for Events {
 
     fn song(&self, song: &Song) {
         self.song_changed(&song.id, false);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_change_of_engine_health_reaches_the_browser_as_an_engine_event() {
+        let events = Events::new(Arc::new(Metrics::new(&opentelemetry::global::meter("test"))));
+        let mut rx = events.subscribe();
+        events.engine_changed("ace-step");
+        assert_eq!(rx.try_recv().ok(), Some(Event { kind: "engine", data: json!({"id": "ace-step"}) }));
     }
 }

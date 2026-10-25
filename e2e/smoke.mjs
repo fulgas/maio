@@ -177,6 +177,15 @@ await check("without MediaMTX set up the header has no MediaMTX line", async () 
   assert.equal(await page.locator("button.relay").count(), 0);
 });
 
+await check("the header's status changes when the server says so, never on a timer", async () => {
+  let fetched = 0;
+  const onRequest = (r) => { if (r.url().endsWith("/api/v1/status")) fetched++; };
+  page.on("request", onRequest);
+  await page.waitForTimeout(31_000);
+  page.off("request", onRequest);
+  assert.equal(fetched, 0, "nothing changed, so nothing was fetched");
+});
+
 await check("a song's title opens its details, with downloads and Make one like this", async () => {
   await page.getByRole("button", { name: `Details for ${title}` }).first().click();
   const dialog = page.getByRole("dialog");
@@ -407,6 +416,24 @@ await check("going live streams the playlist and counts its listener", async () 
   await page.locator(".listeners strong", { hasText: "1" }).waitFor({ timeout: 8_000 });
 });
 
+await check("the live strip changes when the server says so, never on a timer", async () => {
+  const fetched = [];
+  const onRequest = (r) => { if (/\/api\/v1\/playlists\/[^/]+\/live$/.test(r.url()) && r.method() === "GET") fetched.push(Date.now()); };
+  page.on("request", onRequest);
+  await page.evaluate(() => {
+    window.__liveEvents = 0;
+    new EventSource("/api/v1/events").addEventListener("live", () => window.__liveEvents++);
+  });
+  const mp3 = await page.getByRole("button", { name: "Copy the MP3 link" }).getAttribute("data-tip");
+  await page.evaluate(async (url) => { window.__second = (await fetch(url)).body.getReader(); await window.__second.read(); }, mp3);
+  await page.locator(".listeners strong", { hasText: "2" }).waitFor({ timeout: 3_000 });
+  await page.waitForTimeout(11_000);
+  page.off("request", onRequest);
+  const events = await page.evaluate(() => window.__liveEvents);
+  assert.ok(fetched.length <= events, `${fetched.length} fetches of the live state for ${events} live events`);
+  await page.evaluate(() => window.__second.cancel());
+});
+
 await check("the Live switch's caption stays on screen at the left edge", async () => {
   await page.setViewportSize({ width: 720, height: 900 });
   const tip = await captionEdges(page.getByRole("switch", { name: /Live stream on/ }));
@@ -423,7 +450,7 @@ await check("going private moves the stream to a private link", async () => {
   assert.equal(await page.evaluate(async (u) => (await fetch(u)).status, before), 404);
 });
 
-await check("the 5 s live refresh keeps keyboard focus where it is", async () => {
+await check("a live refresh keeps keyboard focus where it is", async () => {
   await page.evaluate(() => { document.querySelector(".track").__kept = 1; document.querySelector(".live-switch").__kept = 1; });
   await page.locator(".grip").first().focus();
   await page.waitForTimeout(6_000);

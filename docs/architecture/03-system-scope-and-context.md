@@ -67,7 +67,7 @@ stateDiagram-v2
     down --> loading: answers, models loading
 ```
 
-- Health: checked at start and every 30 s, every 5 s while `down`. `up` when the models are initialised, `loading` before, `down` after 3 failed checks in a row, or at once when a call made for a job cannot connect (so new songs are refused with `engine_unavailable` instead of starting jobs that cannot run), `incompatible` when the URL answers but not as `acestep-api`.
+- Health: checked at start and every 10 s, every 5 s after a failed check or while `down`. `up` when the models are initialised, `loading` before, `down` at once when nothing listens at its address, after 3 checks in a row that get no answer in time, or at once when a call made for a job cannot connect (so new songs are refused with `engine_unavailable` instead of starting jobs that cannot run), `incompatible` when the URL answers but not as `acestep-api`.
 - A running job is polled every `engine_poll_s` (2 s by default). Progress and stage come from ACE-Step (`query_result`); a song waiting in ACE-Step's own queue shows as waiting. An id ACE-Step answers with an empty result (lost in a restart) fails the job as lost, and it is tried once more on another engine when there is one.
 - When ACE-Step is busy, slow or gone, the health state works as a circuit breaker, and busy answers and failed polls are retried with exponential backoff: [arc42 8.8](08-crosscutting-concepts.md#88-when-the-engine-is-busy-or-down) has the rules and how they behave.
 - ACE-Step can neither cancel nor delete a task. Cancelling a song being made stops Maio waiting for it; ACE-Step finishes it, nobody fetches it, and ACE-Step's own cleanup removes the file.
@@ -100,7 +100,7 @@ Lyrics, titles and descriptions come from text engines: language models that wri
 | POST | `/me/password` | `{"current","new"}` |
 | GET | `/status` | engines (music and text) with health, live playlists, MediaMTX (`relay`, null without one), disk usage, moods and genres |
 | PUT | `/engines/{id}/model` | `{"model"}`: load another installed model (ACE-Step's `/v1/init`); `204` |
-| GET | `/events` | server-sent events: `job`, `song`, `playlist`, `live` |
+| GET | `/events` | server-sent events: `job` (the job), `song` and `playlist` (`{"id", "deleted"}`), `live` (a playlist went on or off air, or its song on air or listeners changed), `engine` (an engine's health changed), `relay` (MediaMTX or what it carries changed). The web app reloads what an event names and never polls (arc42 8.5). |
 | POST | `/songs` | a song request (arc42 8.2); `202 {"job_id", "eta_s"}` |
 | GET | `/jobs` | jobs waiting or making |
 | DELETE | `/jobs/{id}` | cancel |

@@ -324,8 +324,10 @@ pub fn PlayerBar() -> impl IntoView {
             p.notice.set(None);
         }
     });
-    // While listening live, what is on air, every 5 s.
+    // While listening live, what is on air: looked at when a live event says it changed.
+    let changes = expect_context::<crate::ui::events::Changes>();
     Effect::new(move |_| {
+        changes.live.track();
         let look = move || {
             let Some(on) = p.live.get_untracked() else { return };
             leptos::task::spawn_local(async move {
@@ -345,9 +347,7 @@ pub fn PlayerBar() -> impl IntoView {
                 }
             });
         };
-        if let Ok(handle) = set_interval_with_handle(look, std::time::Duration::from_secs(5)) {
-            on_cleanup(move || handle.clear());
-        }
+        look();
     });
     let shuffle = Signal::derive(move || p.queue.with(|q| q.shuffle));
     let repeat = move || p.queue.with(|q| q.repeat);

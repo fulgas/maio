@@ -30,4 +30,4 @@ Chosen option: "The engine's health as the breaker, and exponential backoff from
 
 ### Confirmation
 
-The engine adapter's tests show that an engine nobody answers for is down after three checks, and at once when a call for a song cannot connect. The song-making tests show that a down engine refuses songs, that a busy engine is asked again after waits that double up to the most, that failed polls wait longer each time and a good answer brings the steady pace back, and that a stalled or lost song is tried once more.
+The engine adapter's tests show that an engine nothing listens for is down after one check, that checks come every 10 seconds and every 5 seconds after a failure or while down, and that a call for a song that cannot connect marks it down at once. The song-making tests show that a down engine refuses songs, that a busy engine is asked again after waits that double up to the most, that failed polls wait longer each time and a good answer brings the steady pace back, and that a stalled or lost song is tried once more.

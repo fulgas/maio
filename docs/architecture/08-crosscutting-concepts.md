@@ -122,6 +122,7 @@ The design is called **Shelf**: playlists as coloured tiles on a shelf above the
 - **Sign in** and **change password** screens.
 - Dialogs are the browser's own `<dialog>`, panels the browser's popover ([ADR 0010](../adr/0010-native-browser-features-first.md)). Toasts also go to a hidden `role="status"` region.
 - Every screen works from 360 px wide, with visible keyboard focus and text contrast of at least 4.5:1 (arc42 10).
+- **Live updates**: the web app never polls. It reloads what changed when the server's event stream (`/api/v1/events`, arc42 3.5) says so: jobs, songs, playlists, a live playlist's song on air and listeners, an engine's health, MediaMTX ([ADR 0018](../adr/0018-the-web-app-learns-of-changes-from-events.md)).
 - Asset file names carry a hash of their content and are cached for good, so a new release is never hidden behind a cached old file.
 
 ## 8.6 Logs, traces and metrics
@@ -150,17 +151,19 @@ stateDiagram-v2
     open: open, engine down, songs refused
     halfopen: half-open, the next health check
     [*] --> closed: models loaded
-    closed --> open: 3 failed checks in a row
+    closed --> open: nothing listens at its address
+    closed --> open: 3 checks in a row get no answer in time
     closed --> open: a call for a song cannot connect
     open --> halfopen: 5 s later
     halfopen --> closed: answers with models loaded
     halfopen --> open: no answer
 ```
 
-- **Opens** after 3 failed health checks in a row (about 90 s), or at once when a call made for a song cannot connect at all.
-- **Half-open**: while the breaker is open, the health check runs every 5 s instead of every 30 s; it is the one call let through, so songs are taken again within 5 s of ACE-Step answering.
+- **Checks** run every 10 s while ACE-Step is up, and 5 s after a check that failed.
+- **Opens** at once when nothing listens at ACE-Step's address (the connection is refused, so it is certainly gone), or when a call made for a song cannot connect. A check that only gets no answer in time may be a busy engine: 3 in a row open it, about 15 s.
+- **Half-open**: while the breaker is open, the health check runs every 5 s; it is the one call let through, so songs are taken again within 5 s of ACE-Step answering.
 - **Closes** when ACE-Step answers with its models loaded. While it answers but is still loading its models, it stays shut to songs.
-- The header shows the state: the status dot on the engine icon turns grey, and its caption says why, while the breaker is open.
+- The header shows the state at once: a change of health is pushed to the browser as an `engine` event (3.5), and the status dot on the engine icon turns grey, its caption saying why, while the breaker is open.
 
 ### Backoff and limits
 

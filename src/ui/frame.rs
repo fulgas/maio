@@ -22,10 +22,13 @@ pub fn Frame(children: Children) -> impl IntoView {
     let toaster = ToasterInjection::expect_context();
     let changes = expect_context::<crate::ui::events::Changes>();
     let status = LocalResource::new(api::status);
-    // Engine health changes on its own; look again every 30 s.
-    Effect::new(move |_| {
-        if let Ok(handle) = set_interval_with_handle(move || status.refetch(), std::time::Duration::from_secs(30)) {
-            on_cleanup(move || handle.clear()); // a new Frame on every page must not leave its timer behind
+    // Engines, MediaMTX, live playlists and disk use change on their own: look again when an event says so.
+    Effect::new(move |first: Option<()>| {
+        changes.status.track();
+        changes.live.track();
+        changes.songs.track();
+        if first.is_some() {
+            status.refetch();
         }
     });
     let navigate = use_navigate();

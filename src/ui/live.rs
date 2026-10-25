@@ -25,15 +25,6 @@ pub fn LiveStrip(playlist: Memo<String>, on_air: RwSignal<Option<(Option<String>
     });
     // A memo, so a refetch that changes nothing redraws nothing (and keeps keyboard focus where it is).
     let current = Memo::new(move |_| state.get().and_then(Result::ok));
-    let live = Memo::new(move |_| current.get().is_some_and(|s| s.live));
-    // Listeners come and go with no event: look again every 5 s while live.
-    Effect::new(move |_| {
-        if live.get()
-            && let Ok(h) = set_interval_with_handle(move || state.refetch(), std::time::Duration::from_secs(5))
-        {
-            on_cleanup(move || h.clear());
-        }
-    });
     // The song on air and the next one, for the marks in the song list; set only when they change.
     Effect::new(move |_| {
         let v = current.get().and_then(|s| s.on_air).map(|o| (o.now.map(|n| n.id), o.next.map(|n| n.id)));

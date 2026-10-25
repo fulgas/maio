@@ -53,6 +53,8 @@ pub struct HttpEngine {
     cfg: EngineConfig,
     http: reqwest::Client,
     seen: Mutex<Seen>,
+    /// Told when the health changes, so the web app can show it at once.
+    on_change: std::sync::OnceLock<Box<dyn Fn(Health) + Send + Sync>>,
 }
 
 fn transport(e: impl std::fmt::Display) -> CallError {
@@ -109,7 +111,12 @@ impl HttpEngine {
             .expect("an HTTP client builds");
         let seen =
             Seen { info: None, health: Health::Unknown, failures: 0, rtf: FIRST_RTF, started: HashMap::new(), switching: false, kept_plan: None };
-        Self { cfg, http, seen: Mutex::new(seen) }
+        Self { cfg, http, seen: Mutex::new(seen), on_change: std::sync::OnceLock::new() }
+    }
+
+    /// Sets what to tell when the health changes; set once, at start.
+    pub fn on_change(&self, f: impl Fn(Health) + Send + Sync + 'static) {
+        let _ = self.on_change.set(Box::new(f));
     }
 
     fn url(&self, path: &str) -> String {
@@ -173,6 +180,9 @@ impl HttpEngine {
         if after == before {
             return;
         }
+        if let Some(tell) = self.on_change.get() {
+            tell(after);
+        }
         let id = &self.cfg.id;
         match after {
             Health::Up => tracing::info!(engine = %id, "engine is up"),
@@ -214,6 +224,8 @@ impl HttpEngine {
         }
         let h: H = match self.get("/health").await {
             Ok(h) => h,
+            // Nothing listens: certain, so down at once. A timeout may be a busy engine: 3 in a row.
+            Err(CallError::Unreachable(_)) => return self.mark_down(),
             Err(_) => return self.fail(),
         };
         if h.service != "ACE-Step API" {
@@ -247,13 +259,15 @@ impl HttpEngine {
     fn call_failed(&self, e: CallError) -> CallError {
         if matches!(e, CallError::Unreachable(_)) {
             let before = self.seen().health;
-            {
-                let mut s = self.seen();
-                (s.failures, s.health) = (3, Health::Down);
-            }
+            self.mark_down();
             self.log_change(before);
         }
         e
+    }
+
+    fn mark_down(&self) {
+        let mut s = self.seen();
+        (s.failures, s.health) = (3, Health::Down);
     }
 
     fn fail(&self) {
@@ -281,17 +295,22 @@ impl HttpEngine {
     }
 }
 
-/// Checks at start and every 30 s, every 5 s while down, for as long as the server runs (arc42 3.3).
+/// Checks at start and every 10 s, every 5 s after a failed check or while down, for as long as the server runs (arc42 8.8).
 pub async fn watch(engine: Arc<HttpEngine>) {
     loop {
         engine.check().await;
-        tokio::time::sleep(next_check(engine.status().health)).await;
+        let (health, failures) = {
+            let s = engine.seen();
+            (s.health, s.failures)
+        };
+        tokio::time::sleep(next_check(health, failures)).await;
     }
 }
 
-/// How long until the next health check: sooner while down, so songs are taken again soon after it answers.
-fn next_check(health: Health) -> Duration {
-    Duration::from_secs(if health == Health::Down { 5 } else { 30 })
+/// How long until the next health check: sooner after a failure, so a stopped engine shows as down within seconds,
+/// and while down, so songs are taken again soon after it answers.
+fn next_check(health: Health, failures: u32) -> Duration {
+    Duration::from_secs(if health == Health::Down || failures > 0 { 5 } else { 10 })
 }
 
 #[async_trait]
@@ -556,12 +575,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn an_unreachable_engine_is_down_after_three_checks() {
+    async fn an_engine_nothing_listens_for_is_down_after_one_check() {
         let e = engine("http://127.0.0.1:9".into());
-        for _ in 0..3 {
-            e.check().await;
-        }
-        assert_eq!(e.status().health, Health::Down);
+        e.check().await;
+        assert_eq!(e.status().health, Health::Down, "a refused connection is certain; only timeouts need 3 in a row");
+    }
+
+    #[tokio::test]
+    async fn a_change_of_health_is_told() {
+        let e = engine("http://127.0.0.1:9".into());
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let s = seen.clone();
+        e.on_change(move |h| s.lock().unwrap().push(h));
+        e.check().await;
+        e.check().await;
+        assert_eq!(*seen.lock().unwrap(), [Health::Down], "once, when it changed");
     }
 
     #[tokio::test]
@@ -603,10 +631,11 @@ mod tests {
     }
 
     #[test]
-    fn an_engine_that_is_down_is_checked_more_often() {
-        assert_eq!(next_check(Health::Down), Duration::from_secs(5), "back within 5 s of answering again");
-        assert_eq!(next_check(Health::Up), Duration::from_secs(30));
-        assert_eq!(next_check(Health::Loading), Duration::from_secs(30));
+    fn checks_come_every_10_s_and_every_5_s_after_a_failure_or_while_down() {
+        assert_eq!(next_check(Health::Up, 0), Duration::from_secs(10));
+        assert_eq!(next_check(Health::Loading, 0), Duration::from_secs(10));
+        assert_eq!(next_check(Health::Up, 1), Duration::from_secs(5), "a failed check is checked again soon");
+        assert_eq!(next_check(Health::Down, 3), Duration::from_secs(5), "back within 5 s of answering again");
     }
 
     #[tokio::test]

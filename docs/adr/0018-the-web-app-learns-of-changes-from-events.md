@@ -8,24 +8,26 @@ decision-makers: fulgas
 
 ## Context and Problem Statement
 
-Some things change on their own, with nobody clicking: an engine stops, MediaMTX stops, a listener joins a live playlist, the next song starts. The web app looked again on timers, every 5 or 30 seconds, so it was late by up to that long and asked even when nothing had changed. How should it learn of these changes?
+Some things change with nobody clicking: an engine stops, MediaMTX stops, a listener joins a live playlist, the next song starts, a song is renamed from a script. The web app looked again on timers, every 5 or 30 seconds, so it was late by up to that long, and it asked even when nothing had changed. How should it learn of these changes?
 
 ## Considered Options
 
-- Server-sent events for every change, sent where the change happens
+- Events that carry the new state, sent where the change happens
+- Events that say only what changed, and a fetch of it
 - Timers in the web app, as before
 - One task on the server that compares everything once a second and sends what changed
 
 ## Decision Outcome
 
-Chosen option: "Server-sent events for every change, sent where the change happens", because the server already holds an event stream the web app listens to for jobs, songs and playlists, and every one of these changes has a moment where the server sees it. The engine adapter tells when an engine's health changes; a station tells when a song starts and when a listener joins or leaves; the relay adapter tells when a look at MediaMTX finds something new. The web app reloads only what an event names. The one loop left is Maio asking MediaMTX about its readers, since MediaMTX cannot say when a reader leaves. A task comparing everything once a second would have moved the polling to the server, not removed it.
+Chosen option: "Events that carry the new state, sent where the change happens", because every one of these changes has a moment where the server sees it, and the event stream the web app already listens to can carry the change itself. The engine adapter tells when an engine's status changes; a station tells when a song starts and when a listener joins or leaves; the relay adapter tells when a look at MediaMTX finds something new; a request tells what it changed. Each event carries what the API would answer for that thing, built at that moment, and changes the adapters see are told in the order they happened. The web app keeps the latest state of each thing by id, and only the parts of the page that show it change. Events that only name a change would still send the web app back to ask, once per change and per open page. A task comparing everything once a second would move the polling to the server, not remove it. The one loop left is Maio asking MediaMTX about its readers, since MediaMTX cannot say when a reader leaves.
 
 ### Consequences
 
-- Good, because the web app shows a change within a moment, and asks for nothing while nothing changes.
-- Good, because a browser that was asleep reloads everything when its event stream reconnects.
+- Good, because a change shows within a moment, nothing is asked while nothing changes, and nothing is asked when something does.
+- Good, because each part of the page changes only for its own events.
 - Bad, because a change the server makes must remember to send its event; a forgotten one leaves a screen stale until a reload.
+- Bad, because events sent while a browser's stream is down are lost, so a reconnect loads the page once more.
 
 ### Confirmation
 
-The browser tests check that the header fetches no status while nothing changes, and that a live playlist's page fetches its live state only when an event says so, while a new listener still shows within seconds. The adapters' tests check that a change of engine health, a listener joining or leaving, and a new look at MediaMTX are told.
+The server's tests check that a renamed song, a deleted song, a changed or deleted playlist and a playlist going live each arrive as an event carrying the new state, and that a playlist change also tells the songs whose marks changed. The adapters' tests check that a change of engine status, a listener joining or leaving and a new look at MediaMTX are told. The browser tests check that the header and a live playlist's page fetch nothing while nothing changes, and that a song and a playlist renamed elsewhere show at once with nothing fetched.

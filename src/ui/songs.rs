@@ -21,16 +21,25 @@ use crate::{
     },
 };
 
-type Playlists = LocalResource<Result<Vec<PlaylistSummary>, Failure>>;
+type Playlists = Signal<Option<Result<Vec<PlaylistSummary>, Failure>>>;
+
+/// Every playlist: loaded once, then kept as events tell them (ADR 0018).
+pub fn all_playlists(c: Changes) -> Playlists {
+    let loaded = LocalResource::new(move || {
+        c.reloaded.track();
+        api::playlists()
+    });
+    Signal::derive(move || loaded.get().map(|r| r.map(|all| crate::ui::events::playlists_now(&all, &c.playlists.get()))))
+}
 
 #[component]
 pub fn SongsPage() -> impl IntoView {
     let c = expect_context::<Changes>();
-    let playlists: Playlists = LocalResource::new(move || {
-        c.playlists.track();
-        api::playlists()
+    let playlists = all_playlists(c);
+    let status = LocalResource::new(move || {
+        c.reloaded.track();
+        api::status()
     });
-    let status = LocalResource::new(api::status);
     view! {
         <Shelf playlists/>
         <MakeSong status/>
@@ -43,10 +52,7 @@ pub fn SongsPage() -> impl IntoView {
 #[component]
 pub fn PlaylistsPage() -> impl IntoView {
     let c = expect_context::<Changes>();
-    let playlists: Playlists = LocalResource::new(move || {
-        c.playlists.track();
-        api::playlists()
-    });
+    let playlists = all_playlists(c);
     let open = RwSignal::new(false);
     let summary = move || {
         playlists.get().and_then(Result::ok).map(|all| match all.len() {
@@ -428,12 +434,13 @@ fn SongList(playlists: Playlists) -> impl IntoView {
     let toaster = ToasterInjection::expect_context();
     let query = RwSignal::new(String::new());
     let first = LocalResource::new(move || {
-        c.songs.track();
+        c.reloaded.track();
         let q = query.get();
         async move { api::songs(&q, None).await }
     });
     let (more, next) = (RwSignal::new(Vec::<SongView>::new()), RwSignal::new(None::<String>));
-    // A change to the library reloads the list; it keeps as many rows as were shown. A new search starts over.
+    // A reconnect reloads the list; it keeps as many rows as were shown. A new search starts over. Songs made,
+    // renamed or deleted in between change it by their events.
     let searched = StoredValue::new(String::new());
     Effect::new(move |_| {
         if let Some(Ok(page)) = first.get() {
@@ -454,7 +461,10 @@ fn SongList(playlists: Playlists) -> impl IntoView {
             }
         }
     });
-    let all = move || first.get().and_then(Result::ok).map(|p| p.songs).unwrap_or_default().into_iter().chain(more.get()).collect::<Vec<_>>();
+    let all = move || {
+        let rows: Vec<SongView> = first.get().and_then(Result::ok).map(|p| p.songs).unwrap_or_default().into_iter().chain(more.get()).collect();
+        crate::ui::events::songs_now(&rows, &c.songs.get(), query.with(String::is_empty))
+    };
     let load_more = move |_| {
         let Some(cursor) = next.get_untracked() else { return };
         leptos::task::spawn_local(async move {

@@ -14,22 +14,16 @@ use crate::{
         theme::Themes,
     },
 };
-use wasm_bindgen::JsCast;
 
 #[component]
 pub fn Frame(children: Children) -> impl IntoView {
     let t = expect_context::<Themes>();
     let toaster = ToasterInjection::expect_context();
     let changes = expect_context::<crate::ui::events::Changes>();
-    let status = LocalResource::new(api::status);
-    // Engines, MediaMTX, live playlists and disk use change on their own: look again when an event says so.
-    Effect::new(move |first: Option<()>| {
-        changes.status.track();
-        changes.live.track();
-        changes.songs.track();
-        if first.is_some() {
-            status.refetch();
-        }
+    // Loaded once; engines and MediaMTX then change by their events (ADR 0018).
+    let status = LocalResource::new(move || {
+        changes.reloaded.track();
+        api::status()
     });
     let navigate = use_navigate();
     let on_select = move |key: String| match key.as_str() {
@@ -41,9 +35,10 @@ pub fn Frame(children: Children) -> impl IntoView {
         _ => {}
     };
     let path = use_location().pathname;
-    let engine = move || status.get().and_then(Result::ok).map(|s| format::engine_line(&s.engines));
-    let engines = move || status.get().and_then(Result::ok).map(|s| s.engines).unwrap_or_default();
-    let relay = move || status.get().and_then(Result::ok).and_then(|s| s.relay);
+    let engines =
+        move || status.get().and_then(Result::ok).map(|s| crate::ui::events::engines_now(&s.engines, &changes.engines.get())).unwrap_or_default();
+    let engine = move || status.get().and_then(Result::ok).map(|_| format::engine_line(&engines()));
+    let relay = move || changes.relay.get().unwrap_or_else(|| status.get().and_then(Result::ok).and_then(|s| s.relay));
     // A toast when MediaMTX goes wrong or comes back; nothing on the first look or while it is still being checked.
     let was_ok = StoredValue::new(None::<bool>);
     Effect::new(move |_| {
@@ -100,10 +95,7 @@ pub fn Frame(children: Children) -> impl IntoView {
                                                 say(toaster, format!("Loading {model}… this can take a few minutes."), ToastIntent::Info);
                                                 leptos::task::spawn_local(async move {
                                                     match api::switch_model(&id, &model).await {
-                                                        Ok(()) => {
-                                                            say(toaster, format!("{model} loaded."), ToastIntent::Success);
-                                                            status.refetch();
-                                                        }
+                                                        Ok(()) => say(toaster, format!("{model} loaded."), ToastIntent::Success),
                                                         Err(f) => say(toaster, f.text(), ToastIntent::Error),
                                                     }
                                                 });
@@ -123,18 +115,12 @@ pub fn Frame(children: Children) -> impl IntoView {
                 {
                     let line = move || relay().map(|r| format::relay_line(&r)).unwrap_or_default();
                     let card = move || relay().map(|r| (r.state, format::relay_card(&r), r.streams.iter().map(|s| s.arriving).collect::<Vec<_>>()));
-                    let on_toggle = move |ev: leptos::ev::Event| {
-                        // Looks again when opened: MediaMTX is checked every 5 s, the header only every 30 s.
-                        if ev.dyn_ref::<web_sys::ToggleEvent>().is_some_and(|e| e.new_state() == "open") {
-                            status.refetch();
-                        }
-                    };
                     view! {
                         <button type="button" class="engine relay" class:ready=move || line().1 popovertarget="relay"
                             data-tip=move || line().0 aria-label=move || format!("{}: show MediaMTX", line().0)>
                             <Svg icon=Icon::Relay/><i aria-hidden="true"></i>
                         </button>
-                        <section id="relay" class="engines" popover="auto" aria-label="MediaMTX" on:toggle=on_toggle>
+                        <section id="relay" class="engines" popover="auto" aria-label="MediaMTX">
                             <h2>"MediaMTX"</h2>
                             {move || card().map(|(state, (text, facts, streams), arriving)| view! {
                                 <div class="engine-card" class:ready=state == RelayState::Up>

@@ -55,7 +55,7 @@ pub struct HttpEngine {
     http: reqwest::Client,
     seen: Mutex<Seen>,
     /// Told when the health changes, so the web app can show it at once.
-    on_change: std::sync::OnceLock<Box<dyn Fn(Health) + Send + Sync>>,
+    on_change: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>>,
 }
 
 fn transport(e: impl std::fmt::Display) -> CallError {
@@ -115,8 +115,8 @@ impl HttpEngine {
         Self { cfg, http, seen: Mutex::new(seen), on_change: std::sync::OnceLock::new() }
     }
 
-    /// Sets what to tell when the health changes; set once, at start.
-    pub fn on_change(&self, f: impl Fn(Health) + Send + Sync + 'static) {
+    /// Sets what to tell when the engine's status changes (its health, model, queue); set once, at start.
+    pub fn on_change(&self, f: impl Fn() + Send + Sync + 'static) {
         let _ = self.on_change.set(Box::new(f));
     }
 
@@ -171,19 +171,23 @@ impl HttpEngine {
 
     /// One health check (arc42 3.3): `down` after 3 failures in a row; loading until ACE-Step's models are up.
     pub async fn check(&self) {
-        let before = self.seen().health;
+        let before = self.status();
         self.check_once().await;
-        self.log_change(before);
+        self.changed(before);
     }
 
-    fn log_change(&self, before: Health) {
-        let after = self.seen().health;
-        if after == before {
+    /// Logs a change of health, and tells any change of status.
+    fn changed(&self, before: EngineStatus) {
+        let after = self.status();
+        if after != before
+            && let Some(tell) = self.on_change.get()
+        {
+            tell();
+        }
+        if after.health == before.health {
             return;
         }
-        if let Some(tell) = self.on_change.get() {
-            tell(after);
-        }
+        let after = after.health;
         let id = &self.cfg.id;
         match after {
             Health::Up => tracing::info!(engine = %id, "engine is up"),
@@ -259,9 +263,9 @@ impl HttpEngine {
     /// starts; the next health check that gets an answer brings it back (arc42 3.3).
     fn call_failed(&self, e: CallError) -> CallError {
         if matches!(e, CallError::Unreachable(_)) {
-            let before = self.seen().health;
+            let before = self.status();
             self.mark_down();
-            self.log_change(before);
+            self.changed(before);
         }
         e
     }
@@ -466,6 +470,8 @@ mod tests {
         auth: Arc<Mutex<Vec<String>>>,
         /// Answers this many song submissions as ACE-Step does when its queue is full.
         busy: Arc<Mutex<u32>>,
+        /// The model ACE-Step reports as loaded; the turbo model when unset.
+        model: Arc<Mutex<Option<&'static str>>>,
     }
 
     fn wrap(data: Value) -> Json<Value> {
@@ -521,7 +527,7 @@ mod tests {
                     f.auth.lock().push(headers.get("authorization").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string());
                     wrap(json!({"status": "ok", "service": "ACE-Step API", "version": "1.0",
                     "models_initialized": *f.initialized.lock(), "llm_initialized": false,
-                    "loaded_model": "acestep-v15-turbo", "loaded_lm_model": null}))
+                    "loaded_model": f.model.lock().unwrap_or("acestep-v15-turbo"), "loaded_lm_model": null}))
                 }),
             )
             .route("/v1/stats", get(|| async { wrap(json!({"jobs": {"queued": 2, "running": 1}, "avg_job_seconds": 20.0})) }))
@@ -587,12 +593,28 @@ mod tests {
     #[tokio::test]
     async fn a_change_of_health_is_told() {
         let e = engine("http://127.0.0.1:9".into());
-        let seen = Arc::new(Mutex::new(Vec::new()));
-        let s = seen.clone();
-        e.on_change(move |h| s.lock().push(h));
+        let told = Arc::new(Mutex::new(0));
+        let t = told.clone();
+        e.on_change(move || *t.lock() += 1);
         e.check().await;
         e.check().await;
-        assert_eq!(*seen.lock(), [Health::Down], "once, when it changed");
+        assert_eq!(*told.lock(), 1, "once, when it went down");
+    }
+
+    #[tokio::test]
+    async fn a_change_in_what_the_engine_reports_is_told_too() {
+        let fake = Fake::default();
+        *fake.initialized.lock() = true;
+        let e = engine(serve(fake.clone()).await);
+        let told = Arc::new(Mutex::new(0));
+        let t = told.clone();
+        e.on_change(move || *t.lock() += 1);
+        e.check().await;
+        e.check().await;
+        assert_eq!(*told.lock(), 1, "up, then nothing new");
+        *fake.model.lock() = Some("acestep-v15-base");
+        e.check().await;
+        assert_eq!(*told.lock(), 2, "another model, though still up");
     }
 
     #[tokio::test]

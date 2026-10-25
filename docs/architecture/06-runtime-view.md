@@ -103,9 +103,7 @@ sequenceDiagram
     P->>E: GET /listen/{key}/stream.mp3 (the audio element)
     E-->>P: the stream, at the live edge
     loop each time the song on air changes
-        E-->>P: event live, over /api/v1/events
-        P->>E: GET /api/v1/playlists/{id}/live
-        E-->>P: the song on air
+        E-->>P: event live, over /api/v1/events, with the song on air
     end
     Note over P: Pause hangs up: the connection closes, so a paused listener is not counted
     alt the stream ends
@@ -133,9 +131,7 @@ sequenceDiagram
             R->>R: not answering
         end
     end
-    R-->>B: event relay, over /api/v1/events, when a check finds something new
-    B->>R: GET /api/v1/status
-    R-->>B: relay: state, version, time up, each live playlist on MediaMTX
+    R-->>B: event relay, over /api/v1/events, when a check finds something new: state, version, time up, each live playlist on MediaMTX
     Note over B: the MediaMTX line turns grey and a toast says so, another toast when it is back
 ```
 

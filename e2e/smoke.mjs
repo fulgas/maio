@@ -301,6 +301,23 @@ await check("the Playlists tab lists the playlist", async () => {
   await page.locator(".track").nth(1).waitFor();
 });
 
+await check("a change made elsewhere shows at once, carried by its event, with nothing fetched", async () => {
+  const pid = playlistPath.split("/").pop();
+  const song = (await (await page.request.get(base + "/api/v1/songs?q=" + encodeURIComponent(title))).json()).songs[0];
+  const fetched = [];
+  const onRequest = (r) => { if (r.method() === "GET" && /\/api\/v1\/(songs|playlists)/.test(r.url())) fetched.push(r.url()); };
+  page.on("request", onRequest);
+  await page.request.patch(base + "/api/v1/songs/" + song.id, { headers: { origin: base }, data: { title: "Renamed elsewhere" } });
+  await page.locator(".track", { hasText: "Renamed elsewhere" }).waitFor({ timeout: 3_000 });
+  await page.request.patch(base + "/api/v1/playlists/" + pid, { headers: { origin: base }, data: { name: "Smoke list elsewhere" } });
+  await page.getByRole("heading", { name: "Smoke list elsewhere" }).waitFor({ timeout: 3_000 });
+  page.off("request", onRequest);
+  assert.deepEqual(fetched, [], "the events carried the new title and name");
+  await page.request.patch(base + "/api/v1/songs/" + song.id, { headers: { origin: base }, data: { title } });
+  await page.request.patch(base + "/api/v1/playlists/" + pid, { headers: { origin: base }, data: { name: "Smoke test list" } });
+  await page.getByRole("heading", { name: "Smoke test list" }).waitFor({ timeout: 3_000 });
+});
+
 await check("Add songs offers only songs not in the playlist, under a search as wide as the dialog", async () => {
   const inList = (await page.locator(".track .track-title").allInnerTexts()).map((t) => t.trim());
   await page.getByRole("button", { name: "Add songs" }).click();

@@ -98,7 +98,7 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
     let (queue, changes) = tokio::sync::mpsc::unbounded_channel::<Change>();
     for e in &engines {
         let (queue, id) = (queue.clone(), e.status().id);
-        e.on_change(move |_| drop(queue.send(Change::Engine(id.clone()))));
+        e.on_change(move || drop(queue.send(Change::Engine(id.clone()))));
     }
     stations.on_change(move |c| {
         let change = match c {

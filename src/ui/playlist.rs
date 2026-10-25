@@ -31,32 +31,46 @@ pub fn PlaylistPage() -> impl IntoView {
     let toaster = ToasterInjection::expect_context();
     let navigate = use_navigate();
     let view_res = LocalResource::new(move || {
-        c.playlists.track();
-        c.songs.track();
-        c.live.track();
+        c.reloaded.track();
         let id = id.get();
         async move { api::playlist(&id).await }
     });
-    let all = LocalResource::new(move || {
-        c.playlists.track();
-        api::playlists()
+    // The playlist as loaded, then as its events tell it (ADR 0018); deleted elsewhere, it is missing.
+    let current = Memo::new(move |_| match c.playlists.with(|m| m.get(&id.get()).cloned()) {
+        Some(Some((_, v))) => Some(Ok(v)),
+        Some(None) => {
+            Some(Err(api::Failure { status: 404, code: "not_found".into(), message: "deleted".into(), playlists: vec![], retry_after: None }))
+        }
+        None => view_res.get(),
     });
+    let all = crate::ui::songs::all_playlists(c);
     // The order on screen; set from the server, changed at once on drag, then saved.
     let songs = RwSignal::new(Vec::<Song>::new());
     let name = RwSignal::new(String::new());
     Effect::new(move |_| {
-        if let Some(Ok(v)) = view_res.get() {
-            songs.set(v.songs);
+        if let Some(Ok(v)) = current.get() {
+            // A song renamed or deleted since shows as it is now.
+            let told = c.songs.get();
+            songs.set(
+                v.songs
+                    .into_iter()
+                    .filter_map(|s| match told.get(&s.id) {
+                        Some(Some(now)) => Some(now.song.clone()),
+                        Some(None) => None,
+                        None => Some(s),
+                    })
+                    .collect(),
+            );
             name.set(v.playlist.name);
         }
     });
-    let missing = move || matches!(view_res.get(), Some(Err(f)) if f.status == 404);
-    let failed = move || match view_res.get() {
+    let missing = move || matches!(current.get(), Some(Err(f)) if f.status == 404);
+    let failed = move || match current.get() {
         Some(Err(f)) if f.status != 404 => Some(f.text()),
         _ => None,
     };
-    let loaded = move || matches!(view_res.get(), Some(Ok(_)));
-    let is_live = move || view_res.get().and_then(Result::ok).is_some_and(|v| v.playlist.live.on);
+    let loaded = move || matches!(current.get(), Some(Ok(_)));
+    let is_live = move || current.get().and_then(Result::ok).is_some_and(|v| v.playlist.live.on);
     let colour = move || all.get().and_then(Result::ok).map_or(shelf::COLOURS[0], |a| shelf::colour(&a, &id.get()));
     let from = move || Some(PlaylistRef { id: id.get_untracked(), name: name.get_untracked() });
     let queue = move || songs.get_untracked().iter().map(QSong::from).collect::<Vec<_>>();
@@ -73,7 +87,9 @@ pub fn PlaylistPage() -> impl IntoView {
                 let ids: Vec<String> = songs.with_untracked(|s| s.iter().map(|x| x.id.clone()).collect());
                 if let Err(f) = api::reorder(&id.get_untracked(), &ids).await {
                     say(toaster, f.text(), ToastIntent::Error);
-                    view_res.refetch();
+                    if let Some(Ok(v)) = current.get_untracked() {
+                        songs.set(v.songs); // back to the order the server keeps
+                    }
                     break;
                 }
                 if songs.with_untracked(|s| s.iter().map(|x| &x.id).eq(ids.iter())) {
@@ -234,7 +250,6 @@ pub fn PlaylistDialogs(
     on_renamed: Callback<String>,
     on_deleted: Callback<()>,
 ) -> impl IntoView {
-    let c = expect_context::<Changes>();
     let toaster = ToasterInjection::expect_context();
     let new_name = RwSignal::new(String::new());
     Effect::new(move |_| {
@@ -247,7 +262,6 @@ pub fn PlaylistDialogs(
             match api::rename_playlist(&id.get_untracked(), &new_name.get_untracked()).await {
                 Ok(p) => {
                     renaming.set(false);
-                    c.playlists.update(|n| *n += 1);
                     on_renamed.run(p.name);
                 }
                 Err(f) => say(toaster, f.text(), ToastIntent::Error),
@@ -260,7 +274,6 @@ pub fn PlaylistDialogs(
             match api::delete_playlist(&id.get_untracked()).await {
                 Ok(()) => {
                     say(toaster, format!("Deleted {}.", name.get_untracked()), ToastIntent::Success);
-                    c.playlists.update(|n| *n += 1);
                     on_deleted.run(());
                 }
                 Err(f) => say(toaster, f.text(), ToastIntent::Error),

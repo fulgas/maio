@@ -19,12 +19,16 @@ pub fn LiveStrip(playlist: Memo<String>, on_air: RwSignal<Option<(Option<String>
     let c = expect_context::<Changes>();
     let toaster = ToasterInjection::expect_context();
     let state = LocalResource::new(move || {
-        c.live.track();
+        c.reloaded.track();
         let id = playlist.get();
         async move { api::live(&id).await }
     });
-    // A memo, so a refetch that changes nothing redraws nothing (and keeps keyboard focus where it is).
-    let current = Memo::new(move |_| state.get().and_then(Result::ok));
+    // Loaded once, then as its live events tell it (ADR 0018). A memo, so an event that changes nothing redraws
+    // nothing (and keeps keyboard focus where it is).
+    let current = Memo::new(move |_| match c.live.with(|m| m.get(&playlist.get()).cloned()) {
+        Some(told) => told,
+        None => state.get().and_then(Result::ok),
+    });
     // The song on air and the next one, for the marks in the song list; set only when they change.
     Effect::new(move |_| {
         let v = current.get().and_then(|s| s.on_air).map(|o| (o.now.map(|n| n.id), o.next.map(|n| n.id)));
@@ -34,19 +38,15 @@ pub fn LiveStrip(playlist: Memo<String>, on_air: RwSignal<Option<(Option<String>
     });
     let change = move |body: serde_json::Value| {
         leptos::task::spawn_local(async move {
-            match api::set_live(&playlist.get_untracked(), &body).await {
-                Ok(_) => state.refetch(),
-                Err(f) => say(toaster, f.text(), ToastIntent::Error),
+            if let Err(f) = api::set_live(&playlist.get_untracked(), &body).await {
+                say(toaster, f.text(), ToastIntent::Error); // done, it comes back as a live event
             }
         });
     };
     let new_link = move || {
         leptos::task::spawn_local(async move {
             match api::new_key(&playlist.get_untracked()).await {
-                Ok(_) => {
-                    say(toaster, "New private link made. The old one has stopped working.".into(), ToastIntent::Success);
-                    state.refetch();
-                }
+                Ok(_) => say(toaster, "New private link made. The old one has stopped working.".into(), ToastIntent::Success),
                 Err(f) => say(toaster, f.text(), ToastIntent::Error),
             }
         });

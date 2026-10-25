@@ -122,7 +122,7 @@ The design is called **Shelf**: playlists as coloured tiles on a shelf above the
 - **Sign in** and **change password** screens.
 - Dialogs are the browser's own `<dialog>`, panels the browser's popover ([ADR 0010](../adr/0010-native-browser-features-first.md)). Toasts also go to a hidden `role="status"` region.
 - Every screen works from 360 px wide, with visible keyboard focus and text contrast of at least 4.5:1 (arc42 10).
-- **Live updates**: the web app never polls. It reloads what changed when the server's event stream (`/api/v1/events`, arc42 3.5) says so: jobs, songs, playlists, a live playlist's song on air and listeners, an engine's health, MediaMTX ([ADR 0018](../adr/0018-the-web-app-learns-of-changes-from-events.md)).
+- **Live updates**: the web app never polls and never fetches to catch up. Each page loads once; then every event from the server's stream (`/api/v1/events`, arc42 3.5) carries the new state of one thing, the web app keeps the latest per id, and only the parts of the page that show that thing change: a song's row, a playlist's tile, band and songs, a live strip, the player bar, the engine and MediaMTX icons. After the stream reconnects, the page loads once more, since events sent while it was down are lost ([ADR 0018](../adr/0018-the-web-app-learns-of-changes-from-events.md)).
 - Asset file names carry a hash of their content and are cached for good, so a new release is never hidden behind a cached old file.
 
 ## 8.6 Logs, traces and metrics

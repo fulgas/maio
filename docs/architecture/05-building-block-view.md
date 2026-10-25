@@ -41,7 +41,7 @@ e2e/           a real browser through every screen, against a fake acestep-api
 | **Domain** | Plain types and rules: `Song`, `Playlist`, `Live` state, song requests, titles in layers, engine choice, jobs, the live play order and limits, MediaMTX's reported state. No I/O, no async, no framework types. Every rule is tested here with plain unit tests. |
 | **Use cases** | One use case per user action (make a song, cancel a job, rename, delete, create a playlist, add, remove, reorder, go live, change visibility, new link, listen live, answer MediaMTX's auth hook, sign in, change password). Each takes its ports as traits and returns domain results or domain errors. |
 | **Adapters** | Each behind one port: SQLite, the engine HTTP client, the text engine clients, ffmpeg, the live stations and the MediaMTX relay, passwords, clock and ids. |
-| **Web** | axum: the JSON API (arc42 3.5), the live streams with ICY titles (`web/icy.rs`) and the relay auth hook (arc42 8.4), server-rendered pages, config (arc42 7.3), logs, traces and metrics (arc42 8.6). It maps domain errors to HTTP status codes. No business rule lives in a handler. |
+| **Web** | axum: the JSON API (arc42 3.5), the server-sent events, each built from the state as it is now (`web/push.rs`), the live streams with ICY titles (`web/icy.rs`) and the relay auth hook (arc42 8.4), server-rendered pages, config (arc42 7.3), logs, traces and metrics (arc42 8.6). It maps domain errors to HTTP status codes. No business rule lives in a handler. |
 | **UI** | The web app (arc42 8.5): Leptos components rendered on the server and hydrated in the browser. It uses only `domain` types and calls `/api/v1` like any script. No business rule lives in a component. |
 
 ## 5.2 Level 2: the ports
@@ -82,4 +82,4 @@ live
 webapp
 ```
 
-**`ui`** (the web app, arc42 8.5): `frame` (header, engine and MediaMTX panels), `songs` (Songs screen, Playlists screen, shelf), `playlist` (a playlist's page and its dialogs), `live` (the live strip), `player` (one `<audio>` for the whole app), `details` (a song's details), `modal` (the native dialog), `api` (the JSON client), `events` (server-sent events), `format`, `queue`, `shelf`, `make` (pure helpers, unit-tested).
+**`ui`** (the web app, arc42 8.5): `frame` (header, engine and MediaMTX panels), `songs` (Songs screen, Playlists screen, shelf), `playlist` (a playlist's page and its dialogs), `live` (the live strip), `player` (one `<audio>` for the whole app), `details` (a song's details), `modal` (the native dialog), `api` (the JSON client), `events` (the store: the latest state each server-sent event told, by id), `format`, `queue`, `shelf`, `make` (pure helpers, unit-tested).

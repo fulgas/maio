@@ -324,30 +324,28 @@ pub fn PlayerBar() -> impl IntoView {
             p.notice.set(None);
         }
     });
-    // While listening live, what is on air: looked at when a live event says it changed.
+    // While listening live, what is on air, as the playlist's live events tell it (ADR 0018).
     let changes = expect_context::<crate::ui::events::Changes>();
     Effect::new(move |_| {
-        changes.live.track();
-        let look = move || {
-            let Some(on) = p.live.get_untracked() else { return };
-            leptos::task::spawn_local(async move {
-                if let Ok(l) = api::live(&on.playlist.id).await {
-                    // Off air while paused: no stream event says so, this look does.
-                    if !l.live {
-                        p.live.set(None);
-                        p.notice.set(Some((format!("{} went off air.", on.playlist.name), ToastIntent::Info)));
-                        return;
+        // Read first, so the effect follows every live event even while nothing is tuned in.
+        let all = changes.live.get();
+        let Some(on) = p.live.get_untracked() else { return };
+        let Some(told) = all.get(&on.playlist.id).cloned() else { return };
+        match told {
+            Some(l) if l.live => {
+                let now = l.on_air.and_then(|o| o.now).map(|n| n.title);
+                p.live.update(|cur| {
+                    if let Some(c) = cur.as_mut().filter(|c| c.playlist.id == on.playlist.id) {
+                        c.now = now;
                     }
-                    let now = l.on_air.and_then(|o| o.now).map(|n| n.title);
-                    p.live.update(|cur| {
-                        if let Some(c) = cur.as_mut().filter(|c| c.playlist.id == on.playlist.id) {
-                            c.now = now;
-                        }
-                    });
-                }
-            });
-        };
-        look();
+                });
+            }
+            // Off air, or deleted, while paused: no stream event says so, this one does.
+            _ => {
+                p.live.set(None);
+                p.notice.set(Some((format!("{} went off air.", on.playlist.name), ToastIntent::Info)));
+            }
+        }
     });
     let shuffle = Signal::derive(move || p.queue.with(|q| q.shuffle));
     let repeat = move || p.queue.with(|q| q.repeat);

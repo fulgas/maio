@@ -714,6 +714,18 @@ await check("the songs search shows its focus ring around the whole search pill,
   await box.fill("");
 });
 
+await check("the Make form's chips show their focus ring around the whole chip, not inside it", async () => {
+  for (const name of ["Mood", "Genre", "Length", "Tempo"]) {
+    await page.getByLabel(name, { exact: true }).focus();
+    await page.keyboard.press("Shift");
+    const ring = await page.evaluate(() => {
+      const select = document.activeElement, chip = select.closest(".chip");
+      return { select: getComputedStyle(select).outlineStyle, chip: getComputedStyle(chip).outlineStyle };
+    });
+    assert.deepEqual(ring, { select: "none", chip: "solid" }, `${name}: the chip carries the ring`);
+  }
+});
+
 await check("the Playlists page renames and deletes a playlist from its row", async () => {
   await page.goto(base + "/playlists");
   await page.waitForLoadState("networkidle");

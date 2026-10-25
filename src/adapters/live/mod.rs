@@ -7,7 +7,7 @@ pub mod station;
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{Arc, Mutex, atomic::Ordering},
+    sync::{Arc, Mutex, PoisonError, atomic::Ordering},
 };
 
 use crate::{
@@ -75,7 +75,7 @@ impl Stations {
     }
 
     fn get(&self, id: &str) -> Option<Arc<Station>> {
-        self.on.lock().unwrap().get(id).cloned()
+        self.on.lock().unwrap_or_else(PoisonError::into_inner).get(id).cloned()
     }
 
     fn hls_folder(&self, id: &str) -> PathBuf {
@@ -119,7 +119,7 @@ impl LiveListening for Stations {
     }
 
     fn now_title(&self, id: &str) -> Option<String> {
-        self.get(id)?.now.lock().unwrap().as_ref().map(|s| s.title.clone())
+        self.get(id)?.now.lock().unwrap_or_else(PoisonError::into_inner).as_ref().map(|s| s.title.clone())
     }
 
     fn hls_dir(&self, id: &str) -> PathBuf {
@@ -149,11 +149,11 @@ impl LiveStreams for Stations {
             return;
         }
         let st = self.start(p, songs);
-        self.on.lock().unwrap().insert(p.id.clone(), st);
+        self.on.lock().unwrap_or_else(PoisonError::into_inner).insert(p.id.clone(), st);
     }
 
     fn stop(&self, id: &str) {
-        if let Some(st) = self.on.lock().unwrap().remove(id) {
+        if let Some(st) = self.on.lock().unwrap_or_else(PoisonError::into_inner).remove(id) {
             st.close();
         }
         station::forget(&self.cfg.data_dir, id);
@@ -163,6 +163,10 @@ impl LiveStreams for Stations {
         let st = self.get(id)?;
         let relayed = self.seen.lock().unwrap_or_else(|e| e.into_inner()).readers(&st.relay_path());
         let listeners = st.listeners.load(Ordering::Relaxed) + relayed;
-        Some(OnAir { now: st.now.lock().unwrap().clone(), next: st.next.lock().unwrap().clone(), listeners })
+        Some(OnAir {
+            now: st.now.lock().unwrap_or_else(PoisonError::into_inner).clone(),
+            next: st.next.lock().unwrap_or_else(PoisonError::into_inner).clone(),
+            listeners,
+        })
     }
 }

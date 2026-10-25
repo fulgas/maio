@@ -13,6 +13,7 @@ use tower::ServiceExt;
 use tower_http::services::ServeFile;
 
 use super::{Body, Params, blocking};
+use crate::web::push::Change;
 use crate::web::{auth::Me, error::ApiError, state::Shared};
 
 #[derive(Deserialize)]
@@ -58,7 +59,7 @@ pub async fn get(State(app): State<Shared>, _me: Me, Path(id): Path<String>) -> 
 
 pub async fn rename(State(app): State<Shared>, _me: Me, Path(id): Path<String>, Body(b): Body<Rename>) -> Result<Json<SongView>, ApiError> {
     let view = blocking(&app, move |a| a.songs.rename(&id, &b.title)).await?;
-    app.events.song_changed(&view.song.id, false);
+    crate::web::push::send(&app, vec![Change::Song(view.song.id.clone())]).await;
     Ok(Json(view))
 }
 
@@ -66,7 +67,7 @@ pub async fn delete(State(app): State<Shared>, _me: Me, Path(id): Path<String>) 
     let gone = id.clone();
     blocking(&app, move |a| a.songs.delete(&id)).await?;
     tracing::info!(song = %gone, "song deleted");
-    app.events.song_changed(&gone, true);
+    crate::web::push::send(&app, vec![Change::Song(gone)]).await;
     Ok(StatusCode::NO_CONTENT)
 }
 

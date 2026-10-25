@@ -10,6 +10,7 @@ use axum::{
 use serde::Deserialize;
 
 use super::{Body, blocking};
+use crate::web::push::{self, Change};
 use crate::web::{
     auth::Me,
     error::ApiError,
@@ -39,7 +40,7 @@ pub struct Order {
 /// Runs a change and tells every browser about it.
 async fn change(app: &Shared, f: impl FnOnce(&App) -> crate::usecases::Result<Playlist> + Send + 'static) -> Result<Json<Playlist>, ApiError> {
     let playlist = blocking(app, f).await?;
-    app.events.playlist_changed(&playlist.id, false);
+    push::send(app, vec![Change::Playlist(playlist.id.clone())]).await;
     Ok(Json(playlist))
 }
 
@@ -61,9 +62,16 @@ pub async fn rename(State(app): State<Shared>, _me: Me, Path(id): Path<String>, 
 
 pub async fn delete(State(app): State<Shared>, _me: Me, Path(id): Path<String>) -> Result<StatusCode, ApiError> {
     let gone = id.clone();
-    blocking(&app, move |a| a.playlists.delete(&id)).await?;
+    // Its songs lose its mark: they are told after it is gone.
+    let songs = blocking(&app, move |a| {
+        let songs = a.playlists.get(&id)?.songs;
+        a.playlists.delete(&id)?;
+        Ok(songs)
+    })
+    .await?;
     tracing::info!(playlist = %gone, "playlist deleted");
-    app.events.playlist_changed(&gone, true);
+    let changes = std::iter::once(Change::Playlist(gone)).chain(songs.into_iter().map(|s| Change::Song(s.id)));
+    push::send(&app, changes.collect()).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -76,5 +84,8 @@ pub async fn reorder(State(app): State<Shared>, _me: Me, Path(id): Path<String>,
 }
 
 pub async fn remove(State(app): State<Shared>, _me: Me, Path((id, song_id)): Path<(String, String)>) -> Result<Json<Playlist>, ApiError> {
-    change(&app, move |a| a.playlists.remove_song(&id, &song_id)).await
+    let removed = song_id.clone();
+    let playlist = change(&app, move |a| a.playlists.remove_song(&id, &song_id)).await?;
+    push::send(&app, vec![Change::Song(removed)]).await; // no longer in the playlist, so not told with it
+    Ok(playlist)
 }

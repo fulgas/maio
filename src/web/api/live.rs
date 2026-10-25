@@ -12,6 +12,7 @@ use crate::{
         auth::Me,
         error::ApiError,
         live::{LiveJson, json},
+        push::{self, Change},
         state::Shared,
     },
 };
@@ -29,13 +30,13 @@ pub async fn get(State(app): State<Shared>, _me: Me, Path(id): Path<String>) -> 
 pub async fn set(State(app): State<Shared>, _me: Me, Path(id): Path<String>, Body(change): Body<LiveChange>) -> Result<Json<LiveJson>, ApiError> {
     let pid = id.clone();
     blocking(&app, move |a| a.playlists.set_live(&pid, &change)).await?;
-    app.events.live_changed(&id);
+    push::send(&app, vec![Change::Live(id.clone()), Change::Playlist(id.clone())]).await;
     view(&app, id).await
 }
 
 pub async fn new_key(State(app): State<Shared>, _me: Me, Path(id): Path<String>) -> Result<Json<LiveJson>, ApiError> {
     let pid = id.clone();
     blocking(&app, move |a| a.playlists.new_key(&pid)).await?;
-    app.events.live_changed(&id);
+    push::send(&app, vec![Change::Live(id.clone())]).await;
     view(&app, id).await
 }

@@ -44,7 +44,9 @@ async fn a_playlist_is_built_ordered_and_trimmed() {
     while let Ok(e) = events.try_recv() {
         kinds.push(e.kind);
     }
-    assert!(kinds.len() >= 6 && kinds.iter().all(|k| *k == "playlist"), "{kinds:?}");
+    let told = |kind: &str| kinds.iter().filter(|k| **k == kind).count();
+    assert!(told("playlist") >= 6, "{kinds:?}");
+    assert!(told("song") > 0 && kinds.iter().all(|k| *k == "playlist" || *k == "song"), "its songs are told with it: {kinds:?}");
 }
 
 #[tokio::test]

@@ -9,6 +9,7 @@ mod icy;
 pub mod live;
 pub mod metrics;
 pub mod pages;
+pub mod push;
 mod start;
 pub mod state;
 pub mod streams;

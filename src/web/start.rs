@@ -21,6 +21,7 @@ use crate::web::{
     config::Config,
     events::Events,
     metrics::Metrics,
+    push::{self, Change},
     state::{App, Shared},
 };
 
@@ -39,10 +40,6 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
 
     let engines: Vec<Arc<HttpEngine>> = cfg.engine_configs().into_iter().map(|c| Arc::new(HttpEngine::new(c))).collect();
     for e in &engines {
-        let (events, id) = (events.clone(), e.status().id);
-        e.on_change(move |_| events.engine_changed(&id));
-    }
-    for e in &engines {
         tokio::spawn(engine::watch(e.clone()));
     }
     let text_engines: Vec<Arc<HttpTextEngine>> = cfg.text_engine_configs().into_iter().map(|c| Arc::new(HttpTextEngine::new(c))).collect();
@@ -51,7 +48,7 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
     }
     let making = Making::new(
         MakingPorts {
-            engines: engines.into_iter().map(|e| e as Arc<dyn MusicEngine>).collect(),
+            engines: engines.iter().map(|e| e.clone() as Arc<dyn MusicEngine>).collect(),
             text_engines: text_engines.into_iter().map(|t| t as Arc<dyn TextEngine>).collect(),
             songs: songs.clone(),
             files: files.clone(),
@@ -80,16 +77,11 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         hls: cfg.serve.hls,
         relay,
     });
-    let told = events.clone();
-    stations.on_change(move |c| match c {
-        Changed::Live(id) => told.live_changed(&id),
-        Changed::Relay => told.relay_changed(),
-    });
     let app = Arc::new(App {
         account,
         songs: Songs::new(songs.clone(), playlists.clone(), files),
         live: Live::new(playlists.clone(), stations.clone(), stations.clone()),
-        playlists: Playlists::new(playlists, songs, ids.clone(), clock, stations, cfg.max_live),
+        playlists: Playlists::new(playlists, songs, ids.clone(), clock, stations.clone(), cfg.max_live),
         making,
         events,
         moods: cfg.moods.clone(),
@@ -101,6 +93,21 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         stopping: tokio::sync::watch::channel(false).0,
         serve: cfg.serve.clone(),
     });
+    // What changes on its own is told where it happens (ADR 0018). The adapters' hooks only queue the change, which
+    // never blocks a song starting or a listener leaving; one task tells them in the order they happened.
+    let (queue, changes) = tokio::sync::mpsc::unbounded_channel::<Change>();
+    for e in &engines {
+        let (queue, id) = (queue.clone(), e.status().id);
+        e.on_change(move |_| drop(queue.send(Change::Engine(id.clone()))));
+    }
+    stations.on_change(move |c| {
+        let change = match c {
+            Changed::Live(id) => Change::Live(id),
+            Changed::Relay => Change::Relay,
+        };
+        drop(queue.send(change)); // the queue closes only when the server stops
+    });
+    tokio::spawn(push::run(app.clone(), changes));
     // Playlists that were live before a restart go back on air.
     app.playlists.resume()?;
     Ok(app)

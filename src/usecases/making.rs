@@ -1,9 +1,10 @@
 //! Making songs (arc42 8.2): one prompt, one job, one song kept in the library.
 
+use parking_lot::{Mutex, MutexGuard};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::Arc,
     time::Duration,
 };
 
@@ -104,7 +105,7 @@ pub struct Making {
 }
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-    m.lock().unwrap_or_else(|e| e.into_inner())
+    m.lock()
 }
 
 /// Runs a blocking port call (ffmpeg, SQLite) off the async threads.
@@ -629,11 +630,11 @@ mod tests {
         assert_eq!((song.prompt.as_str(), song.mood.as_deref(), song.seconds, song.seed), ("warm pads", Some("calm"), 179.5, 1234));
         assert_eq!((song.engine.as_str(), song.artist.as_str(), song.vocals, song.title_source), ("ace-step", "Maio", false, TitleSource::Words));
         assert_eq!(song.file, format!("songs/{}.opus", song.id));
-        assert_eq!(w.engines[0].submitted.lock().unwrap()[0].prompt, "warm pads, jazz, calm mood, instrumental");
-        assert_eq!(*w.engines[0].deleted.lock().unwrap(), ["remote1"], "the engine job is freed");
-        assert_eq!(*w.files.retagged.lock().unwrap(), std::slice::from_ref(&song.title));
-        assert_eq!(w.notifier.songs.lock().unwrap().len(), 1);
-        assert!(w.notifier.jobs.lock().unwrap().iter().any(|j| j.state == JobState::Done));
+        assert_eq!(w.engines[0].submitted.lock()[0].prompt, "warm pads, jazz, calm mood, instrumental");
+        assert_eq!(*w.engines[0].deleted.lock(), ["remote1"], "the engine job is freed");
+        assert_eq!(*w.files.retagged.lock(), std::slice::from_ref(&song.title));
+        assert_eq!(w.notifier.songs.lock().len(), 1);
+        assert!(w.notifier.jobs.lock().iter().any(|j| j.state == JobState::Done));
         assert!(w.making.jobs().is_empty(), "nothing is waiting or making");
     }
 
@@ -643,10 +644,10 @@ mod tests {
         let code = |r: SongRequest| w.making.make(&r).unwrap_err().rule().map(|e| e.code());
         assert_eq!(code(SongRequest::default()), Some("missing_mood_or_prompt"));
         assert_eq!(code(SongRequest { engine: Some("nope".into()), ..calm() }), Some("unknown_engine"));
-        w.engines[0].status.lock().unwrap().health = Health::Down;
+        w.engines[0].status.lock().health = Health::Down;
         assert_eq!(code(calm()), Some("engine_unavailable"));
-        w.engines[0].status.lock().unwrap().health = Health::Up;
-        w.engines[0].status.lock().unwrap().info.as_mut().unwrap().licence.commercial = Commercial::No;
+        w.engines[0].status.lock().health = Health::Up;
+        w.engines[0].status.lock().info.as_mut().unwrap().licence.commercial = Commercial::No;
         assert_eq!(code(calm()), Some("noncommercial_engine"));
         assert!(w.making.make(&SongRequest { allow_noncommercial: Some(true), ..calm() }).is_ok());
     }
@@ -680,7 +681,7 @@ mod tests {
         for id in &ids {
             assert_eq!(finished(&w, id).await.state, JobState::Done);
         }
-        let seeds: Vec<i64> = w.engines[0].submitted.lock().unwrap().iter().map(|r| r.seed).collect();
+        let seeds: Vec<i64> = w.engines[0].submitted.lock().iter().map(|r| r.seed).collect();
         assert_eq!(seeds, [1, 2, 3]);
     }
 
@@ -695,23 +696,23 @@ mod tests {
         assert_eq!(w.making.cancel(&waiting).unwrap().state, JobState::Cancelled);
         w.making.cancel(&making).unwrap();
         for _ in 0..400 {
-            if !w.engines[0].deleted.lock().unwrap().is_empty() {
+            if !w.engines[0].deleted.lock().is_empty() {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
-        assert_eq!(*w.engines[0].deleted.lock().unwrap(), ["remote1"], "the running engine job is cancelled too");
+        assert_eq!(*w.engines[0].deleted.lock(), ["remote1"], "the running engine job is cancelled too");
         tokio::time::sleep(Duration::from_millis(30)).await;
-        assert_eq!(w.engines[0].submitted.lock().unwrap().len(), 1, "the waiting job never reached the engine");
+        assert_eq!(w.engines[0].submitted.lock().len(), 1, "the waiting job never reached the engine");
         assert_eq!(w.making.cancel(&making).unwrap_err().rule().map(|e| e.code()), Some("job_finished"));
         assert_eq!(w.making.cancel("nope").unwrap_err().rule(), Some(&Rule::NotFound("job")));
-        assert!(w.songs.0.lock().unwrap().is_empty());
+        assert!(w.songs.0.lock().is_empty());
     }
 
     #[tokio::test]
     async fn a_lost_job_is_retried_once_on_the_next_engine() {
         let w = world_with(vec![FakeEngine::up("first"), FakeEngine::up("second")], vec![], settings());
-        *w.engines[0].outcome.lock().unwrap() = Outcome::Lost;
+        *w.engines[0].outcome.lock() = Outcome::Lost;
         let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
         assert_eq!(job.state, JobState::Done, "{job:?}");
         assert_eq!(song_of(&w, &job).engine, "second");
@@ -720,16 +721,16 @@ mod tests {
     #[tokio::test]
     async fn a_failed_job_says_why_and_is_retried_only_when_retryable() {
         let w = world_with(vec![FakeEngine::up("first"), FakeEngine::up("second")], vec![], settings());
-        *w.engines[0].outcome.lock().unwrap() = Outcome::Failed { retryable: false };
+        *w.engines[0].outcome.lock() = Outcome::Failed { retryable: false };
         let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
         assert_eq!((job.state, job.error.as_deref()), (JobState::Failed, Some("oom: out of memory")));
-        assert!(w.engines[1].submitted.lock().unwrap().is_empty());
+        assert!(w.engines[1].submitted.lock().is_empty());
         for e in &w.engines {
-            *e.outcome.lock().unwrap() = Outcome::Lost;
+            *e.outcome.lock() = Outcome::Lost;
         }
         let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
         assert_eq!((job.state, job.error.as_deref()), (JobState::Failed, Some("the engine lost the job")), "one retry, then failed");
-        *w.engines[0].outcome.lock().unwrap() = Outcome::Rejected;
+        *w.engines[0].outcome.lock() = Outcome::Rejected;
         let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
         assert_eq!((job.state, job.error.as_deref()), (JobState::Failed, Some("422: bad request")));
     }
@@ -737,7 +738,7 @@ mod tests {
     #[tokio::test]
     async fn an_engine_that_cannot_be_reached_fails_the_job_with_what_to_do() {
         let w = world_with(vec![FakeEngine::up("ace-step")], vec![], settings());
-        *w.engines[0].outcome.lock().unwrap() = Outcome::Unreachable;
+        *w.engines[0].outcome.lock() = Outcome::Unreachable;
         let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
         assert_eq!(
             (job.state, job.error.as_deref()),
@@ -773,7 +774,7 @@ mod tests {
         let w = world_with(vec![FakeEngine::up("ace-step")], vec![text("local")], settings());
         let job = finished(&w, &w.making.make(&SongRequest { vocals: Some(true), lyrics_by: Some("local".into()), ..calm() }).unwrap().job_id).await;
         let song = song_of(&w, &job);
-        let sent = w.engines[0].submitted.lock().unwrap()[0].clone();
+        let sent = w.engines[0].submitted.lock()[0].clone();
         assert!(!sent.write_lyrics && sent.lyrics.as_deref().is_some_and(|l| l.contains("night bus")));
         assert_eq!((song.lyrics_engine.as_deref(), song.vocal_language.as_deref()), (Some("local"), Some("en")));
         assert_eq!((song.title.as_str(), song.title_source), ("Night Bus To Nowhere", TitleSource::Lyrics));
@@ -786,11 +787,11 @@ mod tests {
             [FakeText { lyrics: None, ..text("local") }, FakeText { hang: true, ..text("local") }, FakeText { healthy: false, ..text("local") }];
         for text_engine in broken {
             let w = world_with(vec![FakeEngine::up("ace-step")], vec![text_engine], settings());
-            *w.engines[0].lyrics.lock().unwrap() = Some("[chorus]\nace wrote this".into());
+            *w.engines[0].lyrics.lock() = Some("[chorus]\nace wrote this".into());
             let job =
                 finished(&w, &w.making.make(&SongRequest { vocals: Some(true), lyrics_by: Some("local".into()), ..calm() }).unwrap().job_id).await;
             assert_eq!(job.note.as_deref(), Some("lyrics by local failed, so ACE-Step wrote them"));
-            assert!(w.engines[0].submitted.lock().unwrap()[0].write_lyrics);
+            assert!(w.engines[0].submitted.lock()[0].write_lyrics);
             let song = song_of(&w, &job);
             assert_eq!((song.lyrics.as_deref(), song.lyrics_engine.as_deref()), (Some("[chorus]\nace wrote this"), Some("ace-step")));
         }
@@ -815,7 +816,7 @@ mod tests {
     async fn a_limited_licence_travels_with_the_job_and_the_song() {
         let w = world();
         {
-            let mut status = w.engines[0].status.lock().unwrap();
+            let mut status = w.engines[0].status.lock();
             let licence = &mut status.info.as_mut().unwrap().licence;
             licence.commercial = Commercial::Limited;
             licence.name = "SAO".into();
@@ -833,9 +834,9 @@ mod tests {
         let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
         assert_eq!(job.state, JobState::Failed);
         assert!(job.error.as_deref().is_some_and(|e| e.starts_with("storing the song")), "{job:?}");
-        let imported = w.files.imported.lock().unwrap()[0].clone();
-        assert_eq!(*w.files.deleted.lock().unwrap(), [format!("songs/{imported}.opus")]);
-        assert!(w.songs.0.lock().unwrap().is_empty());
+        let imported = w.files.imported.lock()[0].clone();
+        assert_eq!(*w.files.deleted.lock(), [format!("songs/{imported}.opus")]);
+        assert!(w.songs.0.lock().is_empty());
     }
 
     #[tokio::test]
@@ -848,24 +849,24 @@ mod tests {
         );
         let id = w.making.make(&calm()).unwrap().job_id;
         for _ in 0..400 {
-            if !w.files.imported.lock().unwrap().is_empty() {
+            if !w.files.imported.lock().is_empty() {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(5)).await;
         }
         w.making.cancel(&id).unwrap();
         tokio::time::sleep(Duration::from_millis(500)).await;
-        assert!(w.songs.0.lock().unwrap().is_empty(), "a cancelled job keeps no song");
-        assert!(w.notifier.songs.lock().unwrap().is_empty());
-        let imported = w.files.imported.lock().unwrap()[0].clone();
-        assert_eq!(*w.files.deleted.lock().unwrap(), [format!("songs/{imported}.opus")], "and its file goes");
+        assert!(w.songs.0.lock().is_empty(), "a cancelled job keeps no song");
+        assert!(w.notifier.songs.lock().is_empty());
+        let imported = w.files.imported.lock()[0].clone();
+        assert_eq!(*w.files.deleted.lock(), [format!("songs/{imported}.opus")], "and its file goes");
         assert_eq!(w.making.job(&id).unwrap().state, JobState::Cancelled);
     }
 
     #[tokio::test]
     async fn with_one_engine_a_retryable_failure_keeps_its_own_reason() {
         let w = world();
-        *w.engines[0].outcome.lock().unwrap() = Outcome::Lost;
+        *w.engines[0].outcome.lock() = Outcome::Lost;
         let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
         assert_eq!((job.state, job.error.as_deref()), (JobState::Failed, Some("the engine lost the job")));
     }
@@ -876,7 +877,7 @@ mod tests {
         w.engines[0].hold.store(true, Ordering::SeqCst);
         let job = finished(&w, &w.making.make(&calm()).unwrap().job_id).await;
         assert_eq!((job.state, job.error.as_deref()), (JobState::Failed, Some("the engine stopped making progress")));
-        assert_eq!(*w.engines[0].deleted.lock().unwrap(), ["remote1"], "the stuck engine job is cancelled");
+        assert_eq!(*w.engines[0].deleted.lock(), ["remote1"], "the stuck engine job is cancelled");
     }
 
     #[tokio::test]

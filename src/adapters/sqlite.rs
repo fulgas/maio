@@ -1,9 +1,7 @@
 //! The library in one SQLite file: songs, playlists and their order.
 
-use std::{
-    path::Path,
-    sync::{Arc, Mutex, MutexGuard},
-};
+use parking_lot::{Mutex, MutexGuard};
+use std::{path::Path, sync::Arc};
 
 use crate::domain::{Commercial, Licence, Live, Playlist, PlaylistRef, Song, TitleSource, Visibility};
 use crate::usecases::ports::{AccountStore, PlaylistRepository, SongQuery, SongRepository, SongSort};
@@ -62,7 +60,7 @@ impl Db {
     }
 
     fn conn(&self) -> MutexGuard<'_, Connection> {
-        self.conn.lock().unwrap_or_else(|e| e.into_inner())
+        self.conn.lock()
     }
 }
 

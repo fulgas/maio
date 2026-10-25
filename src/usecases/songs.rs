@@ -1,6 +1,8 @@
 //! Song library use cases: look up, search, rename, delete (arc42 8.2, 3.5).
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 
 use std::path::PathBuf;
 
@@ -116,8 +118,8 @@ impl Songs {
         Ok(SongView { song, playlists })
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, ()> {
-        self.edits.lock().unwrap_or_else(|e| e.into_inner())
+    fn lock(&self) -> parking_lot::MutexGuard<'_, ()> {
+        self.edits.lock()
     }
 }
 
@@ -145,7 +147,7 @@ mod tests {
         for i in 0..n {
             let mut s = song(&format!("s{i:02}"));
             s.created_at = format!("2026-10-16T12:00:{i:02}Z");
-            repo.0.lock().unwrap().push(s);
+            repo.0.lock().push(s);
         }
         let (playlists, files) = (Arc::new(MemPlaylists::default()), Arc::new(MemFiles::default()));
         World { songs: Songs::new(repo.clone(), playlists.clone(), files.clone()), repo, playlists, files }
@@ -172,7 +174,7 @@ mod tests {
         let v = w.songs.rename("s00", " Night Bus ").unwrap();
         assert_eq!((v.song.title.as_str(), v.song.title_source), ("Night Bus", TitleSource::Person));
         assert_eq!(w.repo.get("s00").unwrap().unwrap().title, "Night Bus");
-        assert_eq!(*w.files.retagged.lock().unwrap(), ["Night Bus"]);
+        assert_eq!(*w.files.retagged.lock(), ["Night Bus"]);
     }
 
     #[test]
@@ -180,7 +182,7 @@ mod tests {
         let w = world(1);
         assert_eq!(w.songs.rename("s00", "").unwrap_err().rule().map(Rule::code), Some("bad_title"));
         assert_eq!(w.repo.get("s00").unwrap().unwrap().title, "Song s00");
-        assert!(w.files.retagged.lock().unwrap().is_empty());
+        assert!(w.files.retagged.lock().is_empty());
     }
 
     #[test]
@@ -190,7 +192,7 @@ mod tests {
         let e = w.songs.delete("s00").unwrap_err();
         assert_eq!(e.rule(), Some(&Rule::SongInPlaylist(vec![PlaylistRef { id: "p1".into(), name: "Late".into() }])));
         assert!(w.repo.get("s00").unwrap().is_some());
-        assert!(w.files.deleted.lock().unwrap().is_empty());
+        assert!(w.files.deleted.lock().is_empty());
     }
 
     #[test]
@@ -198,7 +200,7 @@ mod tests {
         let w = world(1);
         w.songs.delete("s00").unwrap();
         assert_eq!(w.repo.get("s00").unwrap(), None);
-        assert_eq!(*w.files.deleted.lock().unwrap(), ["songs/s00.opus"]);
+        assert_eq!(*w.files.deleted.lock(), ["songs/s00.opus"]);
         assert_eq!(w.songs.delete("s00").unwrap_err().rule(), Some(&Rule::NotFound("song")));
     }
 

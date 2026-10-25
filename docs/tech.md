@@ -15,6 +15,7 @@ How Maio is built and worked on. The [architecture](architecture/01-introduction
 | Run | Docker Compose: Maio and MediaMTX | [arc42 7](architecture/07-deployment-view.md) |
 | Documentation site | Zola 0.23.6, fed by `docs-site/sync.mjs`; our C4 explorer | [ADR 0016](adr/0016-zola-builds-the-documentation-site.md) |
 | Engine calls | reqwest; backon for exponential backoff | [arc42 8.8](architecture/08-crosscutting-concepts.md#88-when-the-engine-is-busy-or-down) |
+| Locks | parking_lot: a lock is never poisoned, so it never needs unwrapping or taking back | [arc42 2.3](architecture/02-architecture-constraints.md) |
 | Telemetry | OpenTelemetry over OTLP | [ADR 0009](adr/0009-opentelemetry-across-maio-and-ace-step.md) |
 
 ## Code

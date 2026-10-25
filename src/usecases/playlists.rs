@@ -1,6 +1,8 @@
 //! Playlist use cases: create, rename, delete, add, remove, reorder, list (arc42 8.3).
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 
 use crate::domain::{Error as Rule, Live, LiveChange, Playlist, Song, live};
 use serde::Serialize;
@@ -180,8 +182,8 @@ impl Playlists {
         self.repo.get(id)?.ok_or_else(|| Error::from(Rule::NotFound("playlist")))
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, ()> {
-        self.edits.lock().unwrap_or_else(|e| e.into_inner())
+    fn lock(&self) -> parking_lot::MutexGuard<'_, ()> {
+        self.edits.lock()
     }
 
     fn edit(&self, id: &str, change: impl FnOnce(&mut Playlist) -> std::result::Result<(), Rule>) -> Result<Playlist> {
@@ -213,7 +215,7 @@ mod tests {
     fn world(song_ids: &[&str]) -> World {
         let songs = Arc::new(MemSongs::default());
         for id in song_ids {
-            songs.0.lock().unwrap().push(song(id));
+            songs.0.lock().push(song(id));
         }
         let repo = Arc::new(MemPlaylists::default());
         let live = Arc::new(FakeLive::default());
@@ -291,7 +293,7 @@ mod tests {
     #[test]
     fn list_counts_songs_and_length_and_get_returns_them_in_order() {
         let w = world(&["a", "b"]);
-        w.songs.0.lock().unwrap()[1].seconds = 60.5;
+        w.songs.0.lock()[1].seconds = 60.5;
         let id = w.playlists.create("Late").unwrap().id;
         w.playlists.create("Empty").unwrap();
         w.playlists.add_songs(&id, &ids(&["b", "a"]), None).unwrap();
@@ -306,7 +308,7 @@ mod tests {
     }
 
     fn last(w: &World) -> String {
-        w.live.calls.lock().unwrap().last().cloned().unwrap_or_default()
+        w.live.calls.lock().last().cloned().unwrap_or_default()
     }
 
     #[test]
@@ -369,9 +371,9 @@ mod tests {
         let p = w.playlists.create("Late").unwrap();
         w.playlists.create("Off").unwrap();
         w.playlists.set_live(&p.id, &on(None)).unwrap();
-        w.live.calls.lock().unwrap().clear();
+        w.live.calls.lock().clear();
         w.playlists.resume().unwrap();
-        assert_eq!(*w.live.calls.lock().unwrap(), [format!("play {} [] public", p.id)]);
+        assert_eq!(*w.live.calls.lock(), [format!("play {} [] public", p.id)]);
     }
 
     #[test]

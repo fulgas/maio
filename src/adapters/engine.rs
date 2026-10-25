@@ -1,9 +1,10 @@
 //! ACE-Step 1.5's own HTTP API, `acestep-api` (arc42 3.3).
 
+use parking_lot::{Mutex, MutexGuard};
 use std::{
     collections::HashMap,
     path::Path,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -145,7 +146,7 @@ impl HttpEngine {
     }
 
     fn seen(&self) -> MutexGuard<'_, Seen> {
-        self.seen.lock().unwrap_or_else(|e| e.into_inner())
+        self.seen.lock()
     }
 
     async fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T, CallError> {
@@ -440,7 +441,9 @@ impl MusicEngine for HttpEngine {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
+
+    use parking_lot::Mutex;
 
     use axum::{
         Json, Router,
@@ -473,10 +476,10 @@ mod tests {
         let record = |path: &'static str| {
             move |State(f): State<Fake>, headers: axum::http::HeaderMap, Json(body): Json<Value>| async move {
                 use axum::response::IntoResponse;
-                f.auth.lock().unwrap().push(headers.get("authorization").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string());
-                f.posted.lock().unwrap().push((path.to_string(), body));
+                f.auth.lock().push(headers.get("authorization").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string());
+                f.posted.lock().push((path.to_string(), body));
                 if path == "/release_task" {
-                    let mut busy = f.busy.lock().unwrap();
+                    let mut busy = f.busy.lock();
                     if *busy > 0 {
                         *busy -= 1;
                         // release_task_route.py: HTTPException(status_code=429, detail="Server busy: queue is full")
@@ -487,19 +490,19 @@ mod tests {
                     "/release_task" => wrap(json!({"task_id": "t1", "status": "queued", "queue_position": 1})),
                     "/v1/create_sample" => wrap(json!({"lyrics": "[verse]\nwritten", "bpm": 92, "keyscale": "A minor", "timesignature": "4"})),
                     "/v1/init" => {
-                        let ms = *f.init_ms.lock().unwrap();
+                        let ms = *f.init_ms.lock();
                         tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
                         wrap(json!({"loaded_model": "acestep-v15-base"}))
                     }
                     _ => {
-                        let status = *f.status.lock().unwrap();
+                        let status = *f.status.lock();
                         // ACE-Step's own shapes (query_result_service.py): an unknown id is "[]" with status 0;
                         // a task being made carries its progress and stage.
                         if status < 0 {
                             return wrap(json!([{"task_id": "t1", "result": "[]", "status": 0}])).into_response();
                         }
                         if status == 0 {
-                            let stage = *f.stage.lock().unwrap();
+                            let stage = *f.stage.lock();
                             let result = json!([{"file": "", "status": 0, "progress": 0.4, "stage": stage}]);
                             return wrap(json!([{"task_id": "t1", "status": 0, "result": result.to_string()}])).into_response();
                         }
@@ -515,9 +518,9 @@ mod tests {
             .route(
                 "/health",
                 get(|State(f): State<Fake>, headers: axum::http::HeaderMap| async move {
-                    f.auth.lock().unwrap().push(headers.get("authorization").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string());
+                    f.auth.lock().push(headers.get("authorization").and_then(|v| v.to_str().ok()).unwrap_or_default().to_string());
                     wrap(json!({"status": "ok", "service": "ACE-Step API", "version": "1.0",
-                    "models_initialized": *f.initialized.lock().unwrap(), "llm_initialized": false,
+                    "models_initialized": *f.initialized.lock(), "llm_initialized": false,
                     "loaded_model": "acestep-v15-turbo", "loaded_lm_model": null}))
                 }),
             )
@@ -563,7 +566,7 @@ mod tests {
         let e = engine(serve(fake.clone()).await);
         e.check().await;
         assert_eq!(e.status().health, Health::Loading, "models not initialized yet");
-        *fake.initialized.lock().unwrap() = true;
+        *fake.initialized.lock() = true;
         e.check().await;
         let s = e.status();
         assert_eq!(s.health, Health::Up);
@@ -586,10 +589,10 @@ mod tests {
         let e = engine("http://127.0.0.1:9".into());
         let seen = Arc::new(Mutex::new(Vec::new()));
         let s = seen.clone();
-        e.on_change(move |h| s.lock().unwrap().push(h));
+        e.on_change(move |h| s.lock().push(h));
         e.check().await;
         e.check().await;
-        assert_eq!(*seen.lock().unwrap(), [Health::Down], "once, when it changed");
+        assert_eq!(*seen.lock(), [Health::Down], "once, when it changed");
     }
 
     #[tokio::test]
@@ -611,7 +614,7 @@ mod tests {
     #[tokio::test]
     async fn a_full_queue_is_busy_not_a_refusal() {
         let fake = Fake::default();
-        *fake.busy.lock().unwrap() = 1;
+        *fake.busy.lock() = 1;
         let e = engine(serve(fake.clone()).await);
         assert_eq!(e.submit(&request()).await, Err(CallError::Busy));
         assert_eq!(e.submit(&request()).await, Ok("t1".into()), "taken once the queue has room");
@@ -620,14 +623,14 @@ mod tests {
     #[tokio::test]
     async fn a_busy_engine_does_not_write_the_lyrics_again() {
         let fake = Fake::default();
-        *fake.busy.lock().unwrap() = 1;
+        *fake.busy.lock() = 1;
         let e = engine(serve(fake.clone()).await);
         let sung = EngineRequest { vocals: true, write_lyrics: true, ..request() };
         assert_eq!(e.submit(&sung).await, Err(CallError::Busy));
         assert_eq!(e.submit(&sung).await, Ok("t1".into()));
-        let posted: Vec<String> = fake.posted.lock().unwrap().iter().map(|(p, _)| p.clone()).collect();
+        let posted: Vec<String> = fake.posted.lock().iter().map(|(p, _)| p.clone()).collect();
         assert_eq!(posted, ["/v1/create_sample", "/release_task", "/release_task"], "the lyrics are written once");
-        assert_eq!(fake.posted.lock().unwrap()[2].1["lyrics"], "[verse]\nwritten", "and sent again with the song");
+        assert_eq!(fake.posted.lock()[2].1["lyrics"], "[verse]\nwritten", "and sent again with the song");
     }
 
     #[test]
@@ -641,11 +644,11 @@ mod tests {
     #[tokio::test]
     async fn a_song_is_released_polled_and_downloaded() {
         let fake = Fake::default();
-        *fake.status.lock().unwrap() = 0;
+        *fake.status.lock() = 0;
         let e = engine(serve(fake.clone()).await);
         let id = e.submit(&request()).await.unwrap();
         assert_eq!(id, "t1");
-        let (path, body) = fake.posted.lock().unwrap()[0].clone();
+        let (path, body) = fake.posted.lock()[0].clone();
         assert_eq!(path, "/release_task");
         assert_eq!(body["prompt"], "calm");
         assert_eq!(body["lyrics"], "[Instrumental]");
@@ -655,7 +658,7 @@ mod tests {
         assert_eq!(body["batch_size"], 1);
         assert_eq!(body["audio_format"], "wav");
         assert_eq!(e.job("t1").await.unwrap().state, "running");
-        *fake.status.lock().unwrap() = 1;
+        *fake.status.lock() = 1;
         let done = e.job("t1").await.unwrap();
         assert_eq!(done.state, "done");
         assert_eq!(done.lyrics.as_deref(), Some("[verse]\nsung"));
@@ -671,7 +674,7 @@ mod tests {
         let fake = Fake::default();
         let e = engine(serve(fake.clone()).await);
         e.submit(&EngineRequest { vocals: true, write_lyrics: true, ..request() }).await.unwrap();
-        let posted = fake.posted.lock().unwrap().clone();
+        let posted = fake.posted.lock().clone();
         assert_eq!(posted[0].0, "/v1/create_sample");
         assert_eq!(posted[0].1["query"], "calm");
         assert_eq!(posted[1].1["lyrics"], "[verse]\nwritten");
@@ -681,7 +684,7 @@ mod tests {
     #[tokio::test]
     async fn a_failed_task_says_so() {
         let fake = Fake::default();
-        *fake.status.lock().unwrap() = 2;
+        *fake.status.lock() = 2;
         let e = engine(serve(fake).await);
         let job = e.job("t1").await.unwrap();
         assert_eq!(job.state, "failed");
@@ -691,7 +694,7 @@ mod tests {
     #[tokio::test]
     async fn a_lost_task_is_not_found() {
         let fake = Fake::default();
-        *fake.status.lock().unwrap() = -1;
+        *fake.status.lock() = -1;
         let e = engine(serve(fake).await);
         assert_eq!(e.job("t1").await, Err(CallError::NotFound));
     }
@@ -699,11 +702,11 @@ mod tests {
     #[tokio::test]
     async fn switching_model_asks_ace_step_to_load_it() {
         let fake = Fake::default();
-        *fake.initialized.lock().unwrap() = true;
+        *fake.initialized.lock() = true;
         let e = engine(serve(fake.clone()).await);
         e.check().await;
         e.switch_model("acestep-v15-base").await.unwrap();
-        let (path, body) = fake.posted.lock().unwrap()[0].clone();
+        let (path, body) = fake.posted.lock()[0].clone();
         assert_eq!((path.as_str(), body["model"].as_str(), body["slot"].as_u64()), ("/v1/init", Some("acestep-v15-base"), Some(1)));
         assert_eq!(e.status().health, Health::Up, "up again once ACE-Step has loaded it");
     }
@@ -711,20 +714,20 @@ mod tests {
     #[tokio::test]
     async fn a_task_being_made_reports_ace_steps_own_progress_and_stage() {
         let fake = Fake::default();
-        *fake.status.lock().unwrap() = 0;
-        *fake.stage.lock().unwrap() = "running";
+        *fake.status.lock() = 0;
+        *fake.stage.lock() = "running";
         let e = engine(serve(fake.clone()).await);
         let job = e.job("t1").await.unwrap();
         assert_eq!((job.state.as_str(), job.progress), ("running", 0.4));
-        *fake.stage.lock().unwrap() = "queued";
+        *fake.stage.lock() = "queued";
         assert_eq!(e.job("t1").await.unwrap().state, "queued", "waiting inside ACE-Step is not being made");
     }
 
     #[tokio::test]
     async fn the_panel_shows_loading_for_as_long_as_a_switch_takes() {
         let fake = Fake::default();
-        *fake.initialized.lock().unwrap() = true;
-        *fake.init_ms.lock().unwrap() = 500;
+        *fake.initialized.lock() = true;
+        *fake.init_ms.lock() = 500;
         let e = Arc::new(engine(serve(fake.clone()).await));
         e.check().await;
         let switching = tokio::spawn({
@@ -742,13 +745,13 @@ mod tests {
     #[tokio::test]
     async fn a_key_goes_with_every_call_when_ace_step_wants_one() {
         let fake = Fake::default();
-        *fake.status.lock().unwrap() = 1;
+        *fake.status.lock() = 1;
         let url = serve(fake.clone()).await;
         let e = HttpEngine::new(EngineConfig { id: "ace-step".into(), url, api_key: Some("ace-secret".into()) });
         e.check().await;
         e.submit(&request()).await.unwrap();
         e.job("t1").await.unwrap();
-        let auth = fake.auth.lock().unwrap().clone();
+        let auth = fake.auth.lock().clone();
         assert!(auth.len() >= 3, "{auth:?}");
         assert!(auth.iter().all(|a| a == "Bearer ace-secret"), "{auth:?}");
     }

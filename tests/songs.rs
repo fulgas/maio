@@ -64,7 +64,7 @@ async fn bad_requests_are_refused_with_the_rule_that_failed() {
     assert_eq!((status, code(body)), (StatusCode::UNPROCESSABLE_ENTITY, "missing_mood_or_prompt".into()));
     let (status, _, body) = send(&w, browser("POST", "/api/v1/songs", Some(&s), Some(json!({"mood": "calm", "bogus": 1})))).await;
     assert_eq!((status, code(body)), (StatusCode::UNPROCESSABLE_ENTITY, "invalid_body".into()));
-    w.engine.status.lock().unwrap().health = Health::Down;
+    w.engine.status.lock().health = Health::Down;
     let (status, _, body) = send(&w, browser("POST", "/api/v1/songs", Some(&s), Some(json!({"mood": "calm"})))).await;
     assert_eq!((status, code(body)), (StatusCode::SERVICE_UNAVAILABLE, "engine_unavailable".into()));
     let (status, _, body) = send(&w, browser("GET", "/api/v1/songs?sort=loud", Some(&s), None)).await;
@@ -107,7 +107,7 @@ async fn renaming_and_deleting_a_song() {
     let path = format!("/api/v1/songs/{id}");
     let (status, _, renamed) = send(&w, browser("PATCH", &path, Some(&s), Some(json!({"title": " Night Bus "})))).await;
     assert_eq!((status, renamed["title"].as_str(), renamed["title_source"].as_str()), (StatusCode::OK, Some("Night Bus"), Some("person")));
-    assert!(w.files.retagged.lock().unwrap().contains(&"Night Bus".to_string()));
+    assert!(w.files.retagged.lock().contains(&"Night Bus".to_string()));
 
     let late = w.app.playlists.create("Late").unwrap();
     w.app.playlists.add_songs(&late.id, std::slice::from_ref(&id), None).unwrap();
@@ -117,7 +117,7 @@ async fn renaming_and_deleting_a_song() {
 
     w.app.playlists.remove_song(&late.id, &id).unwrap();
     assert_eq!(send(&w, browser("DELETE", &path, Some(&s), None)).await.0, StatusCode::NO_CONTENT);
-    assert_eq!(*w.files.deleted.lock().unwrap(), [format!("songs/{id}.opus")]);
+    assert_eq!(*w.files.deleted.lock(), [format!("songs/{id}.opus")]);
     assert_eq!(send(&w, browser("GET", &path, Some(&s), None)).await.0, StatusCode::NOT_FOUND);
 }
 
@@ -150,7 +150,7 @@ async fn the_engine_panel_can_switch_ace_steps_model() {
     let s = sign_in(&w).await;
     let (status, _, _) = send(&w, browser("PUT", "/api/v1/engines/ace-step/model", Some(&s), Some(json!({"model": "acestep-v15-base"})))).await;
     assert_eq!(status, StatusCode::NO_CONTENT);
-    assert_eq!(*w.engine.switched.lock().unwrap(), ["acestep-v15-base"]);
+    assert_eq!(*w.engine.switched.lock(), ["acestep-v15-base"]);
     let (status, _, body) = send(&w, browser("PUT", "/api/v1/engines/nope/model", Some(&s), Some(json!({"model": "x"})))).await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
 }

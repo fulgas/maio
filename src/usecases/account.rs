@@ -1,9 +1,7 @@
 //! Signing in (arc42 8.1): one account from `.env`, sessions, sign-in limits, the API token.
 
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex, MutexGuard},
-};
+use parking_lot::{Mutex, MutexGuard};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::domain::{
     Error as Rule,
@@ -76,7 +74,7 @@ impl Account {
 
     /// Checks the username and password and starts a session. Slow on purpose: call it on a blocking thread.
     pub fn sign_in(&self, username: &str, password: &str, remember: bool, client: Option<&str>) -> Result<SignedIn> {
-        let _one_at_a_time = self.checks.lock().unwrap_or_else(|e| e.into_inner());
+        let _one_at_a_time = self.checks.lock();
         let now = self.clock.epoch_s();
         // Junk usernames track nothing of their own, but they count against the client.
         let real_name = valid_username(username);
@@ -150,7 +148,7 @@ impl Account {
     }
 
     fn fails(&self) -> MutexGuard<'_, HashMap<String, Failures>> {
-        self.fails.lock().unwrap_or_else(|e| e.into_inner())
+        self.fails.lock()
     }
 }
 
@@ -186,14 +184,14 @@ mod tests {
     #[test]
     fn the_account_is_made_once_from_the_env() {
         let w = world(None);
-        assert_eq!(*w.store.account.lock().unwrap(), Some(("me".into(), "plain:correct horse".into())));
+        assert_eq!(*w.store.account.lock(), Some(("me".into(), "plain:correct horse".into())));
         w.account.ensure(Some("other"), Some("another password")).unwrap();
-        assert_eq!(w.store.account.lock().unwrap().as_ref().unwrap().0, "me", "later starts ignore the env");
+        assert_eq!(w.store.account.lock().as_ref().unwrap().0, "me", "later starts ignore the env");
         let empty = bare(None);
         assert!(empty.account.ensure(None, None).unwrap_err().to_string().contains("MAIO_ADMIN_USER"));
         assert!(empty.account.ensure(Some("me"), Some("short")).unwrap_err().to_string().contains("10 to 128"));
         assert!(empty.account.ensure(Some("Me!"), Some("long enough pw")).is_err());
-        assert!(empty.store.account.lock().unwrap().is_none());
+        assert!(empty.store.account.lock().is_none());
     }
 
     #[test]
@@ -201,12 +199,12 @@ mod tests {
         let w = world(None);
         let s = w.account.sign_in("me", "correct horse", false, None).unwrap();
         assert_eq!((s.session.len(), s.max_age_s), (64, 12 * 3600));
-        assert_eq!(w.store.sessions.lock().unwrap()[0], (s.session.clone(), 1_000_000 + 12 * 3600));
+        assert_eq!(w.store.sessions.lock()[0], (s.session.clone(), 1_000_000 + 12 * 3600));
         assert!(w.account.is_signed_in(&s.session).unwrap());
         assert_eq!(w.account.sign_in("me", "correct horse", true, None).unwrap().max_age_s, 30 * 24 * 3600);
         w.account.sign_out(&s.session).unwrap();
         assert!(!w.account.is_signed_in(&s.session).unwrap());
-        w.store.sessions.lock().unwrap().push(("old".into(), 999_999));
+        w.store.sessions.lock().push(("old".into(), 999_999));
         assert!(!w.account.is_signed_in("old").unwrap(), "an expired session is no session");
     }
 
@@ -217,7 +215,7 @@ mod tests {
         assert_eq!(code(w.account.sign_in("you", "correct horse", false, None).unwrap_err()), "bad_credentials");
         assert_eq!(code(w.account.sign_in("No Such!", "x", false, None).unwrap_err()), "bad_credentials");
         assert_eq!(w.passwords.dummy_checks.load(Ordering::SeqCst), 2, "unknown names spend a password check too");
-        assert!(w.store.sessions.lock().unwrap().is_empty());
+        assert!(w.store.sessions.lock().is_empty());
     }
 
     #[test]
@@ -251,7 +249,7 @@ mod tests {
         assert!(w.account.is_signed_in(&mine).unwrap() && !w.account.is_signed_in(&other).unwrap());
         assert!(w.account.sign_in("me", "a new password", false, None).is_ok());
         w.account.change_password(None, "a new password", "a third password").unwrap();
-        assert!(w.store.sessions.lock().unwrap().is_empty(), "the API token ends them all");
+        assert!(w.store.sessions.lock().is_empty(), "the API token ends them all");
     }
 
     #[test]

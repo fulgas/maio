@@ -182,7 +182,9 @@ impl TextEngine for HttpTextEngine {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{Arc, Mutex};
+    use std::sync::Arc;
+
+    use parking_lot::Mutex;
 
     use crate::domain::testing::normalized;
     use axum::{
@@ -208,11 +210,11 @@ mod tests {
             async move {
                 for key in ["authorization", "x-api-key", "anthropic-version"] {
                     if let Some(v) = headers.get(key) {
-                        s.headers.lock().unwrap().push((key.into(), v.to_str().unwrap().into()));
+                        s.headers.lock().push((key.into(), v.to_str().unwrap().into()));
                     }
                 }
-                s.bodies.lock().unwrap().push(body);
-                if *s.fail.lock().unwrap() {
+                s.bodies.lock().push(body);
+                if *s.fail.lock() {
                     return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"error": "boom"})));
                 }
                 (StatusCode::OK, Json(reply))
@@ -245,12 +247,12 @@ mod tests {
         let url = serve(seen.clone(), json!({"choices": [{"message": {"content": "<think>let me see</think>\n[verse]\nchuva no autocarro"}}]})).await;
         let e = openai(url, "sk-local");
         assert_eq!(e.write_lyrics(&sung()).await.unwrap(), "[verse]\nchuva no autocarro");
-        let body = seen.bodies.lock().unwrap()[0].clone();
+        let body = seen.bodies.lock()[0].clone();
         assert_eq!(body["model"], "qwen3-8b");
         let user = body["messages"][1]["content"].as_str().unwrap();
         assert!(user.contains("code pt") && user.contains("rainy bus ride") && user.contains("mood: calm"), "{user}");
         assert!(!user.contains(&sung().engine_prompt), "the engine prompt Maio built is never sent");
-        assert!(seen.headers.lock().unwrap().contains(&("authorization".into(), "Bearer sk-local".into())));
+        assert!(seen.headers.lock().contains(&("authorization".into(), "Bearer sk-local".into())));
     }
 
     #[tokio::test]
@@ -268,9 +270,9 @@ mod tests {
         });
         let name = e.name_song(&sung(), Some("[chorus]\nnight bus")).await.unwrap();
         assert_eq!(name, SongName { title: "Night Bus".into(), description: "A slow ride home.".into() });
-        let headers = seen.headers.lock().unwrap().clone();
+        let headers = seen.headers.lock().clone();
         assert!(headers.contains(&("x-api-key".into(), "key".into())) && headers.contains(&("anthropic-version".into(), "2023-06-01".into())));
-        let body = seen.bodies.lock().unwrap()[0].clone();
+        let body = seen.bodies.lock()[0].clone();
         assert!(body["system"].as_str().unwrap().contains("JSON") && body["messages"][0]["content"].as_str().unwrap().contains("night bus"));
     }
 
@@ -279,12 +281,12 @@ mod tests {
         let seen = Seen::default();
         let e = openai(serve(seen.clone(), json!({"choices": [{"message": {"content": "OK"}}]})).await, "sk-secret");
         assert!(e.healthy(), "healthy until a check fails");
-        *seen.fail.lock().unwrap() = true;
+        *seen.fail.lock() = true;
         e.check().await;
         assert!(!e.healthy());
         let err = format!("{:#}", e.write_lyrics(&sung()).await.unwrap_err());
         assert!(err.contains("500") && !err.contains("sk-secret"), "{err}");
-        *seen.fail.lock().unwrap() = false;
+        *seen.fail.lock() = false;
         e.check().await;
         assert!(e.healthy());
     }

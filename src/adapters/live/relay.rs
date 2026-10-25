@@ -1,7 +1,9 @@
 //! The MediaMTX relay (arc42 8.4): anyone can pull a live playlist over RTSP, SRT and RTMP. Maio publishes each
 //! live playlist to it, answers its auth hook, and reads and kicks its readers through its control API.
 
-use std::{collections::HashMap, sync::Mutex, time::Duration};
+use std::{collections::HashMap, time::Duration};
+
+use parking_lot::Mutex;
 
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
@@ -246,7 +248,7 @@ pub async fn watch(t: Target, seen: std::sync::Arc<Mutex<Seen>>, tell: super::st
 /// Keeps what a check found; tells when it differs from the last.
 fn store(seen: &Mutex<Seen>, now: Seen, tell: &super::station::Tell) {
     let changed = {
-        let mut s = seen.lock().unwrap_or_else(|e| e.into_inner());
+        let mut s = seen.lock();
         let changed = *s != now;
         *s = now;
         changed

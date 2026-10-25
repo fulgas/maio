@@ -90,7 +90,7 @@ mod tests {
         private.live.key = "KEY".into();
         let off = playlist("p3", "Off air");
         let listening = Arc::new(FakeListening::default());
-        let repo = Arc::new(MemPlaylists(std::sync::Mutex::new(vec![on, private, off])));
+        let repo = Arc::new(MemPlaylists(parking_lot::Mutex::new(vec![on, private, off])));
         (Live::new(repo, listening.clone(), Arc::new(relay)), listening)
     }
 
@@ -129,6 +129,6 @@ mod tests {
         assert!(live.listen(PathKind::Live, "p3", StreamFormat::Mp3).is_none(), "off air");
         assert!(live.listen(PathKind::Live, "p2", StreamFormat::Mp3).is_none(), "a private playlist only by its key");
         assert_eq!(live.hls_dir(PathKind::Live, "p1"), Some(PathBuf::from("/hls/p1")));
-        assert_eq!(*listening.asked.lock().unwrap(), ["p1 Mp3", "p2 Aac"]);
+        assert_eq!(*listening.asked.lock(), ["p1 Mp3", "p2 Aac"]);
     }
 }

@@ -1,11 +1,12 @@
 //! One live playlist on air (arc42 8.4): decode the next song, crossfade, pace 20 ms chunks onto the PCM bus;
 //! encoders turn the bus into MP3, AAC and HLS bytes and publish AAC to the relay.
 
+use parking_lot::Mutex;
 use std::{
     path::{Path, PathBuf},
     process::Stdio,
     sync::{
-        Arc, Mutex, PoisonError,
+        Arc,
         atomic::{AtomicUsize, Ordering},
     },
     time::Duration,
@@ -80,14 +81,14 @@ impl Station {
 
     /// Its path on the relay now (`live/{id}` or `listen/{key}`).
     pub fn relay_path(&self) -> String {
-        self.address.lock().unwrap_or_else(PoisonError::into_inner).trim_start_matches('/').to_string()
+        self.address.lock().trim_start_matches('/').to_string()
     }
 
     /// Takes the playlist as it is now; a new address ends open streams.
     pub fn update(&self, p: &Playlist, songs: &[LiveSong]) {
-        *self.setlist.lock().unwrap_or_else(PoisonError::into_inner) = Setlist { songs: songs.to_vec(), shuffle: p.live.shuffle };
+        *self.setlist.lock() = Setlist { songs: songs.to_vec(), shuffle: p.live.shuffle };
         let address = crate::domain::live::stream_base(p);
-        let mut current = self.address.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut current = self.address.lock();
         if *current != address {
             if let Some(t) = self.relay.clone() {
                 tokio::spawn(super::relay::kick(t, current.trim_start_matches('/').to_string()));
@@ -199,16 +200,16 @@ pub async fn playout(st: Arc<Station>, crossfade_s: f32) {
         let now = tokio::time::Instant::now();
         if queued.is_none() && mixer.next.is_none() && loading.is_none() && now >= next_try {
             let (ids, shuffle) = {
-                let s = st.setlist.lock().unwrap_or_else(PoisonError::into_inner);
+                let s = st.setlist.lock();
                 (s.songs.iter().map(|x| x.id.clone()).collect::<Vec<_>>(), s.shuffle)
             };
             match order.next(&ids, shuffle, last_picked.as_deref(), seed()) {
                 None => next_try = now + Duration::from_secs(1), // empty: silence, look again in a second
                 Some(id) => {
                     last_picked = Some(id.clone());
-                    let song = st.setlist.lock().unwrap_or_else(PoisonError::into_inner).songs.iter().find(|s| s.id == id).cloned();
+                    let song = st.setlist.lock().songs.iter().find(|s| s.id == id).cloned();
                     if let Some(song) = song {
-                        *st.next.lock().unwrap_or_else(PoisonError::into_inner) = Some(song.clone());
+                        *st.next.lock() = Some(song.clone());
                         queued = Some(song);
                     }
                 }
@@ -235,14 +236,8 @@ pub async fn playout(st: Arc<Station>, crossfade_s: f32) {
         for e in events.drain(..) {
             if let MixEvent::Started(id) = e {
                 remember(&st.data_dir, &st.id, &id);
-                let song = st
-                    .next
-                    .lock()
-                    .unwrap_or_else(PoisonError::into_inner)
-                    .take()
-                    .filter(|s| s.id == id)
-                    .or_else(|| st.setlist.lock().unwrap_or_else(PoisonError::into_inner).songs.iter().find(|s| s.id == id).cloned());
-                *st.now.lock().unwrap_or_else(PoisonError::into_inner) = song;
+                let song = st.next.lock().take().filter(|s| s.id == id).or_else(|| st.setlist.lock().songs.iter().find(|s| s.id == id).cloned());
+                *st.now.lock() = song;
                 (st.tell)();
             }
         }

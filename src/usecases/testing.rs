@@ -1,11 +1,9 @@
 //! In-memory ports for tests, here and in the web layer.
 
+use parking_lot::Mutex;
 use std::{
     path::{Path, PathBuf},
-    sync::{
-        Mutex,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use crate::domain::{
@@ -27,29 +25,29 @@ pub struct MemSongs(pub Mutex<Vec<Song>>);
 
 impl SongRepository for MemSongs {
     fn total_bytes(&self) -> Result<u64> {
-        Ok(self.0.lock().unwrap().iter().map(|s| s.bytes).sum())
+        Ok(self.0.lock().iter().map(|s| s.bytes).sum())
     }
 
     fn title_taken(&self, title: &str) -> Result<bool> {
-        Ok(self.0.lock().unwrap().iter().any(|s| s.title == title))
+        Ok(self.0.lock().iter().any(|s| s.title == title))
     }
 
     fn insert(&self, song: &Song) -> Result<()> {
-        self.0.lock().unwrap().push(song.clone());
+        self.0.lock().push(song.clone());
         Ok(())
     }
 
     fn get(&self, id: &str) -> Result<Option<Song>> {
-        Ok(self.0.lock().unwrap().iter().find(|s| s.id == id).cloned())
+        Ok(self.0.lock().iter().find(|s| s.id == id).cloned())
     }
 
     fn get_many(&self, ids: &[String]) -> Result<Vec<Song>> {
-        let all = self.0.lock().unwrap();
+        let all = self.0.lock();
         Ok(ids.iter().filter_map(|id| all.iter().find(|s| &s.id == id).cloned()).collect())
     }
 
     fn update(&self, song: &Song) -> Result<()> {
-        let mut all = self.0.lock().unwrap();
+        let mut all = self.0.lock();
         if let Some(s) = all.iter_mut().find(|s| s.id == song.id) {
             *s = song.clone();
         }
@@ -57,7 +55,7 @@ impl SongRepository for MemSongs {
     }
 
     fn delete(&self, id: &str) -> Result<()> {
-        self.0.lock().unwrap().retain(|s| s.id != id);
+        self.0.lock().retain(|s| s.id != id);
         Ok(())
     }
 
@@ -70,7 +68,7 @@ impl SongRepository for MemSongs {
                 .flatten()
                 .any(|f| f.to_lowercase().contains(q)),
         };
-        let mut found: Vec<Song> = self.0.lock().unwrap().iter().filter(|s| hit(s)).cloned().collect();
+        let mut found: Vec<Song> = self.0.lock().iter().filter(|s| hit(s)).cloned().collect();
         match query.sort {
             SongSort::Newest => found.sort_by(|a, b| (&b.created_at, &b.id).cmp(&(&a.created_at, &a.id))),
             SongSort::Title => found.sort_by(|a, b| (a.title.to_lowercase(), &a.id).cmp(&(b.title.to_lowercase(), &b.id))),
@@ -84,16 +82,16 @@ pub struct MemPlaylists(pub Mutex<Vec<Playlist>>);
 
 impl PlaylistRepository for MemPlaylists {
     fn insert(&self, playlist: &Playlist) -> Result<()> {
-        self.0.lock().unwrap().push(playlist.clone());
+        self.0.lock().push(playlist.clone());
         Ok(())
     }
 
     fn get(&self, id: &str) -> Result<Option<Playlist>> {
-        Ok(self.0.lock().unwrap().iter().find(|p| p.id == id).cloned())
+        Ok(self.0.lock().iter().find(|p| p.id == id).cloned())
     }
 
     fn save(&self, playlist: &Playlist) -> Result<()> {
-        let mut all = self.0.lock().unwrap();
+        let mut all = self.0.lock();
         if let Some(p) = all.iter_mut().find(|p| p.id == playlist.id) {
             *p = playlist.clone();
         }
@@ -101,16 +99,16 @@ impl PlaylistRepository for MemPlaylists {
     }
 
     fn delete(&self, id: &str) -> Result<()> {
-        self.0.lock().unwrap().retain(|p| p.id != id);
+        self.0.lock().retain(|p| p.id != id);
         Ok(())
     }
 
     fn list(&self) -> Result<Vec<Playlist>> {
-        Ok(self.0.lock().unwrap().clone())
+        Ok(self.0.lock().clone())
     }
 
     fn containing(&self, song_id: &str) -> Result<Vec<PlaylistRef>> {
-        let all = self.0.lock().unwrap();
+        let all = self.0.lock();
         Ok(all.iter().filter(|p| p.song_ids.iter().any(|s| s == song_id)).map(Playlist::to_ref).collect())
     }
 }
@@ -135,7 +133,7 @@ impl AudioFiles for MemFiles {
     }
 
     fn import(&self, _wav: &Path, song_id: &str) -> Result<Imported> {
-        self.imported.lock().unwrap().push(song_id.to_string());
+        self.imported.lock().push(song_id.to_string());
         Ok(Imported { file: format!("songs/{song_id}.opus"), seconds: 179.5, bytes: 2000 })
     }
 
@@ -143,12 +141,12 @@ impl AudioFiles for MemFiles {
         if self.fail_retag.load(Ordering::SeqCst) {
             bail!("tagging failed");
         }
-        self.retagged.lock().unwrap().push(song.title.clone());
+        self.retagged.lock().push(song.title.clone());
         Ok(())
     }
 
     fn export(&self, song: &Song, format: DownloadFormat) -> Result<Exported> {
-        self.exported.lock().unwrap().push(format!("{} as {}", song.id, format.extension()));
+        self.exported.lock().push(format!("{} as {}", song.id, format.extension()));
         if self.vanished.load(Ordering::SeqCst) {
             return Ok(Exported { path: self.scratch("gone.opus"), temporary: false });
         }
@@ -158,7 +156,7 @@ impl AudioFiles for MemFiles {
     }
 
     fn delete(&self, file: &str) -> Result<()> {
-        self.deleted.lock().unwrap().push(file.to_string());
+        self.deleted.lock().push(file.to_string());
         Ok(())
     }
 }
@@ -205,11 +203,11 @@ pub struct MemNotifier {
 
 impl Notifier for MemNotifier {
     fn job(&self, job: &Job) {
-        self.jobs.lock().unwrap().push(job.clone());
+        self.jobs.lock().push(job.clone());
     }
 
     fn song(&self, song: &Song) {
-        self.songs.lock().unwrap().push(song.clone());
+        self.songs.lock().push(song.clone());
     }
 }
 
@@ -267,7 +265,7 @@ impl FakeEngine {
 
     /// The gaps between this engine's calls of one kind, in milliseconds.
     pub fn gaps_ms(&self, kind: &str) -> Vec<u128> {
-        let at: Vec<_> = self.calls.lock().unwrap().iter().filter(|(k, _)| *k == kind).map(|(_, t)| *t).collect();
+        let at: Vec<_> = self.calls.lock().iter().filter(|(k, _)| *k == kind).map(|(_, t)| *t).collect();
         at.windows(2).map(|w| (w[1] - w[0]).as_millis()).collect()
     }
 }
@@ -275,26 +273,26 @@ impl FakeEngine {
 #[async_trait]
 impl MusicEngine for FakeEngine {
     fn status(&self) -> EngineStatus {
-        self.status.lock().unwrap().clone()
+        self.status.lock().clone()
     }
 
     async fn submit(&self, request: &EngineRequest) -> std::result::Result<String, CallError> {
-        self.calls.lock().unwrap().push(("submit", tokio::time::Instant::now()));
+        self.calls.lock().push(("submit", tokio::time::Instant::now()));
         if self.busy.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok() {
             return Err(CallError::Busy);
         }
-        match *self.outcome.lock().unwrap() {
+        match *self.outcome.lock() {
             Outcome::Rejected => return Err(CallError::Rejected("422: bad request".into())),
             Outcome::Unreachable => return Err(CallError::Unreachable("127.0.0.1:9".into())),
             _ => {}
         }
-        let mut submitted = self.submitted.lock().unwrap();
+        let mut submitted = self.submitted.lock();
         submitted.push(request.clone());
         Ok(format!("remote{}", submitted.len()))
     }
 
     async fn job(&self, id: &str) -> std::result::Result<RemoteJob, CallError> {
-        self.calls.lock().unwrap().push(("poll", tokio::time::Instant::now()));
+        self.calls.lock().push(("poll", tokio::time::Instant::now()));
         if self.poll_failures.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok() {
             return Err(CallError::Transport("no answer in time".into()));
         }
@@ -302,11 +300,11 @@ impl MusicEngine for FakeEngine {
         if self.hold.load(Ordering::SeqCst) {
             return Ok(running);
         }
-        let seed = self.submitted.lock().unwrap().last().map(|r| r.seed);
-        let outcome = *self.outcome.lock().unwrap();
+        let seed = self.submitted.lock().last().map(|r| r.seed);
+        let outcome = *self.outcome.lock();
         match outcome {
             Outcome::Done => {
-                let lyrics = self.lyrics.lock().unwrap().clone();
+                let lyrics = self.lyrics.lock().clone();
                 Ok(RemoteJob { state: "done".into(), progress: 1.0, seconds: Some(179.8), seed, lyrics, ..running })
             }
             Outcome::Failed { retryable } => {
@@ -323,11 +321,11 @@ impl MusicEngine for FakeEngine {
     }
 
     async fn delete(&self, id: &str) {
-        self.deleted.lock().unwrap().push(id.into());
+        self.deleted.lock().push(id.into());
     }
 
     async fn switch_model(&self, model: &str) -> std::result::Result<(), CallError> {
-        self.switched.lock().unwrap().push(model.to_string());
+        self.switched.lock().push(model.to_string());
         Ok(())
     }
 }
@@ -374,35 +372,35 @@ pub struct MemAccount {
 
 impl AccountStore for MemAccount {
     fn account(&self) -> Result<Option<(String, String)>> {
-        Ok(self.account.lock().unwrap().clone())
+        Ok(self.account.lock().clone())
     }
 
     fn set_account(&self, username: &str, hash: &str) -> Result<()> {
-        *self.account.lock().unwrap() = Some((username.into(), hash.into()));
+        *self.account.lock() = Some((username.into(), hash.into()));
         Ok(())
     }
 
     fn create_session(&self, id: &str, expires_at: u64) -> Result<()> {
-        self.sessions.lock().unwrap().push((id.into(), expires_at));
+        self.sessions.lock().push((id.into(), expires_at));
         Ok(())
     }
 
     fn session_valid(&self, id: &str, now: u64) -> Result<bool> {
-        Ok(self.sessions.lock().unwrap().iter().any(|(s, exp)| s == id && *exp > now))
+        Ok(self.sessions.lock().iter().any(|(s, exp)| s == id && *exp > now))
     }
 
     fn delete_session(&self, id: &str) -> Result<()> {
-        self.sessions.lock().unwrap().retain(|(s, _)| s != id);
+        self.sessions.lock().retain(|(s, _)| s != id);
         Ok(())
     }
 
     fn delete_other_sessions(&self, keep: &str) -> Result<()> {
-        self.sessions.lock().unwrap().retain(|(s, _)| s == keep);
+        self.sessions.lock().retain(|(s, _)| s == keep);
         Ok(())
     }
 
     fn delete_expired_sessions(&self, now: u64) -> Result<()> {
-        self.sessions.lock().unwrap().retain(|(_, exp)| *exp > now);
+        self.sessions.lock().retain(|(_, exp)| *exp > now);
         Ok(())
     }
 }
@@ -437,15 +435,15 @@ pub struct FakeLive {
 impl crate::usecases::ports::LiveStreams for FakeLive {
     fn play(&self, p: &crate::domain::Playlist, songs: &[crate::usecases::ports::LiveSong]) {
         let ids: Vec<&str> = songs.iter().map(|s| s.id.as_str()).collect();
-        self.calls.lock().unwrap().push(format!("play {} [{}] {}", p.id, ids.join(","), p.live.visibility.as_str()));
+        self.calls.lock().push(format!("play {} [{}] {}", p.id, ids.join(","), p.live.visibility.as_str()));
     }
 
     fn stop(&self, id: &str) {
-        self.calls.lock().unwrap().push(format!("stop {id}"));
+        self.calls.lock().push(format!("stop {id}"));
     }
 
     fn on_air(&self, id: &str) -> Option<crate::usecases::ports::OnAir> {
-        self.on_air.lock().unwrap().get(id).cloned()
+        self.on_air.lock().get(id).cloned()
     }
 }
 
@@ -457,7 +455,7 @@ pub struct FakeListening {
 
 impl crate::usecases::ports::LiveListening for FakeListening {
     fn listen(&self, id: &str, format: crate::domain::live::StreamFormat) -> Option<crate::usecases::ports::Listen> {
-        self.asked.lock().unwrap().push(format!("{id} {format:?}"));
+        self.asked.lock().push(format!("{id} {format:?}"));
         let (_tx, bytes) = tokio::sync::broadcast::channel(1);
         let (_moved_tx, moved) = tokio::sync::watch::channel(0);
         Some(crate::usecases::ports::Listen { bytes, moved, guard: Box::new(()) })

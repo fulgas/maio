@@ -41,7 +41,7 @@ fn songs_and_playlists_follow_the_rules_over_sqlite() {
 
     playlists.remove_song(&late.id, "a").unwrap();
     songs.delete("a").unwrap();
-    assert_eq!(*files.deleted.lock().unwrap(), ["songs/a.opus"]);
+    assert_eq!(*files.deleted.lock(), ["songs/a.opus"]);
 
     songs.rename("b", "Night Bus").unwrap();
     let found = songs.search(Some("night"), SongSort::Newest, None, None).unwrap();

@@ -43,7 +43,7 @@ jobs:
           key: ${{ matrix.target }}
       - uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2
         with:
-          tool: cargo-leptos@0.3.5
+          tool: cargo-leptos@0.3.5,cargo-cyclonedx@0.5.9
       - name: Build the server and the web app
         run: cargo leptos build --release
       - name: Pack maio, its web app, the example config and the licences
@@ -62,12 +62,15 @@ jobs:
           exec "$here/bin/maio" "$@"
           SH
           chmod +x "$NAME/maio"
+          # A CycloneDX SBOM of what the server binary is built from, in the archive and beside it.
+          cargo cyclonedx --format json --spec-version 1.5 --target "${{ matrix.target }}" --override-filename "$NAME.cdx"
+          cp "$NAME.cdx.json" "$NAME/"
           tar czf "$NAME.tar.gz" "$NAME"
           shasum -a 256 "$NAME.tar.gz" > "$NAME.tar.gz.sha256"
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ env.TAG }}" maio-*.tar.gz maio-*.tar.gz.sha256 --clobber
+        run: gh release upload "${{ env.TAG }}" maio-*.tar.gz maio-*.tar.gz.sha256 maio-*.cdx.json --clobber
 
   image:
     name: Image for ${{ matrix.platform }}

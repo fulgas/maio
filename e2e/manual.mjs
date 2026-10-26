@@ -123,7 +123,7 @@ await guide("overview", async ({ page, step, click, type, look }) => {
   await page.locator("form.make").waitFor();
   await step(1, "full", async () => {
     await type(page.getByLabel("What it sounds like"), "slow piano and rain on the window, a late night");
-    await page.getByLabel("Length").selectOption("30");
+    await page.getByLabel("Length").fill("30");
     await click(page.getByRole("button", { name: "Make the song" }));
     await page.getByRole("heading", { name: "Being made" }).waitFor({ state: "hidden", timeout: 60_000 });
     await click(first(page).locator(".play"));
@@ -142,7 +142,7 @@ await guide("make", async ({ page, step, click, type, look }) => {
   });
   await step(3, make, async () => { await click(page.locator("form.make .chip.toggle")); await look(page.locator("form.make .lyrics")); });
   await step(4, () => [page.locator("form.make"), page.locator("section.making")], async () => {
-    await page.getByLabel("Length").selectOption("30");
+    await page.getByLabel("Length").fill("30");
     await click(page.getByRole("button", { name: "Make the song" }));
     await look(page.locator("section.making .job"));
   });

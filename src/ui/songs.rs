@@ -11,7 +11,7 @@ use crate::{
         events::Changes,
         format,
         icons::{Icon, IconButton, Svg},
-        make::{LANGUAGES, LENGTHS, MakeForm},
+        make::{self, LANGUAGES, MakeForm},
         menu::Dropdown,
         modal::Modal,
         player::Player,
@@ -253,12 +253,16 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
         }
     });
     let (error, ask_noncommercial, busy) = (RwSignal::new(None::<String>), RwSignal::new(false), RwSignal::new(false));
+    let st = move || status.get().and_then(Result::ok);
+    // The slider ends where the ready engines do; a longer length picked before stops there too.
+    let longest = Memo::new(move |_| st().map_or(make::LONGEST, |s| make::longest(&crate::ui::events::engines_now(&s.engines, &c.engines.get()))));
+    let length = move || seconds.get().min(longest.get());
     let form = move || MakeForm {
         prompt: prompt.get_untracked(),
         mood: mood.get_untracked(),
         genre: genre.get_untracked(),
         energy: energy.get_untracked(),
-        seconds: seconds.get_untracked(),
+        seconds: seconds.get_untracked().min(longest.get_untracked()),
         tempo: tempo.get_untracked(),
         seed: seed.get_untracked(),
         vocals: vocals.get_untracked(),
@@ -296,7 +300,6 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
         ev.prevent_default();
         send(false);
     };
-    let st = move || status.get().and_then(Result::ok);
     let ready = expect_context::<crate::ui::frame::EngineReady>().0;
     let moods = move || st().map(|s| s.moods).unwrap_or_default();
     let genres = move || st().map(|s| s.genres).unwrap_or_default();
@@ -322,12 +325,23 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
             <div class="chips" role="group" aria-label="Song settings">
                 <Chip icon=Icon::Mood label="Mood" value=mood options=Signal::derive(move || std::iter::once((String::new(), "Any mood".to_string())).chain(moods().into_iter().map(|m| (m.clone(), m))).collect())/>
                 <Chip icon=Icon::Genre label="Genre" value=genre options=Signal::derive(move || std::iter::once((String::new(), "Any genre".to_string())).chain(genres().into_iter().map(|g| (g.clone(), g))).collect())/>
-                <label class="chip" data-tip="How long the song is"><Svg icon=Icon::Length size=18/>
-                    <select aria-label="Length" prop:value=move || seconds.get().to_string() on:change=move |ev| seconds.set(event_target_value(&ev).parse().unwrap_or(180))>
-                        {LENGTHS.iter().map(|(s, l)| view! { <option value=s.to_string()>{*l}</option> }).collect_view()}
-                    </select>
-                </label>
                 <Chip icon=Icon::Tempo label="Tempo" value=tempo options=Signal::derive(move || crate::ui::make::tempo_options(&tempo.get()))/>
+                // The length is a chip holding a slider. Its value is shown as a time and said in words.
+                <label class="chip length" data-tip="How long the song is"><Svg icon=Icon::Length size=18/>
+                    <input type="range" aria-label="Length" min=make::SHORTEST.to_string() max=move || longest.get().to_string() step=make::STEP.to_string()
+                        prop:value=move || length().to_string()
+                        // How much of the track is filled, for the styled track (the native fill has no colour of its own).
+                        style=move || format!("--fill: {}%", (length() - make::SHORTEST) * 100 / (longest.get() - make::SHORTEST).max(1))
+                        aria-valuetext=move || format::spoken(length())
+                        on:input=move |ev| seconds.set(event_target_value(&ev).parse().unwrap_or(180))
+                        // Page Up and Page Down move a minute; the browser's own move is a tenth of the range.
+                        on:keydown=move |ev| {
+                            let by: i64 = match ev.key().as_str() { "PageUp" => 60, "PageDown" => -60, _ => return };
+                            ev.prevent_default();
+                            seconds.set((i64::from(length()) + by).clamp(make::SHORTEST.into(), longest.get_untracked().into()) as u32);
+                        }/>
+                    <output aria-hidden="true">{move || format::clock(f64::from(length()))}</output>
+                </label>
                 <button type="button" class="chip toggle" aria-pressed=move || vocals.get().to_string() data-tip=move || if vocals.get() { "Sung, with lyrics. Press for an instrumental" } else { "Instrumental. Press to add vocals and lyrics" } on:click=move |_| vocals.update(|v| *v = !*v)>
                     <Svg icon=Icon::Mic size=18/>{move || if vocals.get() { "Vocals" } else { "Instrumental" }}
                 </button>

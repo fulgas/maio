@@ -26,8 +26,11 @@ type Playlists = Signal<Option<Result<Vec<PlaylistSummary>, Failure>>>;
 /// Every playlist: loaded once, then kept as events tell them (ADR 0018).
 pub fn all_playlists(c: Changes) -> Playlists {
     let loaded = LocalResource::new(move || {
-        c.reloaded.track();
-        api::playlists()
+        let listening = c.listening();
+        async move {
+            listening.await;
+            api::playlists().await
+        }
     });
     Signal::derive(move || loaded.get().map(|r| r.map(|all| crate::ui::events::playlists_now(&all, &c.playlists.get()))))
 }
@@ -37,8 +40,11 @@ pub fn SongsPage() -> impl IntoView {
     let c = expect_context::<Changes>();
     let playlists = all_playlists(c);
     let status = LocalResource::new(move || {
-        c.reloaded.track();
-        api::status()
+        let listening = c.listening();
+        async move {
+            listening.await;
+            api::status().await
+        }
     });
     view! {
         <Shelf playlists/>
@@ -434,9 +440,12 @@ fn SongList(playlists: Playlists) -> impl IntoView {
     let toaster = ToasterInjection::expect_context();
     let query = RwSignal::new(String::new());
     let first = LocalResource::new(move || {
-        c.reloaded.track();
+        let listening = c.listening();
         let q = query.get();
-        async move { api::songs(&q, None).await }
+        async move {
+            listening.await;
+            api::songs(&q, None).await
+        }
     });
     let (more, next) = (RwSignal::new(Vec::<SongView>::new()), RwSignal::new(None::<String>));
     // A reconnect reloads the list; it keeps as many rows as were shown. A new search starts over. Songs made,

@@ -31,9 +31,12 @@ pub fn PlaylistPage() -> impl IntoView {
     let toaster = ToasterInjection::expect_context();
     let navigate = use_navigate();
     let view_res = LocalResource::new(move || {
-        c.reloaded.track();
+        let listening = c.listening();
         let id = id.get();
-        async move { api::playlist(&id).await }
+        async move {
+            listening.await;
+            api::playlist(&id).await
+        }
     });
     // The playlist as loaded, then as its events tell it (ADR 0018); deleted elsewhere, it is missing.
     let current = Memo::new(move |_| match c.playlists.with(|m| m.get(&id.get()).cloned()) {

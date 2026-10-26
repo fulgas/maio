@@ -19,9 +19,12 @@ pub fn LiveStrip(playlist: Memo<String>, on_air: RwSignal<Option<(Option<String>
     let c = expect_context::<Changes>();
     let toaster = ToasterInjection::expect_context();
     let state = LocalResource::new(move || {
-        c.reloaded.track();
+        let listening = c.listening();
         let id = playlist.get();
-        async move { api::live(&id).await }
+        async move {
+            listening.await;
+            api::live(&id).await
+        }
     });
     // Loaded once, then as its live events tell it (ADR 0018). A memo, so an event that changes nothing redraws
     // nothing (and keeps keyboard focus where it is).

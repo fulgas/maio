@@ -38,9 +38,10 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
     let account = Account::new(Arc::new(SqliteAccount(db)), Arc::new(Argon2Passwords), ids.clone(), clock.clone(), cfg.api_token.clone());
     account.ensure(admin.0, admin.1)?;
 
-    // What changes on its own is sent by the adapter where it happens (ADR 0018), straight into the queue the
-    // request handlers' changes go through; one task tells them in the order they were sent.
+    // What changes on its own is sent by the adapter where it happens (ADR 0018); request handlers send what they
+    // changed. One task builds and tells every event, one at a time, so the newest state is always told last.
     let (queue, changes) = tokio::sync::mpsc::unbounded_channel::<Change>();
+    let (asked, requests) = tokio::sync::mpsc::unbounded_channel();
     let engines: Vec<Arc<HttpEngine>> = cfg.engine_configs().into_iter().map(|c| Arc::new(HttpEngine::new(c, queue.clone()))).collect();
     for e in &engines {
         tokio::spawn(engine::watch(e.clone()));
@@ -100,8 +101,9 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         metrics,
         stopping: tokio::sync::watch::channel(false).0,
         serve: cfg.serve.clone(),
+        asked,
     });
-    tokio::spawn(push::run(app.clone(), changes));
+    tokio::spawn(push::run(app.clone(), changes, requests));
     // Playlists that were live before a restart go back on air.
     app.playlists.resume()?;
     Ok(app)

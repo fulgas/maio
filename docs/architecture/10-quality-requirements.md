@@ -18,7 +18,7 @@
 | Stream keeps going | MediaMTX stops | Within 5 s of the next look the header says "MediaMTX not answering", with a toast; when it is back Maio republishes and says so. |
 | Up to date and resilient | A song, playlist or live stream changes in another tab or through the API | Every open page shows it at once, with nothing fetched. |
 | Up to date and resilient | A page left open with nothing happening | It makes no requests; only the event stream stays open. |
-| Up to date and resilient | ACE-Step stops | Within 10 s the engine icon turns grey and new songs are refused with `503 engine_unavailable`; within 5 s of it answering again with its models loaded, songs are taken again. |
+| Up to date and resilient | ACE-Step stops, so nothing listens at its address | Within 10 s the engine icon turns grey and new songs are refused with `503 engine_unavailable`; within 5 s of it answering again with its models loaded, songs are taken again. |
 | Up to date and resilient | ACE-Step's queue is full (`429`) | The song waits and tries again after 2, 4, 8, 16, then 30 s, until accepted or cancelled; its lyrics are not written again. |
 | Up to date and resilient | ACE-Step loses a task in a restart | The job fails as lost and is tried once more on another engine when there is one. |
 

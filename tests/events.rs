@@ -85,3 +85,18 @@ async fn going_live_carries_the_live_state_and_the_playlist() {
     assert_eq!(find(&events, "live", &pid)["live"]["live"], true, "the live state, as GET .../live answers");
     assert_eq!(find(&events, "playlist", &pid)["summary"]["live"]["on"], true, "and the playlist's live mark");
 }
+
+#[tokio::test]
+async fn going_live_tells_every_live_playlist_how_many_streams_are_in_use() {
+    let w = world();
+    let mut ids = vec![];
+    for name in ["Air", "Late"] {
+        let (_, _, made) = send(&w, script("POST", "/api/v1/playlists", Some(json!({"name": name})))).await;
+        ids.push(made["id"].as_str().unwrap().to_string());
+    }
+    send(&w, script("PUT", &format!("/api/v1/playlists/{}/live", ids[0]), Some(json!({"live": true})))).await;
+    let mut rx = w.app.events.subscribe();
+    send(&w, script("PUT", &format!("/api/v1/playlists/{}/live", ids[1]), Some(json!({"live": true})))).await;
+    let events = drain(&mut rx);
+    assert_eq!(find(&events, "live", &ids[0])["live"]["live_count"], 2, "the other live strip shows the new count");
+}

@@ -26,6 +26,8 @@ pub struct App {
     /// Listening to live playlists, and MediaMTX.
     pub live: Live,
     pub serve: crate::web::config::Serve,
+    /// Where request handlers send what they changed, to be told as events (`push::send`).
+    pub asked: crate::web::push::Asked,
 }
 
 impl App {

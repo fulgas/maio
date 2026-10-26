@@ -186,6 +186,19 @@ await check("the header's status changes when the server says so, never on a tim
   assert.equal(fetched, 0, "nothing changed, so nothing was fetched");
 });
 
+await check("a page listens for events before it loads anything, so no change falls in between", async () => {
+  const order = [];
+  const onRequest = (r) => order.push(new URL(r.url()).pathname);
+  page.on("request", onRequest);
+  await page.reload();
+  await page.locator(".song").first().waitFor();
+  page.off("request", onRequest);
+  const listening = order.indexOf("/api/v1/events");
+  const loads = order.map((p, i) => [p, i]).filter(([p]) => /^\/api\/v1\/(songs|playlists|status)/.test(p));
+  assert.ok(listening >= 0 && loads.length > 0, order.join(", "));
+  assert.ok(loads.every(([, i]) => i > listening), order.join(", "));
+});
+
 await check("a song's title opens its details, with downloads and Make one like this", async () => {
   await page.getByRole("button", { name: `Details for ${title}` }).first().click();
   const dialog = page.getByRole("dialog");

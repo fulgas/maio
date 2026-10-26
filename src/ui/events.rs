@@ -1,9 +1,11 @@
 //! Changes from `/api/v1/events` (arc42 3.5, ADR 0018). Each event carries the new state of one thing; it goes into
 //! the store under that thing's id, and only the parts of the page that show it change. Nothing is fetched to catch
-//! up, except everything once more after the stream reconnects, since events sent while it was down are lost.
+//! up, except everything once more after the stream reconnects, since events sent while it was down are lost. Loads
+//! wait until the stream is open, so no change falls between a load and the first event.
 
 use std::collections::HashMap;
 
+use futures::{FutureExt, channel::oneshot, future::Shared};
 use leptos::prelude::*;
 use serde::Deserialize;
 use wasm_bindgen::{JsCast, closure::Closure};
@@ -29,6 +31,9 @@ pub struct Changes {
     pub relay: RwSignal<Option<Option<RelayStatus>>>,
     /// Bumped when the stream reconnects: what is on the page is loaded again, and the store starts over.
     pub reloaded: RwSignal<u32>,
+    /// Ready once the stream first opens; every load waits for it (`listening`).
+    opened: StoredValue<Shared<oneshot::Receiver<()>>, LocalStorage>,
+    open: StoredValue<Option<oneshot::Sender<()>>, LocalStorage>,
 }
 
 #[derive(Deserialize)]
@@ -40,6 +45,7 @@ struct SongEvent {
 #[derive(Deserialize)]
 struct PlaylistEvent {
     id: String,
+    deleted: bool,
     summary: Option<PlaylistSummary>,
     view: Option<PlaylistView>,
 }
@@ -61,7 +67,25 @@ struct RelayEvent {
     relay: Option<RelayStatus>,
 }
 
+impl Changes {
+    /// For a load that events then keep current: it runs again after every reconnect, and not before the event stream
+    /// is open, so no change can fall between the load and the first event.
+    pub fn listening(&self) -> impl Future<Output = ()> + use<> {
+        self.reloaded.track();
+        let opened = self.opened.get_value();
+        async move { _ = opened.await }
+    }
+
+    /// The stream is open, or there is none to wait for: loads go ahead.
+    fn opened(&self) {
+        if let Some(open) = self.open.try_update_value(Option::take).flatten() {
+            _ = open.send(());
+        }
+    }
+}
+
 pub fn provide() -> Changes {
+    let (open, opened) = oneshot::channel();
     let c = Changes {
         jobs: RwSignal::new(vec![]),
         songs: RwSignal::new(HashMap::new()),
@@ -70,6 +94,8 @@ pub fn provide() -> Changes {
         engines: RwSignal::new(HashMap::new()),
         relay: RwSignal::new(None),
         reloaded: RwSignal::new(0),
+        opened: StoredValue::new_local(opened.shared()),
+        open: StoredValue::new_local(Some(open)),
     };
     provide_context(c);
     Effect::new(move |_| connect(c)); // effects run only in the browser, once here
@@ -91,6 +117,15 @@ pub fn upsert(jobs: &mut Vec<Job>, job: Job) {
 
 /// The playlists a page loaded, as events have changed them since: renamed or changed ones replaced, deleted ones
 /// gone, new ones added at the end.
+/// What a playlist event leaves in the store: gone when deleted, its new state when the event carries it, and nothing
+/// when it carries neither (the server could not read it), so a failed read never makes a playlist look deleted.
+pub fn playlist_told<S, V>(deleted: bool, summary: Option<S>, view: Option<V>) -> Option<Option<(S, V)>> {
+    if deleted {
+        return Some(None);
+    }
+    summary.zip(view).map(Some)
+}
+
 pub fn playlists_now(loaded: &[PlaylistSummary], told: &HashMap<String, Option<(PlaylistSummary, PlaylistView)>>) -> Vec<PlaylistSummary> {
     let mut all: Vec<PlaylistSummary> = loaded
         .iter()
@@ -134,10 +169,11 @@ pub fn engines_now(loaded: &[EngineStatus], told: &HashMap<String, EngineStatus>
 }
 
 fn connect(c: Changes) {
+    // No stream to wait for: loads go ahead.
     if window().location().pathname().ok().as_deref() == Some("/sign-in") {
-        return;
+        return c.opened();
     }
-    let Ok(source) = web_sys::EventSource::new("/api/v1/events") else { return };
+    let Ok(source) = web_sys::EventSource::new("/api/v1/events") else { return c.opened() };
     let listen = |kind: &str, f: Box<dyn Fn(String)>| {
         let cb = Closure::<dyn Fn(web_sys::MessageEvent)>::new(move |e: web_sys::MessageEvent| f(e.data().as_string().unwrap_or_default()));
         let _ = source.add_event_listener_with_callback(kind, cb.as_ref().unchecked_ref());
@@ -163,7 +199,9 @@ fn connect(c: Changes) {
         "playlist",
         Box::new(move |data| {
             if let Ok(e) = serde_json::from_str::<PlaylistEvent>(&data) {
-                c.playlists.update(|m| drop(m.insert(e.id, e.summary.zip(e.view))));
+                if let Some(state) = playlist_told(e.deleted, e.summary, e.view) {
+                    c.playlists.update(|m| drop(m.insert(e.id, state)));
+                }
             }
         }),
     );
@@ -191,12 +229,15 @@ fn connect(c: Changes) {
             }
         }),
     );
-    // On every reconnect: events sent while the stream was down are lost, so the page loads again from scratch.
+    // Loads wait for the first open; on every reconnect, events sent while the stream was down are lost, so the page
+    // loads again from scratch.
     let first = std::rc::Rc::new(std::cell::Cell::new(true));
     listen(
         "open",
         Box::new(move |_| {
-            if !first.replace(false) {
+            if first.replace(false) {
+                c.opened();
+            } else {
                 c.songs.update(HashMap::clear);
                 c.playlists.update(HashMap::clear);
                 c.live.update(HashMap::clear);
@@ -233,6 +274,14 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn a_playlist_event_without_its_state_leaves_the_playlist_as_it_was() {
+        assert_eq!(playlist_told(true, Some(1), Some(2)), Some(None), "deleted");
+        assert_eq!(playlist_told(false, Some(1), Some(2)), Some(Some((1, 2))), "its new state");
+        assert_eq!(playlist_told::<u8, u8>(false, None, Some(2)), None, "the server could not read it: not deleted");
+    }
+
     use crate::domain::{
         engine::Health,
         job::{Job, JobState},

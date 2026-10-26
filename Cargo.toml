@@ -24,7 +24,7 @@ ssr = [
     "dep:leptos_axum", "leptos/ssr", "leptos_meta/ssr", "leptos_router/ssr", "thaw/ssr",
 ]
 # The browser: the same components, hydrated (built to wasm by cargo-leptos).
-hydrate = ["leptos/hydrate", "thaw/hydrate", "dep:console_error_panic_hook"]
+hydrate = ["leptos/hydrate", "thaw/hydrate", "dep:console_error_panic_hook", "dep:futures"]
 # The fakes in domain::testing and usecases::testing, for the tests in tests/.
 testing = []
 

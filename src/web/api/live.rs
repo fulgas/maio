@@ -30,7 +30,10 @@ pub async fn get(State(app): State<Shared>, _me: Me, Path(id): Path<String>) -> 
 pub async fn set(State(app): State<Shared>, _me: Me, Path(id): Path<String>, Body(change): Body<LiveChange>) -> Result<Json<LiveJson>, ApiError> {
     let pid = id.clone();
     blocking(&app, move |a| a.playlists.set_live(&pid, &change)).await?;
-    push::send(&app, vec![Change::Live(id.clone()), Change::Playlist(id.clone())]).await;
+    // Every live strip shows how many streams are in use, so the other live playlists are told too.
+    let others = blocking(&app, |a| a.playlists.all_raw()).await?.into_iter().filter(|p| p.live.on && p.id != id).map(|p| Change::Live(p.id));
+    let changes = [Change::Live(id.clone()), Change::Playlist(id.clone())].into_iter().chain(others).collect();
+    push::send(&app, changes).await;
     view(&app, id).await
 }
 

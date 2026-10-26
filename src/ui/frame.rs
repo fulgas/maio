@@ -22,8 +22,11 @@ pub fn Frame(children: Children) -> impl IntoView {
     let changes = expect_context::<crate::ui::events::Changes>();
     // Loaded once; engines and MediaMTX then change by their events (ADR 0018).
     let status = LocalResource::new(move || {
-        changes.reloaded.track();
-        api::status()
+        let listening = changes.listening();
+        async move {
+            listening.await;
+            api::status().await
+        }
     });
     let navigate = use_navigate();
     let on_select = move |key: String| match key.as_str() {

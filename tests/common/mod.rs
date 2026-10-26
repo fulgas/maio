@@ -101,6 +101,7 @@ fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -
         },
     );
     let edits = maio::usecases::Edits::default();
+    let (asked, requests) = tokio::sync::mpsc::unbounded_channel();
     let app = Arc::new(App {
         account,
         songs: Songs::new(songs.clone(), playlists.clone(), files.clone(), edits.clone()),
@@ -116,7 +117,9 @@ fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -
         stopping: tokio::sync::watch::channel(false).0,
         live: Live::new(playlists.clone(), stations.clone(), Arc::new(AuthOnlyRelay)),
         serve: maio::web::config::Serve::default(),
+        asked,
     });
+    tokio::spawn(maio::web::push::run(app.clone(), tokio::sync::mpsc::unbounded_channel().1, requests));
     World { router: maio::web::router(app.clone()), app, engine, files, songs, playlists, stations, dir }
 }
 

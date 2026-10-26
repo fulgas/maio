@@ -51,6 +51,7 @@ Maio makes songs with ACE-Step 1.5, keeps them in a library, arranges them into 
 ## Git
 
 - Commit only on a branch, never on `main`. Merging and every push are the user's call.
+- Every change reaches `main` through a pull request: the checks (tests, the browser checks, clippy, the dependency policy, DCO) run on the pull request, and `just test`, clippy and DCO must pass, on a branch up to date with `main`. On `main` itself only the documentation site and the release workflow run, plus a weekly run that keeps the build cache warm.
 - Commits are made as `fulgas <2473927+fulgas@users.noreply.github.com>` and signed with the fulgas key (`33769175F7EF2CCD`); the repository's local git config sets both. Every commit carries the committer's `Signed-off-by:` ([Developer Certificate of Origin](https://developercertificate.org), `git commit -s`); a DCO check refuses pull requests without it.
 - Commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/): `type(scope)!: what changed, for the person using Maio`, with the types and scopes in `docs/project-rules.md`, one logical change per commit, and a `BREAKING CHANGE:` footer for anything that breaks the API, the config or stored data.
 - Every commit is a Conventional Commit; `.githooks/commit-msg` refuses anything else (`git config core.hooksPath .githooks`).

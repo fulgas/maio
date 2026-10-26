@@ -19,32 +19,53 @@ Maio is a personal, self-hosted tool. One person runs it and owns everything in 
 
 - Docker with Compose, for Maio and MediaMTX.
 - ACE-Step 1.5 on a machine with a GPU: CUDA is recommended; Apple silicon, AMD ROCm, Intel XPU and CPU work too. It can be this machine or another; set it up as [ACE-Step's own instructions](https://github.com/ace-step/ACE-Step-1.5#readme) say.
-- [just](https://github.com/casey/just), to run the commands below.
 
 ## Quick start
 
-1. Copy the config and the secrets file:
+Maio runs from its published image, `ghcr.io/fulgas/maio`: nothing to build.
+
+1. Get the four files the stack needs, in a folder of their own:
 
    ```bash
+   mkdir maio && cd maio
+   for f in compose.yaml mediamtx.yml maio.example.toml .env.example; do
+     curl -fsSLO "https://raw.githubusercontent.com/fulgas/maio/main/$f"
+   done
    cp maio.example.toml maio.toml
    cp .env.example .env
    ```
 
-2. In `.env`, set `MAIO_ADMIN_USER` and `MAIO_ADMIN_PASSWORD` (10 to 128 characters). They create the one account on first start.
-3. Start ACE-Step as [Run ACE-Step for Maio](docs/how-to/01-run-ace-step-for-maio.md) says, then run `just` to start Maio and MediaMTX in Docker. To try things without ACE-Step, run `just fake` instead (a fake engine that makes sine tones).
-4. Open http://localhost:8080 and sign in.
+   Or clone this repository; the files are at its root.
+
+2. In `.env`, set `MAIO_ADMIN_USER` and `MAIO_ADMIN_PASSWORD` (10 to 128 characters). They create the one account on first start. Set `MAIO_VERSION` to pin a release, such as `0.1.1`, or `0.1` for its latest fixes; empty runs the latest.
+3. Start ACE-Step as [Run ACE-Step for Maio](docs/how-to/01-run-ace-step-for-maio.md) says.
+4. Start Maio and MediaMTX:
+
+   ```bash
+   docker compose up -d
+   ```
+
+5. Open http://localhost:8080 and sign in.
+
+Songs, playlists and the library live in `./data`. To upgrade, pull the new image and start again; the library is kept:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+To build Maio from this repository instead, see [Development](#development): `just` builds the image from the checkout and starts the same stack.
 
 ## Releases
 
 Each [release](https://github.com/fulgas/maio/releases) comes as the container image `ghcr.io/fulgas/maio` (for `linux/amd64` and `linux/arm64`) and as archives for Linux and for Macs with Apple silicon, each with its SBOM. The image and the archives are signed by the workflows that build them with [Sigstore](https://www.sigstore.dev), with no key to trust but the workflow's identity. To check them with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
 
 ```bash
-cosign verify ghcr.io/fulgas/maio:0.1.0 \
+cosign verify ghcr.io/fulgas/maio:0.1.1 \
   --certificate-identity-regexp '^https://github.com/fulgas/maio/\.github/workflows/image\.yml@refs/(tags/v|heads/main)' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
-cosign verify-blob maio-v0.1.0-x86_64-unknown-linux-gnu.tar.gz \
-  --bundle maio-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sigstore.json \
+cosign verify-blob maio-v0.1.1-x86_64-unknown-linux-gnu.tar.gz \
+  --bundle maio-v0.1.1-x86_64-unknown-linux-gnu.tar.gz.sigstore.json \
   --certificate-identity-regexp '^https://github.com/fulgas/maio/\.github/workflows/binaries\.yml@refs/(tags/v|heads/main)' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
@@ -115,10 +136,12 @@ Every endpoint is in [arc42 3.5](docs/architecture/03-system-scope-and-context.m
 
 ## Development
 
-You need Rust (rustup installs the version in `rust-toolchain.toml`, with the `wasm32-unknown-unknown` target), `cargo-leptos` 0.3.11, `ffmpeg` and `ffprobe`, and Node 20 or later. `just` downloads the pinned [Zola](https://www.getzola.org) for the documentation site.
+You need [just](https://github.com/casey/just), Rust (rustup installs the version in `rust-toolchain.toml`, with the `wasm32-unknown-unknown` target), `cargo-leptos` 0.3.11, `ffmpeg` and `ffprobe`, and Node 20 or later. `just` downloads the pinned [Zola](https://www.getzola.org) for the documentation site.
 
 | Command | Does |
 |---------|------|
+| `just` | Maio and MediaMTX in Docker as in the [Quick start](#quick-start), with Maio built from this checkout (`compose.build.yaml`). |
+| `just fake` | A fake ACE-Step that makes sine tones, to try things without a GPU. |
 | `just dev` | The web app with live reload. |
 | `just test` | Format check, every Rust test, the WebAssembly build and the documentation checks. |
 | `just e2e` | A real browser through every screen, against a fake engine. |

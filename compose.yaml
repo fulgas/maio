@@ -1,7 +1,9 @@
 name: maio
 services:
+  # The published image; MAIO_VERSION in .env pins a release (0.1.1, or 0.1 for its fixes), else the latest.
+  # `just stack` builds it from this checkout instead (compose.build.yaml).
   maio:
-    build: .
+    image: ghcr.io/fulgas/maio:${MAIO_VERSION:-latest}
     ports:
       - "8080:8080"
     volumes:

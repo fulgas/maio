@@ -485,7 +485,7 @@ impl FakeRelay {
 impl crate::usecases::ports::Relay for FakeRelay {
     fn caller(&self, user: &str, password: &str) -> Option<crate::domain::relay::Caller> {
         use crate::domain::relay::Caller;
-        self.on.then(|| match (user, password) {
+        self.on.then_some(match (user, password) {
             ("maio", "secret") => Caller::Maio,
             ("maio", _) => Caller::Impostor,
             _ => Caller::Anyone,

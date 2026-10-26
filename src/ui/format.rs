@@ -126,8 +126,11 @@ pub fn relay_line(r: &RelayStatus) -> (String, bool) {
     }
 }
 
-/// The MediaMTX panel: what it is doing, facts about it, then each live playlist on it (name, facts).
-pub fn relay_card(r: &RelayStatus) -> (String, Vec<String>, Vec<(String, Vec<String>)>) {
+/// A live playlist on the MediaMTX panel: its name, then facts about it.
+pub type RelayStreamCard = (String, Vec<String>);
+
+/// The MediaMTX panel: what it is doing, facts about it, then each live playlist on it.
+pub fn relay_card(r: &RelayStatus) -> (String, Vec<String>, Vec<RelayStreamCard>) {
     let state = match r.state {
         RelayState::Up => "Relaying the live playlists over RTSP, SRT and RTMP.",
         RelayState::Checking => "Checking whether it answers.",

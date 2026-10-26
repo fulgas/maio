@@ -198,10 +198,10 @@ fn connect(c: Changes) {
     listen(
         "playlist",
         Box::new(move |data| {
-            if let Ok(e) = serde_json::from_str::<PlaylistEvent>(&data) {
-                if let Some(state) = playlist_told(e.deleted, e.summary, e.view) {
-                    c.playlists.update(|m| drop(m.insert(e.id, state)));
-                }
+            if let Ok(e) = serde_json::from_str::<PlaylistEvent>(&data)
+                && let Some(state) = playlist_told(e.deleted, e.summary, e.view)
+            {
+                c.playlists.update(|m| drop(m.insert(e.id, state)));
             }
         }),
     );

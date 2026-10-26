@@ -37,6 +37,7 @@ test:
     node --test docs-site/tests/*.test.mjs
 
 # A real browser through every screen: builds the site, runs the fake engine and a throwaway server, runs e2e/smoke.mjs.
+# With SCREENS=1 it also takes the how-to guides' pictures (e2e/manual.mjs).
 e2e:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -50,6 +51,8 @@ e2e:
     for _ in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:8099/sign-in && break; sleep 0.5; done
     cd e2e && npm install --silent && npx playwright install chromium >/dev/null
     E2E_USER=smoke E2E_PASSWORD=smoke-password-1 node smoke.mjs
+    # SCREENS=1: then the pictures for the how-to guides, into docs/images/manual.
+    if [ "${SCREENS:-}" = 1 ]; then E2E_USER=smoke E2E_PASSWORD=smoke-password-1 node manual.mjs; fi
 
 # Zola, pinned, downloaded once into docs-site/.zola: nothing to install by hand.
 zola:

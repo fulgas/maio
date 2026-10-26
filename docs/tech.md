@@ -47,7 +47,7 @@ The layers and their ports: [arc42 5](architecture/05-building-block-view.md).
 | `just logs` | Follows Maio's log. |
 | `just dev` | The web app with live reload (`cargo leptos watch`). |
 | `just test` | Format check, every Rust test, the WebAssembly build, the documentation checks. |
-| `just e2e` | A real browser through every screen against the fake engine. |
+| `just e2e` | A real browser through every screen against the fake engine. With `SCREENS=1` it also records the clips in [Use the web app](how-to/07-use-the-web-app.md) and the tutorial (`e2e/manual.mjs`): commit them when the web app changes how it looks. |
 | `just zola` | Downloads the pinned Zola into `docs-site/.zola`, once. |
 | `just docs` | Builds the documentation website into `docs-site/dist` with Zola. |
 | `just docs-serve` | Serves it at http://localhost:8000. |

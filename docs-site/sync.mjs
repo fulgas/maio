@@ -66,6 +66,8 @@ export async function sync() {
   known.clear(); for (const f of files) known.add(f);
   const version = (await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8')).match(/^version = "([^"]+)"/m)[1];
   await cp(path.join(repositoryRoot, 'public/fonts'), path.join(siteRoot, 'static/fonts'), { recursive: true });
+  // The clips of the web app, recorded by SCREENS=1 just e2e, as the documents reference them.
+  if (existsSync(path.join(docsRoot, 'images'))) await cp(path.join(docsRoot, 'images'), path.join(siteRoot, 'static/images'), { recursive: true });
   await rm(out, { recursive: true, force: true });
   for (const [dir, title, sort] of [['', 'maio', 'weight'], ['explore', 'Explore', 'weight'], ['tutorials', 'Tutorials', 'weight'], ['how-to', 'How-to guides', 'weight'], ['architecture', 'Architecture', 'weight'], ['adr', 'Decision records', 'weight']]) {
     await mkdir(path.join(out, dir), { recursive: true });
@@ -91,6 +93,8 @@ export async function sync() {
         // The preview's link opens the explorer.
       if (lang === 'c4') result.push(block(renderC4Preview(text.trim()).replaceAll('href="#view/', 'href="/explore/#view/')));
         else if (lang === 'tree') result.push(block(renderTree(text)));
+        // A figure in docs-site/static/figures, framed in the page; the text around it says the same in words.
+        else if (lang === 'figure') { const [name, ...title] = text.trim().split(/\s+/); result.push(block(`<iframe class="figure" src="${'../'.repeat(idOf(source).split('/').length)}figures/${escape(name)}.html" title="${escape(title.join(' '))}" loading="lazy"></iframe>`)); }
         else if (lang === 'yaml' && designTokens) result.push(block(renderDesignTokens(text, designTokens)));
         else result.push(...lines.slice(start, i + 1));
         continue;
@@ -109,6 +113,14 @@ export async function sync() {
       line = line.replace(/!\[([^\]]*)\]\(([^)\s]+\.svg)\)/g, (all, alt, href) => {
         const file = path.join(docsRoot, path.dirname(source), href);
         return existsSync(file) ? `<img src="data:image/svg+xml,${encodeURIComponent(readFileSync(file, 'utf8').trim())}" alt="${escape(alt)}">` : all;
+      });
+      // A clip of the web app: an animated PNG with a still of its last frame beside it (name-still.png), shown instead
+      // to anyone who asked for less motion. GitHub shows the animation as it is.
+      line = line.replace(/!\[([^\]]*)\]\(([^)\s]+)\.png\)/g, (all, alt, href) => {
+        const local = path.normalize(path.join(path.dirname(source), href));
+        if (local.startsWith('..') || !existsSync(path.join(docsRoot, `${local}-still.png`))) return all;
+        const up = '../'.repeat(idOf(source).split('/').length), png = readFileSync(path.join(docsRoot, `${local}.png`));
+        return `<picture><source srcset="${up}${local}-still.png" media="(prefers-reduced-motion: reduce)"><img class="clip" src="${up}${local}.png" width="${png.readUInt32BE(16)}" height="${png.readUInt32BE(20)}" alt="${escape(alt)}" loading="lazy"></picture>`;
       });
       // Bare addresses become links, as GitHub and our renderer make them; Zola links only <…> ones. Code spans are left alone.
       line = line.split('`').map((part, i) => i % 2 ? part : part.replace(/(^|\s)(https?:\/\/[^\s<>()]*[^\s<>().,;:!?])/g, '$1<$2>')).join('`');

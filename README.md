@@ -130,6 +130,7 @@ The full list, the stack and the code layout are in [Tech](docs/tech.md).
 
 - [Your first song, on air](docs/tutorials/01-your-first-song-on-air.md): a tutorial, start to finish.
 - How-to guides: [run ACE-Step for Maio](docs/how-to/01-run-ace-step-for-maio.md), [add a text engine](docs/how-to/02-add-a-text-engine.md), [go live and share a stream](docs/how-to/03-go-live-and-share-a-stream.md), [serve Maio over HTTPS](docs/how-to/04-serve-maio-over-https.md), [back up the library](docs/how-to/05-back-up-the-library.md), [make a themed playlist with the API](docs/how-to/06-make-a-themed-playlist-with-the-api.md).
+- [Use the web app](docs/how-to/07-use-the-web-app.md): every task in the browser, each step shown as a short clip.
 - [Reference](docs/reference.md): where to look up the API, the settings and the words used.
 - [Product](docs/product.md), [Design](DESIGN.md) and [Tech](docs/tech.md): what Maio is, how it looks, how it is built, each on one page.
 - [Architecture](docs/architecture/01-introduction-and-goals.md): twelve arc42 sections, the authority for what Maio does and how it is built.

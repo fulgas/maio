@@ -17,7 +17,7 @@ Follow [Development](README.md#development) in the README, and turn on the commi
 1. Branch from `main`.
 2. Write a test that fails for the right reason, then the code that makes it pass. A fix to the web app gets an end-to-end check.
 3. Keep `just test` and `just e2e` green.
-4. Write commit messages in [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) form, one logical change per commit: `fix(player): Pause while listening live turns to Play`.
+4. Write commit messages in [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) form, one logical change per commit: `fix(player): Pause while listening live turns to Play`. Sign each one off with `git commit -s`, which certifies the [Developer Certificate of Origin](https://developercertificate.org).
 5. Open a pull request that says what changed for the person using Maio, and why.
 
 The full rules (principles, the layers, scopes for commit messages, secrets and accessibility) are in [Project rules](docs/project-rules.md).

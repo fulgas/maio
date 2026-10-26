@@ -51,11 +51,11 @@ Maio makes songs with ACE-Step 1.5, keeps them in a library, arranges them into 
 ## Git
 
 - Commit only on a branch, never on `main`. Merging and every push are the user's call.
-- Commits are made as `fulgas <2473927+fulgas@users.noreply.github.com>` and signed with the fulgas key (`33769175F7EF2CCD`); the repository's local git config sets both.
+- Commits are made as `fulgas <2473927+fulgas@users.noreply.github.com>` and signed with the fulgas key (`33769175F7EF2CCD`); the repository's local git config sets both. Every commit carries the committer's `Signed-off-by:` ([Developer Certificate of Origin](https://developercertificate.org), `git commit -s`); a DCO check refuses pull requests without it.
 - Commit messages follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/): `type(scope)!: what changed, for the person using Maio`, with the types and scopes in `docs/project-rules.md`, one logical change per commit, and a `BREAKING CHANGE:` footer for anything that breaks the API, the config or stored data.
 - Every commit is a Conventional Commit; `.githooks/commit-msg` refuses anything else (`git config core.hooksPath .githooks`).
 - Releases follow Semantic Versioning, the number worked out from the commits since the last release, as `docs/project-rules.md` sets out; a release comes through release-plz's release pull request, and merging it tags `vX.Y.Z` on `main` matching `Cargo.toml`.
-- An assistant is credited the way the Linux kernel does it ([AI Coding Assistants](https://docs.kernel.org/process/coding-assistants.html)): an `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]` trailer, such as `Assisted-by: Claude:claude-opus-5-5`, listing only specialised analysis tools, never git, compilers or editors. An assistant is never a co-author and never signs; the person who commits reviews the change and answers for it. No session or conversation links.
+- An assistant is credited the way the Linux kernel does it ([AI Coding Assistants](https://docs.kernel.org/process/coding-assistants.html)): an `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]` trailer, such as `Assisted-by: Claude:claude-opus-5-5`, listing only specialised analysis tools, never git, compilers or editors. An assistant is never a co-author and never signs; the `Signed-off-by:` is the person who commits, who reviews the change and answers for it. No session or conversation links.
 
 ## Secrets
 

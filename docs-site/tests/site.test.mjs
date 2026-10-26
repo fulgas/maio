@@ -341,3 +341,10 @@ test('every page with the theme button can change the theme', async () => {
     assert.ok(handled, `${name}: nothing handles the theme button`);
   }
 });
+
+test('every page links to the repository on GitHub, by an icon with a name', async () => {
+  for (const file of ['index.html', 'explore/index.html', 'architecture/05-building-block-view/index.html']) {
+    const html = await readFile(path.join(result.outputRoot, file), 'utf8');
+    assert.match(html, /<a class="icon-button" href="https:\/\/github\.com\/fulgas\/maio" aria-label="Maio on GitHub"[^>]*><svg[^>]*aria-hidden="true"/, file);
+  }
+});

@@ -1,0 +1,37 @@
+name: E2E
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  e2e:
+    name: just e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          cache-on-failure: true
+      - uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2
+        with:
+          tool: just,cargo-leptos@0.3.5
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      - name: Install Chromium's system libraries
+        working-directory: e2e
+        run: npm install --silent && npx playwright install-deps chromium
+      - name: A real browser through every screen, against a fake ACE-Step
+        run: just e2e

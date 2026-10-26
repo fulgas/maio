@@ -1,0 +1,44 @@
+name: Dependency Policy
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**/Cargo.toml'
+  pull_request:
+    paths:
+      - '**/Cargo.toml'
+  schedule:
+    - cron: '0 2 * * *'
+
+permissions:
+  checks: write
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  cargo-deny:
+    name: Cargo Deny Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+
+      - name: Run cargo deny (all checks)
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
+        with:
+          command: check
+          arguments: --all-features
+
+      - name: Run license compliance check
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2
+        with:
+          command: check licenses
+          arguments: --all-features

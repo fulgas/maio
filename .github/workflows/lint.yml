@@ -1,0 +1,31 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          cache-on-failure: true
+      - name: The server
+        run: cargo clippy --all-targets -- -D warnings
+      - name: The web app, as the browser runs it
+        run: cargo clippy --lib --target wasm32-unknown-unknown --no-default-features --features hydrate -- -D warnings

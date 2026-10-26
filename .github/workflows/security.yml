@@ -1,0 +1,45 @@
+name: Security
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_AUDIT_VERSION: "0.22.0"
+
+jobs:
+  cargo-audit:
+    name: Cargo Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+
+      - name: Cache cargo-audit binary
+        id: cache-audit
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: ${{ runner.os }}-cargo-audit-${{ env.CARGO_AUDIT_VERSION }}
+
+      - name: Install cargo-audit
+        if: steps.cache-audit.outputs.cache-hit != 'true'
+        run: cargo install cargo-audit --locked --version $CARGO_AUDIT_VERSION
+
+      - name: Run cargo audit
+        id: audit
+        run: |
+          cargo audit
+

@@ -1,0 +1,53 @@
+name: Bug report
+description: Something in Maio does not work as the documentation says
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release tag, or the commit you built.
+      placeholder: e.g. v0.1.0 or a commit hash
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Make a song with '...'
+        2. Add it to a playlist and go live
+        3. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Where it runs
+      value: |
+        - Maio: Docker Compose or built from source
+        - Browser:
+        - ACE-Step: version, and the machine it runs on
+        - MediaMTX: version, if live streams are involved
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: Maio's log around the problem (`just logs`). Logs never carry passwords or tokens, but check before pasting.
+      render: shell
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched the existing issues first
+          required: true

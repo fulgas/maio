@@ -1,0 +1,44 @@
+name: Docs site
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2
+        with:
+          tool: just
+      - name: Build the site for https://fulgas.github.io/maio/
+        run: |
+          just zola
+          node docs-site/sync.mjs
+          docs-site/.zola/zola --root docs-site build --base-url https://fulgas.github.io/maio/
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: docs-site/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest something Maio could do
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The moment you wished Maio did this, and what you do today instead.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Other ways you thought of
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched the existing issues and the documentation first
+          required: true

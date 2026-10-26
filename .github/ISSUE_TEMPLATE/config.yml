@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://fulgas.github.io/maio/
+    about: How Maio works, how to run it, and how to use the API
+  - name: ❓ Ask a question
+    url: https://github.com/fulgas/maio/discussions/categories/q-a
+    about: Ask questions and get help
+  - name: 💬 Discussions
+    url: https://github.com/fulgas/maio/discussions
+    about: Share ideas or show what you made
+  - name: 🔒 Security vulnerability
+    url: https://github.com/fulgas/maio/security/advisories/new
+    about: Report a vulnerability privately, as SECURITY.md says

@@ -15,6 +15,11 @@ use crate::{
     },
 };
 
+/// Whether a song can be made now, as the header's engine line says (arc42 8.8); true until the engines are known.
+/// Make and "Make one like this" are off while it is false.
+#[derive(Clone, Copy)]
+pub struct EngineReady(pub Signal<bool>);
+
 #[component]
 pub fn Frame(children: Children) -> impl IntoView {
     let t = expect_context::<Themes>();
@@ -41,6 +46,7 @@ pub fn Frame(children: Children) -> impl IntoView {
     let engines =
         move || status.get().and_then(Result::ok).map(|s| crate::ui::events::engines_now(&s.engines, &changes.engines.get())).unwrap_or_default();
     let engine = move || status.get().and_then(Result::ok).map(|_| format::engine_line(&engines()));
+    provide_context(EngineReady(Signal::derive(move || engine().is_none_or(|e| e.1))));
     let relay = move || changes.relay.get().unwrap_or_else(|| status.get().and_then(Result::ok).and_then(|s| s.relay));
     // A toast when MediaMTX goes wrong or comes back; nothing on the first look or while it is still being checked.
     let was_ok = StoredValue::new(None::<bool>);

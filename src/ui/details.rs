@@ -49,6 +49,7 @@ pub fn SongDetails(open: RwSignal<bool>, song: RwSignal<Option<Song>>) -> impl I
     let draft = expect_context::<Draft>();
     let navigate = use_navigate();
     let path = use_location().pathname;
+    let ready = expect_context::<crate::ui::frame::EngineReady>().0;
     let like_this = move || {
         let Some(s) = song.get_untracked() else { return };
         draft.0.set(Some(MakeForm::from_song(&s)));
@@ -73,7 +74,10 @@ pub fn SongDetails(open: RwSignal<bool>, song: RwSignal<Option<Song>>) -> impl I
                     })}
             <div class="modal-actions">
                 <Button on_click=move |_| open.set(false)>"Close"</Button>
-                <Button appearance=ButtonAppearance::Primary on_click=move |_| like_this()>"Make one like this"</Button>
+                // Off like Make while no engine is ready, with the reason in its caption and name.
+                <Button appearance=ButtonAppearance::Primary disabled=Signal::derive(move || !ready.get()) on_click=move |_| like_this()
+                    attr:aria-label=move || (!ready.get()).then_some("Make one like this: no music engine is ready")
+                    attr:data-tip=move || (!ready.get()).then_some("No music engine is ready")>"Make one like this"</Button>
             </div>
         </Modal>
     }

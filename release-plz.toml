@@ -1,0 +1,28 @@
+# Releases come through a pull request (docs/project-rules.md): release-plz keeps one open with the next version and
+# its changelog; merging it tags vX.Y.Z and makes the GitHub Release, and the binaries are attached to it.
+[workspace]
+publish = false # an app, not a library on crates.io
+semver_check = false # no public Rust API to check
+release_always = false # release only when the release pull request is merged
+features_always_increment_minor = true # feat bumps the minor version, also while Maio is 0.x
+# Only what changes Maio for the person using it makes a release; docs, tests, refactors and upkeep wait for one.
+release_commits = "^(feat|fix|perf|revert)(\\(.+\\))?!?:|^\\w+(\\(.+\\))?!:|BREAKING CHANGE:"
+git_tag_name = "v{{ version }}"
+pr_name = "chore(release): v{{ version }}"
+pr_labels = ["release"]
+
+[changelog]
+header = """# Changelog
+
+Every release of Maio, made from its Conventional Commits (see docs/project-rules.md).
+"""
+protect_breaking_commits = true
+sort_commits = "oldest"
+commit_parsers = [
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Fixes" },
+    { message = "^perf", group = "Performance" },
+    { message = "^revert", group = "Reverts" },
+    { message = ".*", skip = true },
+]
+link_parsers = [{ pattern = "#(\\d+)", href = "https://github.com/fulgas/maio/issues/$1" }]

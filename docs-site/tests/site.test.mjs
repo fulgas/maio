@@ -372,7 +372,7 @@ test('the site\'s own labels are sentence case at a readable size: no tracked ca
   const explorer = await readFile(path.join(result.outputRoot, 'explore/index.html'), 'utf8');
   assert.ok(!/<button data-view="\w+">\d/.test(explorer), 'the C4 tabs are named, not numbered');
   assert.match(explorer, /<button id="fullscreen"[^>]*><svg[^>]*aria-hidden="true"/, 'the fullscreen button draws its icon');
-  assert.match(css, /\.compass\{[^}]*align-items:start/, 'a short corner keeps its own height');
+  assert.match(css, /\.compass\{[^}]*grid-template-columns:1fr 1fr;grid-auto-rows:1fr/, 'the four corners are the same size: a map whose axes cross in the middle');
 });
 
 test('a change to the documentation site never makes a release, nor a line in the changelog', async () => {

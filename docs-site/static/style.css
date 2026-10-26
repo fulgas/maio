@@ -143,7 +143,7 @@ h1{font-weight:700}.prose h1{font-weight:800;font-size:30px}.prose h2{font-weigh
 
 /* The compass (Diátaxis): four kinds of documentation on two axes, each corner listing its pages. */
 #compass-page{max-width:1200px;margin:0 auto;padding:48px 40px 64px}
-.compass{position:relative;display:grid;align-items:start;grid-template-columns:1fr 1fr;gap:56px 64px;margin:56px 0 40px;padding:44px 56px}
+.compass{position:relative;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:56px 64px;margin:56px 0 40px;padding:44px 56px}
 .compass::before,.compass::after{content:"";position:absolute;background:var(--line)}
 .compass::before{left:50%;top:0;bottom:0;width:1px}
 .compass::after{top:50%;left:0;right:0;height:1px}

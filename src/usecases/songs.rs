@@ -2,8 +2,6 @@
 
 use std::sync::Arc;
 
-use parking_lot::Mutex;
-
 use std::path::PathBuf;
 
 use crate::domain::{DownloadFormat, Error as Rule, PlaylistRef, Song, download_name, song_deletable};
@@ -46,13 +44,14 @@ pub struct Songs {
     repo: Arc<dyn SongRepository>,
     playlists: Arc<dyn PlaylistRepository>,
     files: Arc<dyn AudioFiles>,
-    /// Rename and delete one at a time, so a rename never resurrects a deleted song.
-    edits: Mutex<()>,
+    /// Rename and delete one at a time, so a rename never resurrects a deleted song, and never while a playlist edit
+    /// is under way, so a song is never deleted while it is being added.
+    edits: super::Edits,
 }
 
 impl Songs {
-    pub fn new(repo: Arc<dyn SongRepository>, playlists: Arc<dyn PlaylistRepository>, files: Arc<dyn AudioFiles>) -> Self {
-        Self { repo, playlists, files, edits: Mutex::new(()) }
+    pub fn new(repo: Arc<dyn SongRepository>, playlists: Arc<dyn PlaylistRepository>, files: Arc<dyn AudioFiles>, edits: super::Edits) -> Self {
+        Self { repo, playlists, files, edits }
     }
 
     pub fn download(&self, id: &str, format: &str) -> Result<Download> {
@@ -150,7 +149,7 @@ mod tests {
             repo.0.lock().push(s);
         }
         let (playlists, files) = (Arc::new(MemPlaylists::default()), Arc::new(MemFiles::default()));
-        World { songs: Songs::new(repo.clone(), playlists.clone(), files.clone()), repo, playlists, files }
+        World { songs: Songs::new(repo.clone(), playlists.clone(), files.clone(), Default::default()), repo, playlists, files }
     }
 
     fn holding(id: &str, name: &str, songs: &[&str]) -> Playlist {

@@ -83,11 +83,13 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         },
         queue,
     );
+    // Song and playlist edits share one lock: a song is never deleted while it is being added to a playlist.
+    let edits = crate::usecases::Edits::default();
     let app = Arc::new(App {
         account,
-        songs: Songs::new(songs.clone(), playlists.clone(), files),
+        songs: Songs::new(songs.clone(), playlists.clone(), files, edits.clone()),
         live: Live::new(playlists.clone(), stations.clone(), stations.clone()),
-        playlists: Playlists::new(playlists, songs, ids.clone(), clock, stations.clone(), cfg.max_live),
+        playlists: Playlists::new(playlists, songs, ids.clone(), clock, stations.clone(), cfg.max_live, edits),
         making,
         events,
         moods: cfg.moods.clone(),

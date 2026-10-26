@@ -100,10 +100,11 @@ fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -
             stall: Duration::from_secs(10),
         },
     );
+    let edits = maio::usecases::Edits::default();
     let app = Arc::new(App {
         account,
-        songs: Songs::new(songs.clone(), playlists.clone(), files.clone()),
-        playlists: Playlists::new(playlists.clone(), songs.clone(), ids, clock, stations.clone(), 2),
+        songs: Songs::new(songs.clone(), playlists.clone(), files.clone(), edits.clone()),
+        playlists: Playlists::new(playlists.clone(), songs.clone(), ids, clock, stations.clone(), 2, edits),
         making,
         events,
         moods: vec!["calm".into()],

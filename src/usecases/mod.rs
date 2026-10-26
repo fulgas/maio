@@ -16,3 +16,7 @@ pub use live::Live;
 pub use making::{Accepted, MakeSettings, Making, MakingPorts, TextStatus};
 pub use playlists::{LiveView, PlaylistSummary, PlaylistView, Playlists};
 pub use songs::{DEFAULT_LIMIT, MAX_LIMIT, SongPage, SongView, Songs};
+
+/// The one lock song and playlist edits share: each reads, checks and saves across both, so a song is never deleted
+/// while it is being added to a playlist.
+pub type Edits = std::sync::Arc<parking_lot::Mutex<()>>;

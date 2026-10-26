@@ -2,8 +2,6 @@
 
 use std::sync::Arc;
 
-use parking_lot::Mutex;
-
 use crate::domain::{Error as Rule, Live, LiveChange, Playlist, Song, live};
 use serde::Serialize;
 
@@ -46,8 +44,8 @@ pub struct Playlists {
     clock: Arc<dyn Clock>,
     live: Arc<dyn LiveStreams>,
     max_live: usize,
-    /// Edits read, change and save a playlist; one at a time, so none is lost.
-    edits: Mutex<()>,
+    /// Edits read, change and save a playlist; one at a time, so none is lost, and never while a song is deleted.
+    edits: super::Edits,
 }
 
 impl Playlists {
@@ -58,8 +56,9 @@ impl Playlists {
         clock: Arc<dyn Clock>,
         live: Arc<dyn LiveStreams>,
         max_live: usize,
+        edits: super::Edits,
     ) -> Self {
-        Self { repo, songs, ids, clock, live, max_live, edits: Mutex::new(()) }
+        Self { repo, songs, ids, clock, live, max_live, edits }
     }
 
     // ponytail: one song lookup per playlist; fine for a personal library, a joined query if lists get slow.
@@ -100,11 +99,12 @@ impl Playlists {
 
     /// Adds songs that exist; one unknown id refuses the whole request.
     pub fn add_songs(&self, id: &str, song_ids: &[String], position: Option<usize>) -> Result<Playlist> {
+        let _one_at_a_time = self.lock(); // checked and saved under one lock, so no song is deleted in between
         let known = self.songs.get_many(song_ids)?;
         if song_ids.iter().any(|s| !known.iter().any(|k| &k.id == s)) {
             return Err(Rule::NotFound("song").into());
         }
-        self.edit(id, |p| {
+        self.edit_held(id, |p| {
             p.add(song_ids, position);
             Ok(())
         })
@@ -188,6 +188,11 @@ impl Playlists {
 
     fn edit(&self, id: &str, change: impl FnOnce(&mut Playlist) -> std::result::Result<(), Rule>) -> Result<Playlist> {
         let _one_at_a_time = self.lock();
+        self.edit_held(id, change)
+    }
+
+    /// `edit`, for a caller that already holds the lock.
+    fn edit_held(&self, id: &str, change: impl FnOnce(&mut Playlist) -> std::result::Result<(), Rule>) -> Result<Playlist> {
         let mut playlist = self.find(id)?;
         change(&mut playlist)?;
         self.repo.save(&playlist)?;
@@ -219,8 +224,15 @@ mod tests {
         }
         let repo = Arc::new(MemPlaylists::default());
         let live = Arc::new(FakeLive::default());
-        let playlists =
-            Playlists::new(repo.clone(), songs.clone(), Arc::new(SeqIds::default()), Arc::new(FixedClock("2026-10-16T12:00:00Z")), live.clone(), 2);
+        let playlists = Playlists::new(
+            repo.clone(),
+            songs.clone(),
+            Arc::new(SeqIds::default()),
+            Arc::new(FixedClock("2026-10-16T12:00:00Z")),
+            live.clone(),
+            2,
+            Default::default(),
+        );
         World { playlists, songs, repo, live }
     }
 

@@ -68,7 +68,7 @@ async function guide(name, fn) {
     aimed = [];
     const before = await boxesOf(areas);
     await body();
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(1500); // the recording's clock runs a little behind: let the result show for a while
     const boxes = [...before, ...(await boxesOf(areas))].filter(Boolean);
     steps.push({ n, start, end: (Date.now() - t0) / 1000, boxes, aimed });
   };
@@ -81,9 +81,11 @@ async function guide(name, fn) {
     await page.waitForTimeout(250);
   };
   const click = async (locator) => { await aim(locator); await locator.click(); };
+  // What a step changes, kept in its clip, though the pointer never goes there: the lyrics box that opens, the job.
+  const look = async (locator) => { await locator.first().waitFor(); aimed.push(await locator.first().boundingBox()); };
   const type = async (locator, text) => { await click(locator); await locator.fill(""); await locator.pressSequentially(text, { delay: 45 }); };
   await page.mouse.move(VIEW.width / 2, VIEW.height / 2);
-  await fn({ page, step, aim, click, type });
+  await fn({ page, step, aim, click, type, look });
   await page.waitForTimeout(800); // so the recording runs past the last step's last frame
   const video = page.video();
   await context.close();
@@ -103,7 +105,8 @@ async function guide(name, fn) {
     // Seek after decoding: Playwright's WebM has few keyframes, and a seek before the input shows grey until the next one.
     // A palette of the clip's own 256 colours keeps a flat interface sharp at about a fifth of the size of full colour.
     ffmpeg("-i", file, "-ss", String(Math.max(0, start - 0.1)), "-to", String(end), "-filter_complex", `${crop},fps=8,${scale},tpad=stop_mode=clone:stop_duration=1.5,${PALETTE}`, "-plays", "0", "-f", "apng", `${clip}.png`);
-    ffmpeg("-i", file, "-ss", String(Math.max(0, end - 0.05)), "-frames:v", "1", "-vf", `${crop},${scale}`, "-update", "1", `${clip}-still.png`);
+    // The still is the clip's own last frame, so it always shows what the clip ends on.
+    ffmpeg("-i", `${clip}.png`, "-vf", "reverse", "-frames:v", "1", "-update", "1", `${clip}-still.png`);
     console.log(`  ${name}-${n}: ${(end - start).toFixed(1)} s, ${Math.round(w)}×${Math.round(h)}`);
   }
 }
@@ -111,7 +114,7 @@ async function guide(name, fn) {
 const songs = (page) => page.locator(".song");
 const first = (page) => songs(page).first();
 
-await guide("make", async ({ page, step, click, type }) => {
+await guide("make", async ({ page, step, click, type, look }) => {
   await page.goto(base + "/");
   const make = () => [page.locator("form.make")];
   await step(1, make, () => type(page.getByLabel("What it sounds like"), "warm pads, slow, rain on the window"));
@@ -120,34 +123,35 @@ await guide("make", async ({ page, step, click, type }) => {
     await page.getByLabel("Mood").selectOption("calm");
     await page.keyboard.press("Escape");
   });
-  await step(3, make, () => click(page.locator("form.make .chip.toggle")));
+  await step(3, make, async () => { await click(page.locator("form.make .chip.toggle")); await look(page.locator("form.make .lyrics")); });
   await step(4, () => [page.locator("form.make"), page.locator("section.making")], async () => {
     await page.getByLabel("Length").selectOption("30");
     await click(page.getByRole("button", { name: "Make the song" }));
-    await page.locator("section.making .job").first().waitFor();
+    await look(page.locator("section.making .job"));
   });
   await step(5, () => [page.locator("section.making"), first(page)], async () => {
     await page.getByRole("heading", { name: "Being made" }).waitFor({ state: "hidden", timeout: 60_000 });
+    await look(first(page));
   });
 });
 
-await guide("again", async ({ page, step, click }) => {
+await guide("again", async ({ page, step, click, look }) => {
   await page.goto(base + "/");
   await first(page).waitFor();
-  await step(1, () => [first(page), page.getByRole("dialog")], () => click(first(page).locator(".song-title")));
-  await step(2, () => [page.locator("form.make")], () => click(page.getByRole("dialog").getByRole("button", { name: "Make one like this" })));
+  await step(1, () => [first(page), page.getByRole("dialog")], async () => { await click(first(page).locator(".song-title")); await look(page.getByRole("dialog")); });
+  await step(2, () => [page.locator("form.make")], async () => { await click(page.getByRole("dialog").getByRole("button", { name: "Make one like this" })); await look(page.locator("form.make .chip.seed")); });
   await step(3, () => [page.locator("form.make"), page.locator("section.making")], async () => {
     await click(page.getByRole("button", { name: "Make the song" }));
-    await page.locator("section.making .job").first().waitFor();
+    await look(page.locator("section.making .job"));
   });
 });
 
-await guide("play", async ({ page, step, aim, click, type }) => {
+await guide("play", async ({ page, step, aim, click, type, look }) => {
   await page.goto(base + "/");
   await first(page).waitFor();
-  await step(1, () => [page.locator(".list-head"), page.locator(".songs")], () => type(page.getByLabel("Search songs"), "rain"));
+  await step(1, () => [page.locator(".list-head"), page.locator(".songs")], async () => { await type(page.getByLabel("Search songs"), "rain"); await look(first(page)); });
   await page.getByLabel("Search songs").fill("");
-  await step(2, () => [first(page), page.locator(".player")], () => click(first(page).locator(".play")));
+  await step(2, () => [first(page), page.locator(".player")], async () => { await click(first(page).locator(".play")); await look(page.locator(".player")); });
   await step(3, () => [page.locator(".player")], async () => {
     await click(page.getByRole("button", { name: /^Repeat/ }));
     await click(page.locator(".player").getByRole("button", { name: /^Pause|^Play$/ }));
@@ -156,10 +160,11 @@ await guide("play", async ({ page, step, aim, click, type }) => {
     await click(first(page).locator(".song-title"));
     await page.waitForTimeout(400);
     await aim(page.getByRole("dialog").getByRole("button", { name: "Download as MP3" }).or(page.getByRole("dialog").getByRole("link", { name: "Download as MP3" })).first());
+    await look(page.getByRole("dialog").locator(".downloads"));
   });
 });
 
-await guide("rename", async ({ page, step, click, type }) => {
+await guide("rename", async ({ page, step, click, type, look }) => {
   await page.goto(base + "/");
   await first(page).waitFor();
   const title = (await first(page).locator(".song-title").textContent()).trim();
@@ -168,10 +173,11 @@ await guide("rename", async ({ page, step, click, type }) => {
     await click(page.locator(".dropdown-list:visible").getByRole("button", { name: /Rename/ }).first());
     await type(page.getByRole("dialog").getByLabel("Title"), "Rain on the window");
     await click(page.getByRole("dialog").getByRole("button", { name: "Rename" }));
+    await look(first(page));
   });
 });
 
-await guide("playlist", async ({ page, step, click, type }) => {
+await guide("playlist", async ({ page, step, click, type, look }) => {
   await page.goto(base + "/");
   await first(page).waitFor();
   await step(1, "page", async () => {
@@ -186,6 +192,7 @@ await guide("playlist", async ({ page, step, click, type }) => {
   const title = (await first(page).locator(".song-title").textContent()).trim();
   await step(2, () => [first(page), page.locator(".dropdown-list:visible")], async () => {
     await click(first(page).getByRole("button", { name: `Add ${title} to a playlist` }));
+    await look(page.locator(".dropdown-list:visible"));
     await click(page.locator(".dropdown-list:visible").getByRole("button", { name: "Rainy evening" }));
   });
   await page.goto(playlist);
@@ -199,10 +206,11 @@ await guide("playlist", async ({ page, step, click, type }) => {
   await step(4, () => [page.locator(".tracks")], async () => {
     await click(page.locator(".track .grip").first());
     await page.keyboard.press("ArrowDown");
+    await look(page.locator(".tracks"));
   });
 });
 
-await guide("live", async ({ page, step, click }) => {
+await guide("live", async ({ page, step, click, look }) => {
   await page.goto(base + "/playlists");
   await click(page.getByRole("link", { name: /Rainy evening/ }).first());
   await page.locator(".live-strip").waitFor();
@@ -215,12 +223,12 @@ await guide("live", async ({ page, step, click }) => {
   await step(3, strip, () => click(page.getByRole("switch", { name: /Live stream on/ })));
 });
 
-await guide("engine", async ({ page, step, click }) => {
+await guide("engine", async ({ page, step, click, look }) => {
   await page.goto(base + "/");
-  await step(1, () => [page.locator("header.top"), page.locator(".engines")], () => click(page.locator("button.engine").first()));
+  await step(1, () => [page.locator("header.top"), page.locator(".engines")], async () => { await click(page.locator("button.engine").first()); await look(page.locator(".engines")); });
 });
 
-await guide("account", async ({ page, step, click }) => {
+await guide("account", async ({ page, step, click, look }) => {
   await page.goto(base + "/");
   const header = () => [page.locator("header.top")];
   await step(1, header, async () => {
@@ -232,6 +240,7 @@ await guide("account", async ({ page, step, click }) => {
     await click(page.getByRole("button", { name: "Account: change password or sign out" }));
     await click(page.locator(".dropdown-list:visible").getByRole("button", { name: "Change password" }).or(page.locator(".dropdown-list:visible").getByRole("link", { name: "Change password" })).first());
     await page.waitForURL(/\/password$/);
+    await look(page.getByLabel("Current password"));
   });
 });
 

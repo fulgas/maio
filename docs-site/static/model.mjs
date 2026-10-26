@@ -50,7 +50,7 @@ const edge = (from, to, label, options = {}) => ({ from, to, label, ...options }
 
 export const views = {
   context: {
-    title: 'System context', level: 'C4 · Level 1', scope: 'maio', crumb: 'context',
+    title: 'System context', level: 'C4 level 1', scope: 'maio', crumb: 'context',
     description: 'Who uses maio, and which systems surround it?',
     hint: 'Double-click maio to explore its containers.',
     nodes: [node('you', 30, 60), node('scripts', 30, 420), node('maio', 480, 240), node('listeners', 930, 60), node('acestep', 930, 420), node('textengines', 480, 560), node('otel', 930, 700)],
@@ -59,7 +59,7 @@ export const views = {
     parent: null,
   },
   containers: {
-    title: 'Containers', level: 'C4 · Level 2', scope: 'Inside maio', crumb: 'containers',
+    title: 'Containers', level: 'C4 level 2', scope: 'Inside maio', crumb: 'containers',
     description: 'One Rust container and MediaMTX in Docker; the web app runs in your browser.',
     hint: 'Double-click maio for its components, or the web app for its parts.',
     nodes: [node('you', 20, 90), node('scripts', 20, 440), node('webapp', 420, 90), node('server', 800, 330), node('mediamtx', 1180, 90), node('db', 610, 610), node('files', 990, 610), node('listeners', 1600, 90), node('acestep', 1600, 400), node('textengines', 1600, 680)],
@@ -68,7 +68,7 @@ export const views = {
     boundary: { x: 380, y: 40, width: 1090, height: 770, label: 'maio · Docker compose' }, parent: 'context',
   },
   components: {
-    title: 'Components', level: 'C4 · Level 3', scope: 'Inside maio', crumb: 'components',
+    title: 'Components', level: 'C4 level 3', scope: 'Inside maio', crumb: 'components',
     description: 'A hexagon in one crate: domain ← use cases ← adapters ← web.',
     hint: 'Dashed arrows: an adapter implements a port the use cases own. Double-click Live stations for the playout.',
     nodes: [node('web', 610, 40), node('usecases', 420, 320), node('domain', 800, 320), node('sqlite', 20, 620), node('engine', 320, 620), node('text', 620, 620), node('ffmpeg', 920, 620), node('live', 1220, 620), node('db', 20, 920), node('acestep', 320, 920), node('textengines', 620, 920), node('files', 920, 920), node('mediamtx', 1220, 920)],
@@ -76,7 +76,7 @@ export const views = {
     boundary: { x: -20, y: -10, width: 1530, height: 830, label: 'maio · one Rust binary' }, parent: 'containers',
   },
   live: {
-    title: 'Live stations', level: 'C4 · Level 3', scope: 'Inside Live stations', crumb: 'components', deeper: true,
+    title: 'Live stations', level: 'C4 level 3', scope: 'Inside Live stations', crumb: 'components', deeper: true,
     description: 'One station per live playlist: playout, mixer, encoders and the relay.',
     hint: 'The animation follows the audio from the song files to the listeners.',
     nodes: [node('files', 20, 330), node('playout', 400, 330), node('mixer', 780, 330), node('encoders', 1160, 130), node('relay', 1160, 530), node('streams', 1540, 130), node('mediamtx', 1540, 530), node('listeners', 1920, 330)],
@@ -85,7 +85,7 @@ export const views = {
     boundary: { x: 360, y: 80, width: 1090, height: 650, label: 'Live stations · adapters/live' }, parent: 'components',
   },
   webapp: {
-    title: 'Web app', level: 'C4 · Level 3', scope: 'Inside the web app', crumb: 'components', deeper: true,
+    title: 'Web app', level: 'C4 level 3', scope: 'Inside the web app', crumb: 'components', deeper: true,
     description: 'Leptos components in your browser; they reach the server only through /api/v1.',
     hint: 'Every screen goes through the API client, as a script would.',
     nodes: [node('frame', 20, 40), node('screens', 330, 40), node('playlistpage', 640, 40), node('dialogs', 950, 40), node('player', 330, 360), node('client', 800, 360), node('server', 560, 680)],
@@ -93,7 +93,7 @@ export const views = {
     boundary: { x: -20, y: -10, width: 1260, height: 590, label: 'Web app · Leptos, hydrated in the browser' }, parent: 'containers',
   },
   deployment: {
-    title: 'Deployment', level: 'C4 · Deployment', scope: 'Docker host and ACE-Step machine', crumb: 'containers', deeper: true,
+    title: 'Deployment', level: 'C4 deployment', scope: 'Docker host and ACE-Step machine', crumb: 'containers', deeper: true,
     description: 'Where each part runs: Docker compose on any Docker host; ACE-Step on the machine with the GPU, the same one or another.',
     hint: 'The ports are the ones listeners and browsers use; MediaMTX\'s control API stays inside Docker.',
     nodes: [node('you', 20, 120), node('listeners', 20, 520), node('deployServer', 470, 130), node('deployMediamtx', 890, 300), node('deployData', 890, 560), node('deployAcestep', 1395, 130)],

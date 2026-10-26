@@ -1,42 +1,16 @@
-# Maio: the container stack (Maio + MediaMTX) and, on a Mac with Apple silicon, the ACE-Step engine.
-# `just` runs both; Ctrl-C stops both.
+# Maio: the container stack (Maio + MediaMTX). ACE-Step runs as its own server (docs/how-to/01-run-ace-step-for-maio.md).
+# `just` starts the stack.
 
 set dotenv-load := true
 
-ace_root := env("ACE_ROOT", home_directory() / "Projects/fulgas/ACE-Step-1.5")
 engine_port := "7801"
 zola_version := "0.23.6"
 zola := justfile_directory() / "docs-site/.zola/zola"
-
-# Start the stack, then run ACE-Step in this terminal; Ctrl-C stops the engine and the stack.
-run:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    just stack
-    trap 'echo; echo "stopping the stack"; docker compose stop' EXIT
-    just engine
 
 # Start Maio and MediaMTX in the background (rebuilds when the code changed).
 stack:
     docker compose up -d --build
     @echo "Maio on http://localhost:8080"
-
-# On a Mac with Apple silicon, run ACE-Step 1.5's own API server in the foreground on MPS (models load on first start).
-# Elsewhere, start acestep-api as ACE-Step's own instructions say and point the [[engine]] url at it.
-engine:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # ACE-Step's API key, when .env has one; Maio sends it too when [[engine]] names it in api_key_env.
-    key=$(sed -n 's/^ACE_STEP_API_KEY=//p' "{{justfile_directory()}}/.env" 2>/dev/null || true)
-    if [ -n "$key" ]; then export ACESTEP_API_KEY="$key"; fi
-    cd "{{ace_root}}"
-    # Load the models at start: acestep-api otherwise waits for the first song, and Maio waits for the models.
-    export ACESTEP_NO_INIT=false ACESTEP_API_HOST=127.0.0.1 ACESTEP_API_PORT={{engine_port}} ACESTEP_DEVICE=mps ACESTEP_LM_MODEL_PATH=acestep-5Hz-lm-1.7B ACESTEP_LM_BACKEND=pt
-    if [ -n "${OTEL_EXPORTER_OTLP_ENDPOINT:-}" ]; then
-        export OTEL_SERVICE_NAME="${OTEL_SERVICE_NAME_ACE:-ace-step}" OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-        exec uv run --with opentelemetry-distro --with opentelemetry-exporter-otlp --with opentelemetry-instrumentation-fastapi opentelemetry-instrument acestep-api
-    fi
-    exec uv run acestep-api
 
 # Run the fake ACE-Step instead (sine tones, no GPU), for trying things quickly.
 fake:

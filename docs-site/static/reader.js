@@ -142,3 +142,31 @@ for (const code of document.querySelectorAll('code[data-lang="mermaid"], code.la
   const pre = document.createElement('pre'); pre.className = 'mermaid'; pre.textContent = code.textContent; code.closest('pre').replaceWith(pre);
 }
 renderMermaid();
+
+// Clips of the web app: a click, or Enter, opens one large in the browser's own dialog.
+{
+  let zoom;
+  const open = clip => {
+    if (!zoom) {
+      zoom = document.createElement('dialog');
+      zoom.className = 'clip-zoom';
+      zoom.addEventListener('click', e => { if (e.target === zoom) zoom.close(); });
+      document.body.append(zoom);
+    }
+    const close = document.createElement('button');
+    close.className = 'clip-close'; close.textContent = 'Close';
+    close.addEventListener('click', () => zoom.close());
+    // The picture as shown, the still one too when less motion was asked for.
+    const big = clip.closest('picture').cloneNode(true);
+    big.querySelector('img').removeAttribute('class');
+    zoom.setAttribute('aria-label', clip.alt || 'Clip');
+    zoom.replaceChildren(close, big);
+    zoom.showModal();
+  };
+  for (const clip of document.querySelectorAll('img.clip')) {
+    clip.tabIndex = 0;
+    clip.setAttribute('role', 'button');
+    clip.addEventListener('click', () => open(clip));
+    clip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(clip); } });
+  }
+}

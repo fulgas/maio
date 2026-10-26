@@ -19,5 +19,6 @@ maio.toml.*
 /docs-site/content
 /docs-site/static/documents.json
 /docs-site/static/fonts
+/docs-site/static/images
 /docs-site/.zola
 /docs-site/dist

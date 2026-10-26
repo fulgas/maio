@@ -172,3 +172,17 @@ h1{font-weight:700}.prose h1{font-weight:800;font-size:30px}.prose h2{font-weigh
 #docs-nav .quadrant-switch a.active{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 #docs-nav .quadrant-switch a:hover,#docs-nav .quadrant-switch a:focus-visible{color:var(--text)}
 #docs-nav .quadrant-switch a.compass-link{grid-column:1/-1;text-align:left;border:0;padding:2px 0 6px;color:var(--accent)}
+/* Clips of the web app in the guides: each step's text on the left and its clip beside it, under it on a phone;
+   a click opens it large. Numbers come from a counter, since a grid item has no list marker. */
+.prose ol:has(img.clip){counter-reset:step;list-style:none;padding-left:0}
+.prose ol:has(img.clip)>li{counter-increment:step;position:relative;padding-left:1.8em;margin:0 0 22px}
+.prose ol:has(img.clip)>li::before{content:counter(step) ".";position:absolute;left:0;top:0;color:var(--muted);font-variant-numeric:tabular-nums}
+.prose ol:has(img.clip)>li:has(img.clip){display:grid;grid-template-columns:minmax(0,1fr) 42%;column-gap:28px;align-items:start}
+.prose ol:has(img.clip)>li>*{grid-column:1;margin-top:0}
+.prose ol:has(img.clip)>li>p:has(img.clip){grid-column:2;grid-row:1/span 6;margin:2px 0 0}
+.prose img.clip{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel);cursor:zoom-in}
+@media(max-width:760px){.prose ol:has(img.clip)>li:has(img.clip){display:block}.prose ol:has(img.clip)>li>p:has(img.clip){margin:10px 0 0}}
+dialog.clip-zoom{width:min(1100px,94vw);max-height:92vh;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text)}
+dialog.clip-zoom::backdrop{background:rgb(0 0 0/.6)}
+dialog.clip-zoom img{display:block;width:100%;height:auto;max-height:calc(92vh - 70px);border-radius:8px}
+dialog.clip-zoom .clip-close{display:block;margin:0 0 10px auto}

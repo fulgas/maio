@@ -77,7 +77,7 @@ pub fn Frame(children: Children) -> impl IntoView {
                 {move || {
                     let list = engines();
                     if list.is_empty() {
-                        return view! { <p>"No engine in maio.toml: add an [[engine]] to make songs."</p> }.into_any();
+                        return view! { <p>"No engine in the configuration file: add one to make songs."</p> }.into_any();
                     }
                     list.iter().map(|e| {
                         let (name, state, facts) = format::engine_card(e);

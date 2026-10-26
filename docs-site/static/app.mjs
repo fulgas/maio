@@ -233,7 +233,7 @@ function showDocument(id, section) {
   }
   // HTML is generated at build time from trusted repository Markdown, not user input.
   $('document').innerHTML = doc.html;
-  $('doc-label').textContent = { decisions: 'ARCHITECTURE DECISION RECORD', architecture: 'ARCHITECTURE · ARC42', project: 'PROJECT' }[doc.group];
+  $('doc-label').textContent = { decisions: 'Architecture decision record', architecture: 'Architecture (arc42)', project: 'Project' }[doc.group];
   $('toc').replaceChildren(...doc.headings.filter(h => h.depth === 2 || h.depth === 3).map(h => html('a', { href: `#doc/${doc.id}?section=${encodeURIComponent(h.slug)}`, class: h.depth === 3 ? 'subheading' : '' }, h.text)));
   for (const link of $('docs-nav').querySelectorAll('a')) {
     const active = link.dataset.id === doc.id;
@@ -452,9 +452,9 @@ async function start() {
       menu.append(summary, ...entries.map(documentLink));
       return menu;
     };
-    nav.append(html('p', { class: 'nav-group' }, 'PROJECT'));
+    nav.append(html('p', { class: 'nav-group' }, 'Project'));
     for (const doc of documents.filter(d => d.group === 'project')) nav.append(documentLink(doc));
-    nav.append(html('p', { class: 'nav-group' }, 'ARCHITECTURE'));
+    nav.append(html('p', { class: 'nav-group' }, 'Architecture'));
     // Section 9 is the decision index: it opens to its records, each shown by number and title.
     const decisions = documents.filter(doc => /^adr\/\d/.test(doc.id));
     const recordLink = doc => {

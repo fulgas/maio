@@ -64,7 +64,7 @@ test('every page link in the site itself (header, buttons, the explorer) reaches
 
 test('the C4 levels read Context, Containers, Components', async () => {
   const html = result.index;
-  assert.match(html, /01 <span>Context<\/span>[\s\S]*02 <span>Containers<\/span>[\s\S]*03 <span>Components<\/span>/);
+  assert.match(html, /data-view="context">Context<\/button>[\s\S]*data-view="containers">Containers<\/button>[\s\S]*data-view="components">Components<\/button>/);
   const crumbs = html.match(/<nav id="breadcrumbs"[\s\S]*?<\/nav>/)[0];
   assert.equal([...crumbs.matchAll(/data-view=/g)].length, 3, 'only the three C4 levels; deeper views are reached by drilling in');
   assert.equal(views.components.title, 'Components');
@@ -318,7 +318,7 @@ test('the compass is the home page and leads to the four corners of Diátaxis, e
   assert.match(compass, /data-tab="docs" class="active"/, 'the Docs tab is the compass');
   assert.match(compass, /href="\/explore\/#view\/context">Explore the C4 model</, 'the explorer is part of the explanation');
   assert.deepEqual([...compass.matchAll(/data-tab="([a-z]+)"/g)].map(m => m[1]), ['docs', 'view', 'decisions'], 'Docs first');
-  assert.match(compass, /<small>DOCS<\/small>/);
+  assert.match(compass, /<small>Docs<\/small>/);
   assert.match(compass, /#view\/[\s\S]*\/explore\//, 'old links to a view reach the explorer');
 });
 
@@ -331,8 +331,8 @@ test('inside a page the sidebar shows only its corner, with a switch to the othe
   assert.match(howto, /href="\/how-to\/05-back-up-the-library\/"/, 'its own pages');
   assert.ok(!howto.includes('href="/architecture/05-building-block-view/"'), 'no other corner\'s pages');
   assert.match(sidebar('architecture/05-building-block-view'), /href="\/product\/"[\s\S]*href="\/architecture\/12-glossary\/"/, 'explanation: product and arc42');
-  assert.match(docs.get('how-to/01-run-ace-step-for-maio').page, /<span id="doc-label">HOW-TO GUIDE<\/span>/);
-  assert.match(docs.get('product').page, /<span id="doc-label">EXPLANATION<\/span>/);
+  assert.match(docs.get('how-to/01-run-ace-step-for-maio').page, /<span id="doc-label">How-to guide<\/span>/);
+  assert.match(docs.get('product').page, /<span id="doc-label">Explanation<\/span>/);
 });
 
 test('every page with the theme button can change the theme', async () => {
@@ -350,4 +350,27 @@ test('every page links to the repository on GitHub, by an icon with a name', asy
     const html = await readFile(path.join(result.outputRoot, file), 'utf8');
     assert.match(html, /<a class="icon-button" href="https:\/\/github\.com\/fulgas\/maio" aria-label="Maio on GitHub"[^>]*><svg[^>]*aria-hidden="true"/, file);
   }
+});
+
+test('the site\'s own labels are sentence case at a readable size: no tracked capitals, no text under 11px, no numbered tabs, no emoji for an icon', async () => {
+  const pages = { 'the documentation home': 'index.html', 'the explorer': 'explore/index.html', 'a document': 'architecture/01-introduction-and-goals/index.html' };
+  for (const [name, file] of Object.entries(pages)) {
+    const chrome = (await readFile(path.join(result.outputRoot, file), 'utf8')).replace(/<article[\s\S]*?<\/article>|<script[\s\S]*?<\/script>|<svg[\s\S]*?<\/svg>/g, '');
+    const shouting = chrome.match(/>\s*[A-Z][A-Z0-9 ·-]{3,}\s*</g) ?? [];
+    assert.deepEqual(shouting, [], `${name}: labels written in capitals`);
+  }
+  const app = await readFile(path.join(result.outputRoot, 'app.mjs'), 'utf8');
+  assert.deepEqual(app.match(/'[A-Z]{4,}[A-Z ·]*'/g) ?? [], [], 'the explorer script writes no labels in capitals');
+  assert.ok(!Object.values(views).some(v => /·/.test(v.level)), 'a C4 level reads as words, not a tracked label');
+  const css = await readFile(path.join(result.outputRoot, 'style.css'), 'utf8');
+  assert.ok(!/text-transform:\s*uppercase/.test(css), 'no label is turned into capitals');
+  for (const [, value, unit] of css.matchAll(/letter-spacing:\s*(\d*\.?\d+)(px|em)/g)) assert.ok(unit === 'px' ? value < 1 : value < .05, `a label is tracked out by ${value}${unit}`);
+  for (const [, selector, size] of css.matchAll(/([^{}]+)\{[^{}]*?font(?:-size)?:[^;}]*?\b(\d+(?:\.\d+)?)px/g)) {
+    if (/\.node-/.test(selector)) continue; // the diagram's own text scales with its zoom
+    assert.ok(Number(size) >= 11, `${selector.trim()} sets ${size}px`);
+  }
+  const explorer = await readFile(path.join(result.outputRoot, 'explore/index.html'), 'utf8');
+  assert.ok(!/<button data-view="\w+">\d/.test(explorer), 'the C4 tabs are named, not numbered');
+  assert.match(explorer, /<button id="fullscreen"[^>]*><svg[^>]*aria-hidden="true"/, 'the fullscreen button draws its icon');
+  assert.match(css, /\.compass\{[^}]*align-items:start/, 'a short corner keeps its own height');
 });

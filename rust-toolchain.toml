@@ -1,0 +1,5 @@
+# The Rust everyone builds with, here and on GitHub, so a new compiler's lints arrive in one reviewed change.
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

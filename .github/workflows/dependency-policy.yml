@@ -23,7 +23,7 @@ concurrency:
 jobs:
   cargo-deny:
     name: Cargo Deny Checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout sources

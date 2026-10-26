@@ -111,7 +111,7 @@ Every endpoint is in [arc42 3.5](docs/architecture/03-system-scope-and-context.m
 
 ## Development
 
-You need Rust 1.88 or later with the `wasm32-unknown-unknown` target, `cargo-leptos` 0.3.5, `ffmpeg` and `ffprobe`, and Node 20 or later. `just` downloads the pinned [Zola](https://www.getzola.org) for the documentation site.
+You need Rust (rustup installs the version in `rust-toolchain.toml`, with the `wasm32-unknown-unknown` target), `cargo-leptos` 0.3.5, `ffmpeg` and `ffprobe`, and Node 20 or later. `just` downloads the pinned [Zola](https://www.getzola.org) for the documentation site.
 
 | Command | Does |
 |---------|------|

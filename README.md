@@ -152,4 +152,4 @@ Maio stands on other people's work:
 
 ## License
 
-[MIT](LICENSE). The bundled fonts keep their own licence, the SIL Open Font License 1.1.
+Either [Apache 2.0](LICENSE-APACHE.md) or [MIT](LICENSE-MIT.md), at your option. The bundled fonts keep their own licence, the SIL Open Font License 1.1.

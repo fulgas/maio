@@ -54,7 +54,8 @@ function link(href, source) {
   if (/^[a-z][a-z\d+.-]*:/i.test(href) || href.startsWith('//') || href.startsWith('#')) return href;
   const [file, section] = href.split('#');
   const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(source), file)).replace(/^\.\.\/docs\//, '');
-  if (!known.has(resolved)) return href;
+  // A repository file that is not a page here (the licences) opens on GitHub.
+  if (!known.has(resolved)) return /\.md$/i.test(file) ? `https://github.com/fulgas/maio/blob/main/${resolved.replace(/^\.\.\//, '')}${section ? `#${section}` : ''}` : href;
   return `@/${idOf(resolved)}.md${section ? `#${section}` : ''}`;
 }
 

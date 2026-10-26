@@ -230,9 +230,11 @@ test('the README is a proper README: what it is, requirements, quick start, port
 });
 
 test('Maio is MIT licensed, and the fonts it ships carry their own licence', async () => {
-  assert.match(await readFile(path.join(repositoryRoot, 'LICENSE'), 'utf8'), /^MIT License\n\nCopyright \(c\) \d{4} fulgas/);
-  assert.match(await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8'), /^license = "MIT"$/m);
-  assert.match(docs.get('overview').markdown, /## License\n\n\[MIT\]\(LICENSE\)/);
+  assert.match(await readFile(path.join(repositoryRoot, 'LICENSE-MIT.md'), 'utf8'), /^MIT License\n\nCopyright \(c\) \d{4} Nelson Silva/);
+  assert.match(await readFile(path.join(repositoryRoot, 'LICENSE-APACHE.md'), 'utf8'), /Apache License\s+Version 2\.0[\s\S]*Copyright \d{4} Nelson Silva/);
+  assert.match(await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8'), /^license = "MIT OR Apache-2\.0"$/m);
+  assert.ok(docs.get('overview').html.includes('href="https://github.com/fulgas/maio/blob/main/LICENSE-MIT.md"'), 'the licence opens on GitHub');
+  assert.match(docs.get('overview').markdown, /## License\n\nEither \[Apache 2\.0\]\(LICENSE-APACHE\.md\) or \[MIT\]\(LICENSE-MIT\.md\), at your option\./);
   for (const font of ['unbounded', 'albert-sans']) assert.match(await readFile(path.join(repositoryRoot, `public/fonts/${font}-OFL.txt`), 'utf8'), /SIL OPEN FONT LICENSE/);
 });
 

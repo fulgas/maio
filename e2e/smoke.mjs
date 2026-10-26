@@ -347,6 +347,14 @@ await check("on a phone the playlist's name fits two lines, its songs keep their
   });
   assert.equal(rows.firstRow, 1, "the wordmark and the icons share one row");
   assert.ok(rows.tabsBelow && rows.tabsWidth >= rows.width - 40, `the tabs sit below across the width (${Math.round(rows.tabsWidth)} of ${Math.round(rows.width)}px)`);
+  // The live strip: the switch, the listeners and the round buttons on one row, with no divider left dangling.
+  const strip = await page.locator(".live-strip").evaluate((s) => {
+    const shown = (e) => e.getBoundingClientRect().height > 0;
+    const row = [s.querySelector(".live-switch"), s.querySelector(".listeners"), ...s.querySelectorAll(".chipish")].filter(shown);
+    return { tops: row.map((e) => Math.round(e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2)), seps: [...s.querySelectorAll(".sep")].filter(shown).length };
+  });
+  assert.ok(Math.max(...strip.tops) - Math.min(...strip.tops) <= 12, `the live strip wraps its controls: ${strip.tops.join(", ")}`);
+  assert.equal(strip.seps, 0, "no divider on a phone");
   await page.setViewportSize({ width: 1280, height: 900 });
 });
 
@@ -779,6 +787,17 @@ await check("the Playlists page renames and deletes a playlist from its row", as
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
   await renamed.waitFor({ state: "detached", timeout: 5_000 });
   assert.equal(new URL(page.url()).pathname, "/playlists", "deleting from the list stays on the list");
+});
+
+await check("a song row says which playlists hold it, and its mood and key stay on one line", async () => {
+  await page.goto(base + "/");
+  await page.locator(".song").first().waitFor();
+  const rows = await page.locator(".song").evaluateAll((all) => all.map((r) => {
+    const meta = r.querySelector(".meta"), name = r.querySelector(".marks-name");
+    return { metaLines: Math.round(meta.getBoundingClientRect().height / parseFloat(getComputedStyle(meta).lineHeight || "20")), name: name ? name.textContent : null };
+  }));
+  for (const r of rows) assert.ok(r.metaLines <= 1, "a mood and key wrap");
+  assert.ok(rows.some((r) => r.name === "Smoke test list"), `the playlist's name shows: ${JSON.stringify(rows.map((r) => r.name))}`);
 });
 
 await check("a session that ends while the page is open sends you to sign-in", async () => {

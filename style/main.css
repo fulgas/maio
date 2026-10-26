@@ -178,7 +178,7 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .band { padding: 28px 30px; border-radius: 8px; color: var(--on-colour); display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
 .band.hidden { display: none; }
 .band-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.band h1 { margin: 0; font-size: clamp(32px, 6vw, 56px); font-weight: 800; line-height: 1; letter-spacing: -0.03em; overflow-wrap: anywhere; }
+.band h1 { margin: 0; font-size: clamp(32px, 6vw, 56px); font-weight: 800; line-height: 1; letter-spacing: -0.03em; overflow-wrap: break-word; }
 .band-text span { font-size: 15px; font-weight: 600; }
 .band-actions { display: flex; align-items: center; gap: 10px; }
 .band .icon.solid { width: 48px; height: 48px; border-radius: 24px; background: var(--on-colour); color: inherit; }
@@ -209,7 +209,10 @@ dialog.modal.wide { width: min(760px, calc(100vw - 32px)); }
 .pick-empty { color: var(--muted); padding: 8px 0; }
 @media (max-width: 720px) {
   .band { padding: 20px 16px; }
-  .track { grid-template-columns: 30px minmax(0, 1fr) 44px 44px; gap: 8px; padding: 6px 0; }
+  /* The name takes the band's full width and the buttons wrap under it, so a long name never breaks between letters. */
+  .band-text { flex-basis: 100%; }
+  /* Grip, play, title, remove: the title takes what is left. */
+  .track { grid-template-columns: 30px 44px minmax(0, 1fr) 44px; gap: 8px; padding: 6px 0; }
   .track .n, .track .meta, .track .len { display: none; }
 }
 
@@ -246,6 +249,10 @@ body > .thaw-config-provider { background-color: transparent; color: var(--ink);
 /* An error line takes room only when it says something. */
 .make .error:empty, .narrow .error:empty { display: none; }
 @media (max-width: 720px) {
+  /* The header in two rows on purpose: the wordmark and the icons, then the tabs across the full width. */
+  .top { column-gap: 8px; }
+  .tabs { order: 9; flex-basis: 100%; }
+  .tabs a { flex: 1; justify-content: center; }
   /* Elapsed time, seek bar, total time on one row under the controls. */
   .player .time.at { order: 9; }
   .seek { order: 10; flex: 1 1 120px; }

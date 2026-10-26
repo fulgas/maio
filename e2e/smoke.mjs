@@ -331,6 +331,25 @@ await check("a change made elsewhere shows at once, carried by its event, with n
   await page.getByRole("heading", { name: "Smoke test list" }).waitFor({ timeout: 3_000 });
 });
 
+await check("on a phone the playlist's name fits two lines, its songs keep their titles, and the header has two tidy rows", async () => {
+  // Resized in place, not reloaded: the next step checks the player kept its song.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator(".track").first().waitFor();
+  const lines = await page.locator(".band h1").evaluate((h) => Math.round(h.getBoundingClientRect().height / parseFloat(getComputedStyle(h).lineHeight)));
+  assert.ok(lines <= 2, `the name takes ${lines} lines`);
+  const title = await page.locator(".track .track-title").first().evaluate((t) => t.getBoundingClientRect().width);
+  assert.ok(title >= 150, `a song's title has ${Math.round(title)}px`);
+  // The header is two rows on purpose: the wordmark and every icon on the first, the tabs across the full width below.
+  const rows = await page.locator("header.top").evaluate((top) => {
+    const box = (e) => e.getBoundingClientRect();
+    const tabs = top.querySelector(".tabs"), others = [...top.children].filter((e) => e !== tabs && box(e).height > 0);
+    return { firstRow: new Set(others.map((e) => Math.round(box(e).top + box(e).height / 2))).size, tabsBelow: box(tabs).top >= Math.max(...others.map((e) => box(e).bottom)), tabsWidth: box(tabs).width, width: box(top).width };
+  });
+  assert.equal(rows.firstRow, 1, "the wordmark and the icons share one row");
+  assert.ok(rows.tabsBelow && rows.tabsWidth >= rows.width - 40, `the tabs sit below across the width (${Math.round(rows.tabsWidth)} of ${Math.round(rows.width)}px)`);
+  await page.setViewportSize({ width: 1280, height: 900 });
+});
+
 await check("Add songs offers only songs not in the playlist, under a search as wide as the dialog", async () => {
   const inList = (await page.locator(".track .track-title").allInnerTexts()).map((t) => t.trim());
   await page.getByRole("button", { name: "Add songs" }).click();

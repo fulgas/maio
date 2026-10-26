@@ -36,16 +36,16 @@ Maio is a personal, self-hosted tool. One person runs it and owns everything in 
 
 ## Releases
 
-Each [release](https://github.com/fulgas/maio/releases) comes as the container image `ghcr.io/fulgas/maio` (for `linux/amd64` and `linux/arm64`) and as archives for Linux and for Macs with Apple silicon, each with its SBOM. The image and the archives are signed by the release workflow with [Sigstore](https://www.sigstore.dev), with no key to trust but the workflow's identity. To check them with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
+Each [release](https://github.com/fulgas/maio/releases) comes as the container image `ghcr.io/fulgas/maio` (for `linux/amd64` and `linux/arm64`) and as archives for Linux and for Macs with Apple silicon, each with its SBOM. The image and the archives are signed by the workflows that build them with [Sigstore](https://www.sigstore.dev), with no key to trust but the workflow's identity. To check them with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
 
 ```bash
 cosign verify ghcr.io/fulgas/maio:0.1.0 \
-  --certificate-identity-regexp '^https://github.com/fulgas/maio/\.github/workflows/publish\.yml@refs/tags/v' \
+  --certificate-identity-regexp '^https://github.com/fulgas/maio/\.github/workflows/image\.yml@refs/(tags/v|heads/main)' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 
 cosign verify-blob maio-v0.1.0-x86_64-unknown-linux-gnu.tar.gz \
   --bundle maio-v0.1.0-x86_64-unknown-linux-gnu.tar.gz.sigstore.json \
-  --certificate-identity-regexp '^https://github.com/fulgas/maio/\.github/workflows/publish\.yml@refs/tags/v' \
+  --certificate-identity-regexp '^https://github.com/fulgas/maio/\.github/workflows/binaries\.yml@refs/(tags/v|heads/main)' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 

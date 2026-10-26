@@ -4,6 +4,7 @@ import http from "node:http";
 const port = Number(process.argv[2] ?? 7801);
 const tasks = new Map(); // id -> { at, seconds, lyrics, seed }
 let next = 0;
+let down = false; // POST /fake/down with true or false: the health check fails while true, as a stopped engine's would
 
 const wrap = (data) => JSON.stringify({ data, code: 200, error: null, timestamp: Date.now(), extra: null });
 
@@ -25,6 +26,7 @@ function body(req) {
 http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://x");
   const json = (data) => { res.writeHead(200, { "content-type": "application/json" }); res.end(wrap(data)); };
+  if (url.pathname === "/health" && down) { res.writeHead(503); return res.end(); }
   if (url.pathname === "/health") return json({ status: "ok", service: "ACE-Step API", version: "1.0", models_initialized: true, llm_initialized: false, loaded_model: "acestep-v15-turbo", loaded_lm_model: null });
   if (url.pathname === "/v1/stats") return json({ jobs: { queued: 0, running: 0 }, avg_job_seconds: 2 });
   if (url.pathname === "/v1/model_inventory") return json({ models: [{ name: "acestep-v15-turbo", is_loaded: true }] });
@@ -36,6 +38,7 @@ http.createServer(async (req, res) => {
   }
   if (req.method !== "POST") { res.writeHead(404); return res.end(); }
   const b = await body(req);
+  if (url.pathname === "/fake/down") { down = b === true; return json(down); }
   if (url.pathname === "/v1/create_sample") return json({ lyrics: "[verse]\nA fake song\n[chorus]\nSung by a sine", bpm: 90, keyscale: "A minor", timesignature: "4" });
   if (url.pathname === "/v1/init") return json({ loaded_model: b.model });
   if (url.pathname === "/release_task") {

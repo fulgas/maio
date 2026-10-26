@@ -224,6 +224,35 @@ await check("a song's title opens its details, with downloads and Make one like 
   await page.getByLabel("What it sounds like").fill("");
 });
 
+await check("while no music engine is ready, Make and Make one like this are off and say why, and come back with it", async () => {
+  // The fake engine stops answering its health check (e2e/fake-ace.mjs); Maio's breaker opens (arc42 8.8).
+  const engineDown = (down) => fetch("http://127.0.0.1:7811/fake/down", { method: "POST", body: JSON.stringify(down) });
+  const make = page.locator(".make-button");
+  const why = /no music engine is ready/i;
+  await engineDown(true);
+  try {
+    await page.locator(".make-button[disabled]").waitFor({ timeout: 60_000 });
+    assert.match(await make.getAttribute("aria-label"), why, "Make's name says why it is off");
+    assert.match(await make.getAttribute("data-tip"), why, "and so does its caption");
+    await page.getByRole("button", { name: `Details for ${title}` }).first().click();
+    const like = page.getByRole("dialog").getByRole("button", { name: "Make one like this" });
+    assert.ok(await like.isDisabled(), "Make one like this is off");
+    assert.match(await like.getAttribute("aria-label"), why);
+    assert.match(await like.getAttribute("data-tip"), why);
+    await engineDown(false);
+    // Back on their own, from the engine event: no reload.
+    await page.getByRole("dialog").locator("button:not([disabled])", { hasText: "Make one like this" }).waitFor({ timeout: 60_000 });
+    assert.doesNotMatch((await like.getAttribute("aria-label")) ?? "", why);
+    await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    assert.ok(await make.isEnabled(), "Make is on again");
+    assert.equal(await make.getAttribute("aria-label"), "Make the song");
+  } finally {
+    await engineDown(false);
+    await page.locator(".engine.ready").waitFor({ timeout: 60_000 });
+  }
+});
+
 await check("a double click on Make starts one song", async () => {
   const posts = [];
   const count = (r) => r.method() === "POST" && r.url().endsWith("/api/v1/songs") && posts.push(r);

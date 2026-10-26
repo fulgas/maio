@@ -115,6 +115,7 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .prompt { flex: 1; align-self: stretch; }
 .prompt textarea { min-height: 84px; resize: vertical; font-size: 18px; font-weight: 500; }
 .make-button { flex: 0 0 84px; height: 84px; align-self: flex-start; border: 0; border-radius: 8px; background: var(--mustard); color: var(--on-colour); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.make-button:disabled { opacity: 0.6; cursor: default; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { flex-direction: row; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid var(--line2); border-radius: 22px; background: transparent; color: var(--ink); font-size: 14px; }
 .chip svg { color: var(--muted); }

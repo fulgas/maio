@@ -297,6 +297,7 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
         send(false);
     };
     let st = move || status.get().and_then(Result::ok);
+    let ready = expect_context::<crate::ui::frame::EngineReady>().0;
     let moods = move || st().map(|s| s.moods).unwrap_or_default();
     let genres = move || st().map(|s| s.genres).unwrap_or_default();
     let writers = move || st().map(|s| s.text_engines.into_iter().map(|t| t.id).collect::<Vec<_>>()).unwrap_or_default();
@@ -311,7 +312,10 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
                     <textarea rows="3" maxlength="500" bind:value=prompt node_ref=prompt_box
                         placeholder="Warm Rhodes and soft rain on the window, slow brushed drums, a late night in an empty office"></textarea>
                 </label>
-                <button type="submit" class="make-button" aria-label="Make the song" data-tip="Make a song from this description" disabled=move || busy.get()>
+                // Off while no engine is ready, and says why: the server would refuse the song (arc42 8.8).
+                <button type="submit" class="make-button" disabled=move || busy.get() || !ready.get()
+                    aria-label=move || if ready.get() { "Make the song" } else { "Make the song: no music engine is ready" }
+                    data-tip=move || if ready.get() { "Make a song from this description" } else { "No music engine is ready" }>
                     <Svg icon=Icon::Make size=28/><span>"Make"</span>
                 </button>
             </div>

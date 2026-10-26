@@ -48,7 +48,10 @@ const ffmpeg = (...args) => execFileSync("ffmpeg", ["-v", "error", "-y", ...args
 const even = (n) => Math.floor(n / 2) * 2;
 
 /** Records one guide: `fn` gets the page and `step(name, areas, body)`, where areas say what to crop to ("page" for all). */
+// MANUAL_ONLY=overview,make re-records only those guides.
+const only = process.env.MANUAL_ONLY?.split(",");
 async function guide(name, fn) {
+  if (only && !only.includes(name)) return;
   console.log(`- ${name}`);
   const context = await browser.newContext({ viewport: VIEW, storageState: signedIn, recordVideo: { dir: raw, size: { width: VIEW.width * SCALE, height: VIEW.height * SCALE } } });
   await context.addInitScript(POINTER);
@@ -57,7 +60,7 @@ async function guide(name, fn) {
   const steps = [];
   let aimed = [];
   const boxesOf = async (areas) => {
-    if (areas === "page") return [{ x: 0, y: 0, width: VIEW.width, height: VIEW.height }];
+    if (areas === "page" || areas === "full") return [{ x: 0, y: 0, width: VIEW.width, height: VIEW.height }];
     const boxes = [];
     for (const area of areas()) if (await area.count() && await area.first().isVisible()) boxes.push(await area.first().boundingBox());
     return boxes;
@@ -70,7 +73,7 @@ async function guide(name, fn) {
     await body();
     await page.waitForTimeout(1500); // the recording's clock runs a little behind: let the result show for a while
     const boxes = [...before, ...(await boxesOf(areas))].filter(Boolean);
-    steps.push({ n, start, end: (Date.now() - t0) / 1000, boxes, aimed });
+    steps.push({ n, start, end: (Date.now() - t0) / 1000, boxes, aimed, full: areas === "full" }); // "full": the whole screen, wherever the pointer went
   };
   // Moves the pointer to a control the way a person would, then uses it.
   const aim = async (locator) => {
@@ -90,10 +93,10 @@ async function guide(name, fn) {
   const video = page.video();
   await context.close();
   const file = await video.path();
-  for (const { n, start, end, boxes, aimed } of steps) {
+  for (const { n, start, end, boxes, aimed, full } of steps) {
     // Crop to what the step touched, grown to at least MIN around it and kept inside the step's areas and the screen.
     const box = (list) => { const x = Math.min(...list.map((b) => b.x)), y = Math.min(...list.map((b) => b.y)); return { x, y, w: Math.max(...list.map((b) => b.x + b.width)) - x, h: Math.max(...list.map((b) => b.y + b.height)) - y }; };
-    const area = box(boxes), focus = aimed.length ? box(aimed) : area, pad = 20;
+    const area = box(boxes), focus = aimed.length && !full ? box(aimed) : area, pad = 20;
     const grow = (at, size, min, lo, hi) => { const want = Math.max(size + 2 * pad, min), from = Math.max(lo, Math.min(at + size / 2 - want / 2, hi - want)); return [Math.max(0, from), Math.min(want, hi - Math.max(0, from))]; };
     const [x, w] = grow(focus.x, focus.w, MIN.width, Math.max(0, area.x - pad), Math.min(VIEW.width, area.x + area.w + pad));
     const [y, h] = grow(focus.y, focus.h, MIN.height, Math.max(0, area.y - pad), Math.min(VIEW.height, area.y + area.h + pad));
@@ -113,6 +116,20 @@ async function guide(name, fn) {
 
 const songs = (page) => page.locator(".song");
 const first = (page) => songs(page).first();
+
+// The README's picture of Maio: a song described, made and played, the whole screen.
+await guide("overview", async ({ page, step, click, type, look }) => {
+  await page.goto(base + "/");
+  await page.locator("form.make").waitFor();
+  await step(1, "full", async () => {
+    await type(page.getByLabel("What it sounds like"), "slow piano and rain on the window, a late night");
+    await page.getByLabel("Length").selectOption("30");
+    await click(page.getByRole("button", { name: "Make the song" }));
+    await page.getByRole("heading", { name: "Being made" }).waitFor({ state: "hidden", timeout: 60_000 });
+    await click(first(page).locator(".play"));
+    await look(page.locator(".player"));
+  });
+});
 
 await guide("make", async ({ page, step, click, type, look }) => {
   await page.goto(base + "/");

@@ -391,13 +391,13 @@ test('a change to the documentation site never makes a release, nor a line in th
 });
 
 test('the guide to the web app shows each step as a clip of the real app, still for anyone who asked for less motion', async () => {
-  const guides = result.documents.filter(d => d.id === 'how-to/07-use-the-web-app' || d.id.startsWith('tutorials/'));
-  assert.ok(guides.length >= 2, `the tutorial and the guide to the web app: ${guides.map(d => d.id)}`);
+  const guides = result.documents.filter(d => d.id === 'how-to/07-use-the-web-app' || d.id.startsWith('tutorials/') || d.id === 'overview');
+  assert.ok(guides.length >= 3, `the README, the tutorial and the guide to the web app: ${guides.map(d => d.id)}`);
   for (const doc of guides) {
-    const clips = [...doc.markdown.matchAll(/!\[([^\]]+)\]\((\.\.\/images\/manual\/[a-z0-9-]+)\.png\)/g)];
+    const clips = [...doc.markdown.matchAll(/!\[([^\]]+)\]\(((?:\.\.\/|docs\/)images\/manual\/[a-z0-9-]+)\.png\)/g)];
     assert.ok(clips.length >= 1, `${doc.id}: no clip`);
     for (const [, alt, href] of clips) {
-      const file = path.join(repositoryRoot, 'docs', doc.id.split('/')[0], href);
+      const file = path.join(repositoryRoot, doc.id === 'overview' ? '' : path.join('docs', doc.id.split('/')[0]), href);
       const png = await readFile(`${file}.png`);
       assert.ok(png.includes('acTL'), `${href}.png is an animated PNG`);
       await access(`${file}-still.png`);

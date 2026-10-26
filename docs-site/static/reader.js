@@ -8,6 +8,8 @@ function html(tag, attrs = {}, text) {
   return node;
 }
 
+// Where this script is served from, so the site works under any path (GitHub Pages serves it under /maio/).
+const here = document.currentScript.src;
 let mermaidReady, navigationBeforeSearch;
 const announce = message => { $('status').textContent = message; };
 async function renderMermaid() {
@@ -17,7 +19,7 @@ async function renderMermaid() {
     if (!mermaidReady && window.mermaid) mermaidReady = Promise.resolve();
     if (!mermaidReady) mermaidReady = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = '/vendor/mermaid.min.js'; script.onload = resolve; script.onerror = reject;
+      script.src = new URL('vendor/mermaid.min.js', here); script.onload = resolve; script.onerror = reject;
       document.head.append(script);
     });
     await mermaidReady;

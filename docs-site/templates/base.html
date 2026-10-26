@@ -7,13 +7,13 @@
   <meta name="description" content="Explore the Maio architecture: interactive C4 diagrams, the arc42 documentation and the architecture decisions.">
   <meta name="color-scheme" content="dark light">
   <title>{% block title %}Maio · Docs{% endblock %}</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="{{ get_url(path="style.css") }}">
   <script>try { document.documentElement.dataset.theme = localStorage.getItem('maio-architecture-theme') ?? 'dark'; } catch { document.documentElement.dataset.theme = 'dark'; }</script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
-    <a class="brand" href="/" aria-label="Maio docs, home"><span class="brand-name">m<span>ai</span>o</span><small>DOCS</small></a>
+    <a class="brand" href="{{ get_url(path="/", trailing_slash=true) }}" aria-label="Maio docs, home"><span class="brand-name">m<span>ai</span>o</span><small>DOCS</small></a>
     <nav class="top-nav" aria-label="Workspace">{% set adrs = get_section(path="adr/_index.md") %}{% set records = [r for r in adrs.pages if r.extra?.number] %}{% block tabs %}{% endblock %}</nav>
     <div class="header-actions">{% set home = get_section(path="_index.md") %}<span class="baseline">v{{ home.extra.version }}</span><button id="theme" class="icon-button" aria-label="Switch color theme" title="Switch color theme">◐</button></div>
   </header>

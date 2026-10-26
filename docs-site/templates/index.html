@@ -2,7 +2,7 @@
 {% block tabs %}{% set tab = "view" %}{% include "partials/tabs.html" %}{% endblock %}
 {% block main %}
     <section id="explorer" aria-label="Interactive C4 architecture">
-      <div class="view-heading"><div><p class="eyebrow" id="view-level">C4 · Level 1</p><h1 id="view-title">System context</h1><p id="view-description"></p></div><a class="text-link" href="/architecture/01-introduction-and-goals/">Read the architecture <span aria-hidden="true">↗</span></a></div>
+      <div class="view-heading"><div><p class="eyebrow" id="view-level">C4 · Level 1</p><h1 id="view-title">System context</h1><p id="view-description"></p></div><a class="text-link" href="{{ get_url(path="architecture/01-introduction-and-goals/", trailing_slash=true) }}">Read the architecture <span aria-hidden="true">↗</span></a></div>
       <div class="toolbar">
         <nav id="breadcrumbs" aria-label="C4 views"><button data-view="context">01 <span>Context</span></button><span class="crumb-divider">/</span><button data-view="containers">02 <span>Containers</span></button><span class="crumb-divider">/</span><button data-view="components">03 <span>Components</span></button></nav>
           <div class="toolbar-actions"><button id="fit" title="Fit diagram (F)">Fit</button><button id="export" title="Download the visible diagram as SVG">Export SVG</button><button id="fullscreen" class="icon-button" title="Toggle fullscreen" aria-label="Toggle fullscreen">⛶</button></div>
@@ -26,8 +26,8 @@
 {% block scripts %}
   <script>
     // The explorer's links into the documentation name a #doc/… route; on this site each document is its own page.
-    const toPage = () => { const m = location.hash.match(/^#doc\/([^?]+)(?:\?section=(.+))?/); if (m) location.replace(`/${m[1]}/${m[2] ? `#${decodeURIComponent(m[2])}` : ''}`); };
+    const toPage = () => { const m = location.hash.match(/^#doc\/([^?]+)(?:\?section=(.+))?/); if (m) location.replace(`{{ get_url(path="/", trailing_slash=true) }}${m[1]}/${m[2] ? `#${decodeURIComponent(m[2])}` : ''}`); };
     toPage(); addEventListener('hashchange', toPage);
   </script>
-  <script type="module" src="/app.mjs"></script>
+  <script type="module" src="{{ get_url(path="app.mjs") }}"></script>
 {% endblock %}

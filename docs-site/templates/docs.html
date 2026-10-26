@@ -5,8 +5,8 @@
     // Links from before the explorer moved: /#view/… opens it, and /#doc/… the document's page.
     const follow = () => {
       const view = location.hash.match(/^#view\/.+/), doc = location.hash.match(/^#doc\/([^?]+)(?:\?section=(.+))?/);
-      if (view) location.replace(`/explore/${view[0]}`);
-      else if (doc) location.replace(`/${doc[1]}/${doc[2] ? `#${decodeURIComponent(doc[2])}` : ''}`);
+      if (view) location.replace(`{{ get_url(path="explore/", trailing_slash=true) }}${view[0]}`);
+      else if (doc) location.replace(`{{ get_url(path="/", trailing_slash=true) }}${doc[1]}/${doc[2] ? `#${decodeURIComponent(doc[2])}` : ''}`);
     };
     follow(); addEventListener('hashchange', follow);
   </script>
@@ -21,7 +21,7 @@
         <span class="axis axis-top">Doing</span><span class="axis axis-bottom">Understanding</span><span class="axis axis-left">Learning</span><span class="axis axis-right">Working</span>
         <div class="quadrant quadrant-tutorials"><h2><a href="{{ tutorials.pages[0].permalink | safe }}">Tutorials</a></h2><p>Learning by doing: a lesson that takes you from nothing to a song on air.</p><ul>{% for p in tutorials.pages %}<li>{% include "partials/link.html" %}</li>{% endfor %}</ul></div>
         <div class="quadrant quadrant-how-to"><h2><a href="{{ howto.pages[0].permalink | safe }}">How-to guides</a></h2><p>Steps for one task you already have in mind.</p><ul>{% for p in howto.pages %}<li>{% include "partials/link.html" %}</li>{% endfor %}</ul></div>
-        <div class="quadrant quadrant-explanation"><h2><a href="{{ product[0].permalink | safe }}">Explanation</a></h2><p>Why Maio is built the way it is: the product, the architecture and its decisions.</p><ul>{% for p in product %}<li>{% include "partials/link.html" %}</li>{% endfor %}<li><a href="{{ arch.pages[0].permalink | safe }}">Architecture · arc42</a></li><li><a href="/architecture/09-architecture-decisions/">Decision records</a></li><li><a href="/explore/#view/context">Explore the C4 model</a></li></ul></div>
+        <div class="quadrant quadrant-explanation"><h2><a href="{{ product[0].permalink | safe }}">Explanation</a></h2><p>Why Maio is built the way it is: the product, the architecture and its decisions.</p><ul>{% for p in product %}<li>{% include "partials/link.html" %}</li>{% endfor %}<li><a href="{{ arch.pages[0].permalink | safe }}">Architecture · arc42</a></li><li><a href="{{ get_url(path="architecture/09-architecture-decisions/", trailing_slash=true) }}">Decision records</a></li><li><a href="{{ get_url(path="explore/#view/context") }}">Explore the C4 model</a></li></ul></div>
         <div class="quadrant quadrant-reference"><h2><a href="{{ reference_pages[0].permalink | safe }}">Reference</a></h2><p>The facts to look up: the API, the settings, the commands, the tokens.</p><ul>{% for p in reference_pages %}<li>{% include "partials/link.html" %}</li>{% endfor %}</ul></div>
       </div>
       <nav class="project-row" aria-label="The project"><span>The project</span>{% for p in project_pages %}{% include "partials/link.html" %}{% endfor %}</nav>

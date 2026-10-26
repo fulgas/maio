@@ -255,7 +255,7 @@ async function renderMermaid() {
     if (!mermaidReady && window.mermaid) mermaidReady = Promise.resolve();
     if (!mermaidReady) mermaidReady = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = '/vendor/mermaid.min.js'; script.onload = resolve; script.onerror = reject;
+      script.src = new URL('vendor/mermaid.min.js', import.meta.url); script.onload = resolve; script.onerror = reject;
       document.head.append(script);
     });
     await mermaidReady;
@@ -439,7 +439,7 @@ async function start() {
     const embedded = $('documentation-data');
     if (embedded) documents = JSON.parse(embedded.textContent);
     else {
-      const response = await fetch('/documents.json');
+      const response = await fetch(new URL('documents.json', import.meta.url));
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       documents = await response.json();
     }

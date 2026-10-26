@@ -14,7 +14,7 @@
 ## 3.2 Technical context: the shape
 
 - Maio is one container: one binary plus ffmpeg, one config file (`maio.toml`), one data volume. MediaMTX runs beside it in the same compose file.
-- Engine servers are separate programs Maio neither starts nor supervises. ACE-Step runs as its own server on the machine with the GPU; on a Mac, `just engine` starts it from a terminal.
+- Engine servers are separate programs Maio neither starts nor supervises. ACE-Step runs as its own server on the machine with the GPU, started as [Run ACE-Step for Maio](../how-to/01-run-ace-step-for-maio.md) says.
 - Port 8080 serves the web app, the JSON API and the live streams.
 
 Drawn from the C4 model; open it to inspect each element:
@@ -31,7 +31,7 @@ containers
 
 ## 3.3 The music engine: ACE-Step 1.5
 
-Maio makes music with ACE-Step 1.5, through ACE-Step's own HTTP server, `acestep-api`, run on the machine with the GPU and set up as [ACE-Step's own instructions](https://github.com/ace-step/ACE-Step-1.5#readme) say. On a Mac, `just engine` starts it with the models loaded; it binds `127.0.0.1`, so only that Mac and its containers reach it. See [ADR 0006](../adr/0006-ace-steps-own-api.md).
+Maio makes music with ACE-Step 1.5, through ACE-Step's own HTTP server, `acestep-api`, run on the machine with the GPU and set up as [ACE-Step's own instructions](https://github.com/ace-step/ACE-Step-1.5#readme) say. The settings Maio expects (port 7801, the models loaded at start, the planning model) are in [Run ACE-Step for Maio](../how-to/01-run-ace-step-for-maio.md); bound to `127.0.0.1`, only that machine and its containers reach it. See [ADR 0006](../adr/0006-ace-steps-own-api.md).
 
 ```toml
 [[engine]]
@@ -40,7 +40,7 @@ url = "http://host.docker.internal:7801"
 # api_key_env = "ACE_STEP_API_KEY"
 ```
 
-ACE-Step can require an API key (its `ACESTEP_API_KEY`). `api_key_env` names the variable that holds it; Maio then sends it as `Authorization: Bearer <key>` on every call, and a missing variable stops the start. `just engine` starts ACE-Step with `ACE_STEP_API_KEY` from `.env`. The key never appears in logs.
+ACE-Step can require an API key (its `ACESTEP_API_KEY`). `api_key_env` names the variable that holds it; Maio then sends it as `Authorization: Bearer <key>` on every call, and a missing variable stops the start. ACE-Step is started with the same key as its `ACESTEP_API_KEY`. The key never appears in logs.
 
 | Maio needs | `acestep-api` call |
 |-----------------|--------------------|

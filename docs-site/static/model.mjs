@@ -41,7 +41,7 @@ export const elements = {
   deployServer: element('maio', 'Container instance · Docker', 'host 8080 → 8080. Config /etc/maio/maio.toml, read-only; data on /data.', { responsibilities: ['Serve the web app, API and streams', 'Publish live playlists to MediaMTX'], doc: `${A}07-deployment-view?section=71-nodes` }),
   deployMediamtx: element('MediaMTX', 'Container instance · Docker', 'host 8555 → 8554 RTSP, 8891 → 8890/udp SRT, 1936 → 1935 RTMP; control API :9997 on the network only.', { doc: `${A}07-deployment-view?section=71-nodes` }),
   deployData: element('Data volume', 'Volume · ./data → /data', 'library.db, songs/, tmp/, live/{playlist}/hls and on-air.', { doc: `${A}07-deployment-view?section=72-the-data-volume` }),
-  deployAcestep: element('ACE-Step 1.5', 'Process · acestep-api', 'Port 7801 on its GPU, set up as ACE-Step says; on a Mac, just engine starts it.', { external: true, doc: `${A}03-system-scope-and-context?section=33-the-music-engine-ace-step-15` }),
+  deployAcestep: element('ACE-Step 1.5', 'Process · acestep-api', 'Port 7801 on its GPU, set up as ACE-Step says and started with the settings maio expects.', { external: true, doc: `${A}03-system-scope-and-context?section=33-the-music-engine-ace-step-15` }),
   client: element('API client', 'Component · ui/api.rs', 'Typed calls to /api/v1; server-sent events nudge lists to reload.', { doc: 'adr/0004-the-web-app-uses-only-the-public-api' }),
 };
 

@@ -58,7 +58,7 @@ Releases follow [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)
 | only `fix` or `perf` | patch |
 | nothing else (`docs`, `test`, `refactor`, `build`, `ci`, `chore`, `style`) | no release |
 
-A release sets `version` in `Cargo.toml`, is committed as `chore(release): vX.Y.Z`, and is tagged `vX.Y.Z` on `main`, annotated and signed, with its notes made from the commit subjects grouped by type. Maio has not been released yet; the first release is v0.1.0, the version `Cargo.toml` already carries.
+A release comes through a pull request ([ADR 0019](adr/0019-releases-come-through-a-release-pull-request.md)). On every push to `main`, release-plz (configured in `release-plz.toml`) keeps one pull request open, titled `chore(release): vX.Y.Z`: it sets `version` in `Cargo.toml` and adds the release to `CHANGELOG.md`, its notes made from the commit subjects grouped as Features, Fixes, Performance and Reverts. Only `feat`, `fix`, `perf`, `revert` and breaking commits open one. Merging it is the release: the release app tags `vX.Y.Z` on `main` and makes the GitHub Release, and the release workflow attaches `maio` with its web app for `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` and `aarch64-apple-darwin`, each with a SHA-256 checksum, and publishes the container image `ghcr.io/fulgas/maio` for `linux/amd64` and `linux/arm64`, tagged `X.Y.Z`, `X.Y` and `latest`. Maio has not been released yet; the first release is v0.1.0, the version `Cargo.toml` already carries.
 
 ## Secrets
 

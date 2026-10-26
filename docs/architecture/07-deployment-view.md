@@ -12,6 +12,7 @@ deployment
 - The host ports 8555, 8891 and 1936 leave 8554, 8890 and 1935 free for another MediaMTX on the same machine. From another container, use `host.docker.internal:8555`; inside Maio's compose network, `mediamtx:8554`.
 - MediaMTX asks Maio at `http://maio:8080/relay/auth` about every publish, read and API call.
 - The image is built in two stages: `cargo leptos build --release` (server and WebAssembly, hashed asset names), then a slim runtime with ffmpeg.
+- Each release also publishes this image as `ghcr.io/fulgas/maio` for `linux/amd64` and `linux/arm64`, and attaches `maio` with its web app for Linux and for Macs with Apple silicon to the GitHub Release ([ADR 0019](../adr/0019-releases-come-through-a-release-pull-request.md)).
 
 ## 7.2 The data volume
 

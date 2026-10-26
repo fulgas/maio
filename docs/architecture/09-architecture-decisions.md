@@ -26,3 +26,4 @@ Decisions that still shape Maio are recorded as architecture decision records (A
 | [0016](../adr/0016-zola-builds-the-documentation-site.md) | Zola builds the documentation site | Accepted |
 | [0017](../adr/0017-the-engine-health-is-the-circuit-breaker.md) | The engine's health is the circuit breaker; trouble is retried with exponential backoff | Accepted |
 | [0018](../adr/0018-the-web-app-learns-of-changes-from-events.md) | The web app learns of changes from server-sent events, never by polling | Accepted |
+| [0019](../adr/0019-releases-come-through-a-release-pull-request.md) | Releases come through a release pull request, tagged by the release app | Accepted |

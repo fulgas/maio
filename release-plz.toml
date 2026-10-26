@@ -2,6 +2,7 @@
 # its changelog; merging it tags vX.Y.Z and makes the GitHub Release, and the binaries are attached to it.
 [workspace]
 publish = false # an app, not a library on crates.io
+git_only = true # so the last release is the latest vX.Y.Z tag, not a crates.io version that never exists
 semver_check = false # no public Rust API to check
 release_always = false # release only when the release pull request is merged
 features_always_increment_minor = true # feat bumps the minor version, also while Maio is 0.x

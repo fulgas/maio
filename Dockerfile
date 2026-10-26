@@ -1,5 +1,5 @@
 FROM rust:1-trixie AS build
-RUN rustup target add wasm32-unknown-unknown && cargo install --locked cargo-leptos@0.3.5
+RUN rustup target add wasm32-unknown-unknown && cargo install --locked cargo-leptos@0.3.11
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY src src

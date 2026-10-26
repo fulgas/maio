@@ -9,6 +9,15 @@
       else if (doc) location.replace(`{{ get_url(path="/", trailing_slash=true) }}${doc[1]}/${doc[2] ? `#${decodeURIComponent(doc[2])}` : ''}`);
     };
     follow(); addEventListener('hashchange', follow);
+    // The theme button, as on the other pages; this page has no diagram to redraw.
+    const theme = document.getElementById('theme');
+    const setTheme = t => {
+      document.documentElement.dataset.theme = t;
+      theme.setAttribute('aria-label', t === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+      try { localStorage.setItem('maio-architecture-theme', t); } catch {}
+    };
+    setTheme(document.documentElement.dataset.theme);
+    document.getElementById('theme').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'));
   </script>
 {% endblock %}
 {% block tabs %}{% set tab = "docs" %}{% include "partials/tabs.html" %}{% endblock %}

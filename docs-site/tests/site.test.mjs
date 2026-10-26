@@ -331,3 +331,13 @@ test('inside a page the sidebar shows only its corner, with a switch to the othe
   assert.match(docs.get('how-to/01-run-ace-step-on-another-machine').page, /<span id="doc-label">HOW-TO GUIDE<\/span>/);
   assert.match(docs.get('product').page, /<span id="doc-label">EXPLANATION<\/span>/);
 });
+
+test('every page with the theme button can change the theme', async () => {
+  const pages = { 'the documentation home': 'index.html', 'the explorer': 'explore/index.html', 'a document': 'architecture/05-building-block-view/index.html' };
+  for (const [name, file] of Object.entries(pages)) {
+    const html = await readFile(path.join(result.outputRoot, file), 'utf8');
+    assert.ok(html.includes('id="theme"'), `${name} has the button`);
+    const handled = /reader\.js|app\.mjs/.test(html) || /getElementById\('theme'\)\.addEventListener\('click'/.test(html);
+    assert.ok(handled, `${name}: nothing handles the theme button`);
+  }
+});

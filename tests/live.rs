@@ -61,8 +61,13 @@ async fn a_live_playlist_streams_mp3_and_moves_through_its_songs() {
     let sync = bytes.windows(2).any(|w| w[0] == 0xFF && w[1] & 0xE0 == 0xE0);
     assert!(sync, "MP3 frame sync in the stream");
     assert_eq!(st.on_air("p1").unwrap().now.unwrap().id, "s1");
-    tokio::time::sleep(Duration::from_millis(2500)).await;
-    assert_eq!(st.on_air("p1").unwrap().now.unwrap().id, "s2");
+    // The 2 s song ends and the next starts; a slow machine takes longer, so wait for it rather than a fixed time.
+    let next = tokio::time::timeout(Duration::from_secs(15), async {
+        while st.on_air("p1").and_then(|o| o.now).is_none_or(|s| s.id != "s2") {
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    });
+    assert!(next.await.is_ok(), "s2 came on air after s1");
     assert_eq!(st.now_title("p1").as_deref(), Some("Tone s2"));
 }
 

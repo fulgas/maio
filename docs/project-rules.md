@@ -45,7 +45,7 @@ The subject says what changed in plain words (`fix(player): Pause while listenin
 
 Scopes, when they help: `songs`, `playlists`, `player`, `live`, `relay`, `engine`, `text`, `account`, `api`, `ui`, `config`, `telemetry`, `docs-site`. One logical change per commit.
 
-Every commit follows it. The `commit-msg` hook in `.githooks/` refuses any other message; turn it on once per clone with `git config core.hooksPath .githooks`.
+Every commit follows it. The `commit-msg` hook in `.githooks/` refuses any other message; turn it on once per clone with `git config core.hooksPath .githooks`. Every commit is also signed off (`git commit -s`): its `Signed-off-by:` line certifies the [Developer Certificate of Origin](https://developercertificate.org), and a DCO check on pull requests refuses commits without one.
 
 ## Releases
 

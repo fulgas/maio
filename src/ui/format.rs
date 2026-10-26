@@ -15,6 +15,16 @@ pub fn clock(seconds: f64) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
+/// 150 → "2 minutes 30 seconds": a length as a screen reader says it.
+pub fn spoken(seconds: u32) -> String {
+    let unit = |n: u32, one: &str| format!("{n} {one}{}", if n == 1 { "" } else { "s" });
+    match (seconds / 60, seconds % 60) {
+        (0, s) => unit(s, "second"),
+        (m, 0) => unit(m, "minute"),
+        (m, s) => format!("{} {}", unit(m, "minute"), unit(s, "second")),
+    }
+}
+
 /// A total: "45 s", "58 min", "2 h 31 min".
 pub fn length(seconds: f64) -> String {
     let s = seconds.max(0.0).round() as u64;
@@ -305,6 +315,15 @@ mod tests {
         assert_eq!(clock(184.4), "3:04");
         assert_eq!(clock(600.0), "10:00");
         assert_eq!(clock(-3.0), "0:00");
+    }
+
+    #[test]
+    fn spoken_says_a_length_in_words() {
+        assert_eq!(spoken(150), "2 minutes 30 seconds");
+        assert_eq!(spoken(180), "3 minutes");
+        assert_eq!(spoken(15), "15 seconds");
+        assert_eq!(spoken(75), "1 minute 15 seconds");
+        assert_eq!(spoken(61), "1 minute 1 second");
     }
 
     #[test]

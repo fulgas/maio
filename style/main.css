@@ -126,6 +126,15 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .chip.toggle[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .chip.toggle[aria-pressed="true"] svg { color: var(--bg); }
 .chip.seed { margin-left: auto; border-style: dashed; }
+.chip.length { flex: 1 1 240px; max-width: 280px; gap: 10px; }
+.chip.length input { flex: 1; min-width: 0; height: 24px; margin: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+/* The track: filled in the accent up to the value, the rest in --faint, so the whole length reads on the dark ground. */
+.chip.length input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--faint) var(--fill, 0%)); }
+.chip.length input::-moz-range-track { height: 4px; border-radius: 2px; background: var(--faint); }
+.chip.length input::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+.chip.length input::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border: 0; border-radius: 50%; background: var(--accent); }
+.chip.length input::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: var(--accent); }
+.chip.length output { min-width: 5ch; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .lyrics { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; }
 .lyrics-side { display: flex; flex-direction: column; gap: 12px; }
 @media (max-width: 720px) {
@@ -134,6 +143,7 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
   .make-button { flex: 0 0 auto; height: 56px; align-self: stretch; flex-direction: row; }
   .lyrics { grid-template-columns: 1fr; }
   .chip.seed { margin-left: 0; }
+  .chip.length { flex-basis: 100%; max-width: none; order: 1; }
 }
 
 /* Being made */
@@ -154,8 +164,8 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .search { margin-left: auto; flex-direction: row; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border: 1px solid var(--line2); border-radius: 22px; background: var(--panel); }
 .search input { border: 0 !important; min-height: 0 !important; padding: 0 !important; background: transparent !important; width: 220px; max-width: 50vw; }
 /* The focus ring goes around the whole pill: on the field inside it, it would sit cut inside the pill's round ends. */
-.search:focus-within, .chip:has(select:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
-.search input:focus-visible, .chip select:focus-visible { outline: none; }
+.search:focus-within, .chip:has(select:focus-visible), .chip:has(input[type=range]:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+.search input:focus-visible, .chip select:focus-visible, .chip input[type=range]:focus-visible { outline: none; }
 .songs { display: flex; flex-direction: column; }
 .song { display: grid; grid-template-columns: 44px minmax(0, 1fr) 170px 170px 56px 44px 44px; gap: 14px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
 .song .play { background: var(--panel); }

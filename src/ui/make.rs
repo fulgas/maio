@@ -1,9 +1,18 @@
 //! The Make form (arc42 8.2, 8.5): what the person picked, turned into a song request.
 
-use crate::domain::request::{Energy, SongRequest, Tempo, TempoWord};
+use crate::{
+    domain::{
+        engine::Health,
+        request::{Energy, SongRequest, Tempo, TempoWord},
+    },
+    ui::api::EngineStatus,
+};
 
-/// The length chip: (seconds, label).
-pub const LENGTHS: [(u32, &str); 7] = [(30, "0:30"), (60, "1:00"), (120, "2:00"), (180, "3:00"), (240, "4:00"), (300, "5:00"), (600, "10:00")];
+/// The length slider: 0:15 to 10:00 in steps of 15 seconds, the lengths the API takes (8.2).
+pub const SHORTEST: u32 = 15;
+pub const LONGEST: u32 = 600;
+pub const STEP: u32 = 15;
+/// The slider's marks: 1, 3, 5 and 10 minutes.
 /// The tempo chip: (value, label); a value is a tempo word or a BPM.
 pub const TEMPOS: [(&str, &str); 9] = [
     ("", "Any tempo"),
@@ -117,14 +126,12 @@ impl MakeForm {
 /// What "Make one like this" puts in the form (arc42 8.5): the song's settings, its words and its seed.
 impl MakeForm {
     pub fn from_song(s: &crate::domain::Song) -> Self {
-        let nearest =
-            LENGTHS.iter().min_by(|a, b| (f64::from(a.0) - s.seconds).abs().total_cmp(&(f64::from(b.0) - s.seconds).abs())).map_or(180, |l| l.0);
         Self {
             prompt: s.prompt.clone(),
             mood: s.mood.clone().unwrap_or_default(),
             genre: s.genre.clone().unwrap_or_default(),
             energy: s.energy.clone().unwrap_or_default(),
-            seconds: nearest,
+            seconds: slider_seconds(s.seconds),
             tempo: s.bpm.filter(|b| (40..=220).contains(b)).map(|b| b.to_string()).unwrap_or_default(),
             seed: s.seed.to_string(),
             vocals: s.vocals,
@@ -133,6 +140,22 @@ impl MakeForm {
             lyrics_by: String::new(),
         }
     }
+}
+
+/// A song's length on the slider: the nearest 15 seconds, within 0:15 to 10:00.
+pub fn slider_seconds(seconds: f64) -> u32 {
+    ((seconds / f64::from(STEP)).round() as u32 * STEP).clamp(SHORTEST, LONGEST)
+}
+
+/// Where the slider ends: the longest song a ready engine can make, on a step; 10:00 while none is ready.
+pub fn longest(engines: &[EngineStatus]) -> u32 {
+    engines
+        .iter()
+        .filter(|e| e.health == Health::Up)
+        .filter_map(|e| e.info.as_ref())
+        .map(|i| i.capabilities.max_seconds / STEP * STEP)
+        .max()
+        .map_or(LONGEST, |m| m.clamp(SHORTEST, LONGEST))
 }
 
 /// The tempo chip's choices, plus the current bpm when it is not one of them.
@@ -209,7 +232,7 @@ mod tests {
     fn from_song_copies_the_settings_and_the_seed() {
         let f = MakeForm::from_song(&made());
         assert_eq!((f.prompt.as_str(), f.mood.as_str(), f.genre.as_str(), f.energy.as_str()), ("warm pads", "calm", "lo-fi", "low"));
-        assert_eq!(f.seconds, 180, "the nearest length chip");
+        assert_eq!(f.seconds, 180, "the nearest step of the length slider");
         assert_eq!(f.tempo, "93");
         assert_eq!(f.seed, "1234");
         let r = f.request(false).unwrap();
@@ -225,8 +248,31 @@ mod tests {
         assert_eq!((f.lyrics.as_str(), f.language.as_str()), ("[verse]\nhi", "pt"));
         let mood_only = crate::domain::Song { prompt: String::new(), bpm: None, seconds: 41.0, ..made() };
         let f = MakeForm::from_song(&mood_only);
-        assert_eq!((f.tempo.as_str(), f.seconds), ("", 30));
+        assert_eq!((f.tempo.as_str(), f.seconds), ("", 45));
         assert!(f.request(false).is_ok(), "a mood alone is a valid request");
+    }
+
+    #[test]
+    fn a_length_snaps_to_the_slider() {
+        assert_eq!((slider_seconds(20.0), slider_seconds(22.6), slider_seconds(179.8)), (15, 30, 180), "the nearest 15 seconds");
+        assert_eq!((slider_seconds(3.0), slider_seconds(900.0)), (15, 600), "within 0:15 to 10:00");
+    }
+
+    #[test]
+    fn the_longest_length_is_what_the_ready_engines_can_make() {
+        use crate::domain::engine::Health;
+        use crate::ui::api::EngineStatus;
+        let engine = |max_seconds, health| {
+            let mut info = crate::domain::testing::engine_info("e", crate::domain::Commercial::Yes);
+            info.capabilities.max_seconds = max_seconds;
+            EngineStatus { id: "e".into(), info: Some(info), health }
+        };
+        assert_eq!(longest(&[]), 600, "no engine known: the API's own limit");
+        assert_eq!(longest(&[engine(240, Health::Up)]), 240);
+        assert_eq!(longest(&[engine(250, Health::Up)]), 240, "on a step of the slider");
+        assert_eq!(longest(&[engine(900, Health::Up)]), 600);
+        assert_eq!(longest(&[engine(120, Health::Down)]), 600, "only a ready engine counts");
+        assert_eq!(longest(&[engine(120, Health::Up), engine(300, Health::Up)]), 300, "the longest any can make");
     }
 
     #[test]

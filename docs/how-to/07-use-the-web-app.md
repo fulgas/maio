@@ -10,7 +10,7 @@ Describe it, choose what you care about, and press Make. You need an engine that
 
    ![Typing a description into What it sounds like](../images/manual/make-1.png)
 
-2. Pick a **mood**, a **genre**, a **length** and a **tempo** with the chips under the box, or leave them as they are.
+2. Pick a **mood**, a **genre** and a **tempo** with the chips under the box, and a **length** with the slider among them (0:15 to 10:00), or leave them as they are.
 
    ![Choosing a mood with the chips under the box](../images/manual/make-2.png)
 

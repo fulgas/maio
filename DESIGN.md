@@ -135,7 +135,7 @@ rounded:
 - **Status icons** in the header: the engine (a chip) and MediaMTX (a broadcast mark), each with a 9 px status dot on its corner, green when all is well, ringed in the page colour; the state is the caption, never words on the bar.
 - **Tiles** on the shelf, in the playlist's colour (the tokens show the second playlist's).
 - **The band** heads a playlist page: its colour (the tokens show the third playlist's), its name and length, and solid round icon buttons.
-- **Chips** hold a song's settings (mood, genre, length, tempo) and the stream addresses with their copy buttons.
+- **Chips** hold a song's settings (mood, genre, tempo) and the stream addresses with their copy buttons. A song's length is a chip too, holding a slider in the accent colour with its value beside it; on a phone it takes a row of its own.
 - **Dialogs** are the browser's own `<dialog>`; the engine and MediaMTX panels use the popover API ([ADR 0010](docs/adr/0010-native-browser-features-first.md)). Toasts also go to a hidden `role="status"` region.
 
 ```yaml

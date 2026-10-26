@@ -63,7 +63,7 @@ async function captionEdges(locator) {
 
 async function makeSong(prompt, seconds) {
   await page.getByLabel("What it sounds like").fill(prompt);
-  await page.getByLabel("Length").selectOption(String(seconds));
+  await page.getByLabel("Length").fill(String(seconds));
   await page.getByRole("button", { name: "Make the song" }).click();
 }
 
@@ -218,6 +218,8 @@ await check("a song's title opens its details, with downloads and Make one like 
   await dialog.getByRole("button", { name: "Make one like this" }).click();
   await dialog.waitFor({ state: "hidden" });
   assert.equal(await page.getByLabel("What it sounds like").inputValue(), longPrompt);
+  // The fake engine's song is 20 s long: the slider takes the nearest 15 seconds.
+  assert.equal(await page.getByRole("slider", { name: "Length" }).inputValue(), "15", "the song's length, on a step of the slider");
   await page.locator(".chip.seed").waitFor();
   await page.getByRole("button", { name: "Remove the seed: make a new take" }).click();
   assert.equal(await page.locator(".chip.seed").count(), 0);
@@ -253,16 +255,47 @@ await check("while no music engine is ready, Make and Make one like this are off
   }
 });
 
-await check("a double click on Make starts one song", async () => {
+await check("the length is a slider from 0:15 to 10:00 in steps of 15 s, shown as a time and said in words", async () => {
+  const slider = page.getByRole("slider", { name: "Length" });
+  const attrs = await slider.evaluate((e) => ({ min: e.min, max: e.max, step: e.step, ticks: e.list?.options.length ?? 0 }));
+  assert.deepEqual(attrs, { min: "15", max: "600", step: "15", ticks: 0 });
+  await tallEnough(slider, "the length slider");
+  const shown = page.locator("form.make .length output");
+  const says = async (value, time, words) => {
+    assert.equal(await slider.inputValue(), value);
+    assert.equal((await shown.textContent()).trim(), time);
+    assert.equal(await slider.getAttribute("aria-valuetext"), words);
+  };
+  await slider.fill("150");
+  await says("150", "2:30", "2 minutes 30 seconds");
+  await slider.focus();
+  await page.keyboard.press("ArrowRight");
+  await says("165", "2:45", "2 minutes 45 seconds");
+  const ring = await slider.evaluate((e) => ({ inRow: !!e.closest(".chips"), slider: getComputedStyle(e).outlineStyle, chip: getComputedStyle(e.closest(".chip")).outlineStyle }));
+  assert.deepEqual(ring, { inRow: true, slider: "none", chip: "solid" }, "a pill among the settings, the ring around the whole pill");
+  await page.keyboard.press("ArrowLeft");
+  await says("150", "2:30", "2 minutes 30 seconds");
+  await page.keyboard.press("PageUp");
+  await says("210", "3:30", "3 minutes 30 seconds");
+  await page.keyboard.press("PageDown");
+  await says("150", "2:30", "2 minutes 30 seconds");
+  await page.keyboard.press("Home");
+  await says("15", "0:15", "15 seconds");
+  await page.keyboard.press("End");
+  await says("600", "10:00", "10 minutes");
+});
+
+await check("a double click on Make starts one song, as long as the slider says", async () => {
   const posts = [];
   const count = (r) => r.method() === "POST" && r.url().endsWith("/api/v1/songs") && posts.push(r);
   page.on("request", count);
   await page.getByLabel("What it sounds like").fill("double click test");
-  await page.getByLabel("Length").selectOption("30");
+  await page.getByLabel("Length").fill("45");
   await page.getByRole("button", { name: "Make the song" }).dblclick();
   await page.waitForTimeout(1500);
   page.off("request", count);
   assert.equal(posts.length, 1, `${posts.length} songs asked for`);
+  assert.equal(posts[0].postDataJSON().seconds, 45, "the slider's length is asked for");
 });
 await page.locator(".song", { hasText: "double click test" }).first().waitFor({ timeout: 120_000 });
 
@@ -836,7 +869,7 @@ await check("the songs search shows its focus ring around the whole search pill,
 });
 
 await check("the Make form's chips show their focus ring around the whole chip, not inside it", async () => {
-  for (const name of ["Mood", "Genre", "Length", "Tempo"]) {
+  for (const name of ["Mood", "Genre", "Tempo", "Length"]) {
     await page.getByLabel(name, { exact: true }).focus();
     await page.keyboard.press("Shift");
     const ring = await page.evaluate(() => {

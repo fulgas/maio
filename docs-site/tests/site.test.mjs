@@ -226,7 +226,7 @@ test('the README is a proper README: what it is, requirements, quick start, port
   for (const id of ['contributing', 'security', 'code-of-conduct']) assert.match(readme.html, new RegExp(`href="/${id}/"`), `README links ${id}`);
   assert.match(docs.get('code-of-conduct').markdown, /Contributor Covenant/);
   assert.match(docs.get('security').markdown, /## Reporting a vulnerability/);
-  for (const step of ['uv sync', 'ACE_STEP_API_KEY', 'api_key_env', 'ANTHROPIC_API_KEY', '[[text_engine]]', '--force-recreate']) assert.ok(readme.markdown.includes(step), `README does not explain ${step}`);
+  for (const step of ['docs/how-to/01-run-ace-step-for-maio.md', 'ACE_STEP_API_KEY', 'api_key_env', 'ANTHROPIC_API_KEY', '[[text_engine]]', '--force-recreate']) assert.ok(readme.markdown.includes(step), `README does not explain ${step}`);
 });
 
 test('Maio is MIT licensed, and the fonts it ships carry their own licence', async () => {
@@ -321,14 +321,14 @@ test('the compass is the home page and leads to the four corners of Diátaxis, e
 
 test('inside a page the sidebar shows only its corner, with a switch to the other three and the compass', () => {
   const sidebar = id => docs.get(id).page.match(/<nav id="docs-nav"[\s\S]*?<\/details><\/aside>/)[0];
-  const howto = sidebar('how-to/01-run-ace-step-on-another-machine');
+  const howto = sidebar('how-to/01-run-ace-step-for-maio');
   assert.match(howto, /<nav class="quadrant-switch"/);
   for (const corner of ['Tutorials', 'How-to guides', 'Explanation', 'Reference']) assert.match(howto, new RegExp(`>${corner}</a>`), corner);
   assert.match(howto, /href="\/" class="compass-link"/, 'back to the compass');
   assert.match(howto, /href="\/how-to\/05-back-up-the-library\/"/, 'its own pages');
   assert.ok(!howto.includes('href="/architecture/05-building-block-view/"'), 'no other corner\'s pages');
   assert.match(sidebar('architecture/05-building-block-view'), /href="\/product\/"[\s\S]*href="\/architecture\/12-glossary\/"/, 'explanation: product and arc42');
-  assert.match(docs.get('how-to/01-run-ace-step-on-another-machine').page, /<span id="doc-label">HOW-TO GUIDE<\/span>/);
+  assert.match(docs.get('how-to/01-run-ace-step-for-maio').page, /<span id="doc-label">HOW-TO GUIDE<\/span>/);
   assert.match(docs.get('product').page, /<span id="doc-label">EXPLANATION<\/span>/);
 });
 

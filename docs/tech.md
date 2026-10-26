@@ -41,9 +41,7 @@ The layers and their ports: [arc42 5](architecture/05-building-block-view.md).
 
 | Command | Does |
 |---------|------|
-| `just run` | The default (`just`): starts the stack, then ACE-Step in this terminal; Ctrl-C stops both. |
-| `just stack` | Starts Maio and MediaMTX in Docker, rebuilding when the code changed. |
-| `just engine` | On a Mac with Apple silicon, runs ACE-Step's own API (MPS), with OpenTelemetry when configured. |
+| `just stack` | The default (`just`): starts Maio and MediaMTX in Docker, rebuilding when the code changed. |
 | `just fake` | Runs a fake ACE-Step (sine tones, no GPU). |
 | `just stop` | Stops the stack. |
 | `just logs` | Follows Maio's log. |

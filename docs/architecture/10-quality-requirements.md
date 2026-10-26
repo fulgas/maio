@@ -4,7 +4,7 @@
 
 | Goal | Scenario | Expected |
 |------|----------|----------|
-| Simple to run | A fresh machine with Docker, and ACE-Step running where its GPU is | `cp` the example config and `.env`, set the account, `just`: the web app on 8080 and ACE-Step loading. |
+| Simple to run | A fresh machine with Docker, and ACE-Step running where its GPU is | `cp` the example config and `.env`, set the account, `just`: the web app on 8080, and the engine icon green once ACE-Step has loaded its models. |
 | Changeable | A use case imports an adapter | `tests/layers.rs` fails the build. |
 | Changeable | A port gets a second adapter or a fake | No use case changes. |
 | Never open | Start without `MAIO_ADMIN_USER` or `MAIO_ADMIN_PASSWORD` | Maio refuses to start. |

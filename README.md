@@ -31,27 +31,16 @@ Maio is a personal, self-hosted tool. One person runs it and owns everything in 
    ```
 
 2. In `.env`, set `MAIO_ADMIN_USER` and `MAIO_ADMIN_PASSWORD` (10 to 128 characters). They create the one account on first start.
-3. Run `just`. It starts Maio and MediaMTX in Docker, then ACE-Step in your terminal; Ctrl-C stops both. To try things without ACE-Step, run `just stack` and `just fake` (a fake engine that makes sine tones).
+3. Start ACE-Step as [Run ACE-Step for Maio](docs/how-to/01-run-ace-step-for-maio.md) says, then run `just` to start Maio and MediaMTX in Docker. To try things without ACE-Step, run `just fake` instead (a fake engine that makes sine tones).
 4. Open http://localhost:8080 and sign in.
 
 ## Engines and API keys
 
 ### ACE-Step, the music engine
 
-ACE-Step 1.5 runs as its own server, `acestep-api`, outside Maio's Docker Compose project, on whichever machine has the GPU. Install and start it as [ACE-Step's own instructions](https://github.com/ace-step/ACE-Step-1.5#readme) say: they cover CUDA, Apple silicon, AMD ROCm, Intel XPU and CPU. The first start downloads the models, about 9.4 GB, and takes a minute or two. Then point the `[[engine]]` `url` in `maio.toml` at it:
-
-- **The same machine as Maio**: `http://host.docker.internal:7801`, as in the example config.
-- **Another machine**: that machine's address, with ACE-Step listening on it rather than only on `127.0.0.1` (ACE-Step's `ACESTEP_API_HOST`).
-
-On a Mac with Apple silicon there is a shortcut. With ACE-Step cloned beside this repository (or `ACE_ROOT` set to its folder) and `uv sync` run in it, `just engine` starts `acestep-api` on 127.0.0.1:7801 with the models loaded, on MPS, and `just`, with no recipe, starts the stack first.
+ACE-Step 1.5 runs as its own server, `acestep-api`, outside Maio's Docker Compose project, on whichever machine has the GPU. [Run ACE-Step for Maio](docs/how-to/01-run-ace-step-for-maio.md) gives the settings Maio expects: the port, the address, loading the models at start, the planning model, a key when it listens on the network (the same value in Maio's `.env` as `ACE_STEP_API_KEY`, named by `api_key_env` under `[[engine]]`), and OpenTelemetry. Then point the `[[engine]]` `url` in `maio.toml` at it: `http://host.docker.internal:7801` on the same machine, as in the example config, or the GPU machine's address.
 
 The header's engine icon turns green when ACE-Step is ready.
-
-To protect ACE-Step with a key:
-
-1. Start ACE-Step with a key (its `ACESTEP_API_KEY`) and put the same key in `.env` as `ACE_STEP_API_KEY=<a long random string>`. `just engine` passes it to ACE-Step for you.
-2. In `maio.toml`, uncomment `api_key_env = "ACE_STEP_API_KEY"` under `[[engine]]`, so Maio sends it.
-
 
 ### Text engines, for lyrics and titles
 
@@ -70,7 +59,7 @@ Maio reads `.env` and `maio.toml` when it starts. After changing either, restart
 docker compose up -d --force-recreate maio
 ```
 
-and restart `just engine` after changing ACE-Step's key.
+and restart ACE-Step after changing its key.
 
 ## Ports
 
@@ -125,7 +114,7 @@ The full list, the stack and the code layout are in [Tech](docs/tech.md).
 ## Documentation
 
 - [Your first song, on air](docs/tutorials/01-your-first-song-on-air.md): a tutorial, start to finish.
-- How-to guides: [run ACE-Step on another machine](docs/how-to/01-run-ace-step-on-another-machine.md), [add a text engine](docs/how-to/02-add-a-text-engine.md), [go live and share a stream](docs/how-to/03-go-live-and-share-a-stream.md), [serve Maio over HTTPS](docs/how-to/04-serve-maio-over-https.md), [back up the library](docs/how-to/05-back-up-the-library.md), [make a themed playlist with the API](docs/how-to/06-make-a-themed-playlist-with-the-api.md).
+- How-to guides: [run ACE-Step for Maio](docs/how-to/01-run-ace-step-for-maio.md), [add a text engine](docs/how-to/02-add-a-text-engine.md), [go live and share a stream](docs/how-to/03-go-live-and-share-a-stream.md), [serve Maio over HTTPS](docs/how-to/04-serve-maio-over-https.md), [back up the library](docs/how-to/05-back-up-the-library.md), [make a themed playlist with the API](docs/how-to/06-make-a-themed-playlist-with-the-api.md).
 - [Reference](docs/reference.md): where to look up the API, the settings and the words used.
 - [Product](docs/product.md), [Design](DESIGN.md) and [Tech](docs/tech.md): what Maio is, how it looks, how it is built, each on one page.
 - [Architecture](docs/architecture/01-introduction-and-goals.md): twelve arc42 sections, the authority for what Maio does and how it is built.

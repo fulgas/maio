@@ -1,10 +1,12 @@
 name: Test
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
+  # Weekly on main, so PRs start from a warm build cache: only main's cache is shared with every branch.
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,6 +25,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@84f5ac3124727fb3d284d4d22ee9ab3654fd09a6 # v2
         with:
           tool: just

@@ -10,6 +10,7 @@ use std::{
     path::PathBuf,
     sync::{Arc, atomic::Ordering},
 };
+use tokio::sync::watch;
 
 use crate::{
     domain::{
@@ -17,20 +18,10 @@ use crate::{
         live::StreamFormat,
         relay::{Caller, RelayAddresses, RelayStatus},
     },
-    usecases::ports::{Listen, LiveListening, LiveSong, LiveStreams, OnAir, Relay},
+    usecases::ports::{Changes, Listen, LiveListening, LiveSong, LiveStreams, OnAir, Relay},
 };
 pub use station::ListenerGuard;
 use station::{Station, aac_args, encoder, hls_args, mp3_args, playout};
-
-/// A `Tell` that passes `what` to the hook, once one is set.
-fn tell(hook: &Hook, what: Changed) -> station::Tell {
-    let hook = hook.clone();
-    Arc::new(move || {
-        if let Some(f) = hook.get() {
-            f(what.clone());
-        }
-    })
-}
 
 pub struct StationsConfig {
     pub data_dir: PathBuf,
@@ -42,37 +33,23 @@ pub struct StationsConfig {
     pub relay: Option<relay::Target>,
 }
 
-/// What changed on its own, for the web app (arc42 3.5).
-#[derive(Debug, Clone, PartialEq)]
-pub enum Changed {
-    /// A live playlist's song on air or its listeners.
-    Live(String),
-    /// MediaMTX's state or what it carries.
-    Relay,
-}
-
-type Hook = Arc<std::sync::OnceLock<Box<dyn Fn(Changed) + Send + Sync>>>;
-
 pub struct Stations {
     cfg: StationsConfig,
     on: Mutex<HashMap<String, Arc<Station>>>,
-    seen: Arc<Mutex<relay::Seen>>,
-    hook: Hook,
+    /// What MediaMTX said at its last check.
+    seen: Arc<watch::Sender<relay::Seen>>,
+    /// Where a change of a live playlist or of MediaMTX goes, so the web app shows it (arc42 3.5).
+    changes: Changes,
 }
 
 impl Stations {
     /// Call inside the tokio runtime: with a relay, it starts watching MediaMTX.
-    pub fn new(cfg: StationsConfig) -> Arc<Self> {
-        let (seen, hook): (_, Hook) = (Arc::new(Mutex::new(relay::Seen::default())), Arc::default());
+    pub fn new(cfg: StationsConfig, changes: Changes) -> Arc<Self> {
+        let seen = Arc::new(watch::Sender::new(relay::Seen::default()));
         if let Some(t) = cfg.relay.clone() {
-            tokio::spawn(relay::watch(t, seen.clone(), tell(&hook, Changed::Relay)));
+            tokio::spawn(relay::watch(t, seen.clone(), changes.clone()));
         }
-        Arc::new(Self { cfg, on: Mutex::new(HashMap::new()), seen, hook })
-    }
-
-    /// Sets what to tell when a live playlist or MediaMTX changes on its own; set once, at start.
-    pub fn on_change(&self, f: impl Fn(Changed) + Send + Sync + 'static) {
-        let _ = self.hook.set(Box::new(f));
+        Arc::new(Self { cfg, on: Mutex::new(HashMap::new()), seen, changes })
     }
 
     fn get(&self, id: &str) -> Option<Arc<Station>> {
@@ -84,7 +61,7 @@ impl Stations {
     }
 
     fn start(&self, p: &Playlist, songs: &[LiveSong]) -> Arc<Station> {
-        let st = Station::new(p, songs, self.cfg.data_dir.clone(), self.cfg.relay.clone(), tell(&self.hook, Changed::Live(p.id.clone())));
+        let st = Station::new(p, songs, self.cfg.data_dir.clone(), self.cfg.relay.clone(), self.changes.clone());
         tokio::spawn(playout(st.clone(), self.cfg.crossfade_s));
         if self.cfg.mp3 {
             tokio::spawn(encoder(st.clone(), "mp3", mp3_args, Some(st.mp3.clone()), false));
@@ -116,11 +93,11 @@ impl LiveListening for Stations {
             StreamFormat::Aac if self.cfg.aac => st.aac.subscribe(),
             _ => return None,
         };
-        Some(Listen { bytes, moved: st.moved.subscribe(), guard: Box::new(ListenerGuard::new(st.listeners.clone(), st.tell.clone())) })
+        Some(Listen { bytes, moved: st.moved.subscribe(), guard: Box::new(ListenerGuard::new(&st)) })
     }
 
     fn now_title(&self, id: &str) -> Option<String> {
-        self.get(id)?.now.lock().as_ref().map(|s| s.title.clone())
+        self.get(id)?.now.borrow().as_ref().map(|s| s.title.clone())
     }
 
     fn hls_dir(&self, id: &str) -> PathBuf {
@@ -135,7 +112,7 @@ impl Relay for Stations {
 
     fn status(&self, live: &[(PlaylistRef, String)]) -> Option<RelayStatus> {
         let t = self.cfg.relay.as_ref()?;
-        Some(relay::status(&self.seen.lock(), t, live, chrono::Utc::now()))
+        Some(relay::status(&self.seen.borrow(), t, live, chrono::Utc::now()))
     }
 
     fn addresses(&self, path: &str) -> Option<RelayAddresses> {
@@ -162,8 +139,8 @@ impl LiveStreams for Stations {
 
     fn on_air(&self, id: &str) -> Option<OnAir> {
         let st = self.get(id)?;
-        let relayed = self.seen.lock().readers(&st.relay_path());
+        let relayed = self.seen.borrow().readers(&st.relay_path());
         let listeners = st.listeners.load(Ordering::Relaxed) + relayed;
-        Some(OnAir { now: st.now.lock().clone(), next: st.next.lock().clone(), listeners })
+        Some(OnAir { now: st.now.borrow().clone(), next: st.next.borrow().clone(), listeners })
     }
 }

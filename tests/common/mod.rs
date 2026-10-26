@@ -64,8 +64,10 @@ pub fn world_behind_proxy() -> World {
 
 fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -> World {
     let dir = tempfile::tempdir().unwrap();
-    let stations =
-        Stations::new(StationsConfig { data_dir: dir.path().to_path_buf(), crossfade_s: 0.5, mp3: true, aac: true, hls: false, relay: None });
+    let stations = Stations::new(
+        StationsConfig { data_dir: dir.path().to_path_buf(), crossfade_s: 0.5, mp3: true, aac: true, hls: false, relay: None },
+        tokio::sync::mpsc::unbounded_channel().0,
+    );
     let metrics = Arc::new(maio::web::metrics::Metrics::new(meter));
     let db = Arc::new(Db::open_in_memory().unwrap());
     let (songs, playlists) = (Arc::new(SqliteSongs(db.clone())), Arc::new(SqlitePlaylists(db)));

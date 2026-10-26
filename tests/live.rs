@@ -5,7 +5,7 @@ use std::{process::Command, sync::Arc, time::Duration};
 use maio::{
     adapters::live::{Stations, StationsConfig},
     domain::{Live, Playlist, Visibility, live::StreamFormat as Format},
-    usecases::ports::{LiveListening, LiveSong, LiveStreams},
+    usecases::ports::{Change, LiveListening, LiveSong, LiveStreams},
 };
 
 /// Writes `songs/{id}.opus`: a `seconds`-long sine tone at `hz`.
@@ -29,7 +29,13 @@ fn playlist(visibility: Visibility) -> Playlist {
 }
 
 fn stations(dir: &std::path::Path) -> Arc<Stations> {
-    Stations::new(StationsConfig { data_dir: dir.into(), crossfade_s: 0.5, mp3: true, aac: true, hls: false, relay: None })
+    telling(dir).0
+}
+
+/// Stations, and the changes they send to the event queue.
+fn telling(dir: &std::path::Path) -> (Arc<Stations>, tokio::sync::mpsc::UnboundedReceiver<Change>) {
+    let (changes, told) = tokio::sync::mpsc::unbounded_channel();
+    (Stations::new(StationsConfig { data_dir: dir.into(), crossfade_s: 0.5, mp3: true, aac: true, hls: false, relay: None }, changes), told)
 }
 
 async fn first_bytes(mut rx: tokio::sync::broadcast::Receiver<bytes::Bytes>, n: usize) -> Vec<u8> {
@@ -71,6 +77,23 @@ async fn the_next_song_shows_as_soon_as_a_song_starts() {
     let on = st.on_air("p1").unwrap();
     assert_eq!(on.now.unwrap().id, "s1");
     assert_eq!(on.next.map(|n| n.id).as_deref(), Some("s2"), "next is known for the whole song, not only its last seconds");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn the_song_on_air_its_next_song_and_each_listener_are_told() {
+    let dir = tempfile::tempdir().unwrap();
+    let songs = vec![tone(dir.path(), "s1", 440, 30), tone(dir.path(), "s2", 660, 30)];
+    let (st, mut told) = telling(dir.path());
+    st.play(&playlist(Visibility::Public), &songs);
+    let listen = st.listen("p1", Format::Mp3).expect("on air");
+    let _ = first_bytes(listen.bytes, 4096).await;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let changes: Vec<Change> = std::iter::from_fn(|| told.try_recv().ok()).collect();
+    assert!(changes.iter().all(|c| *c == Change::Live("p1".into())), "{changes:?}");
+    // s1 picked as next, s1 on air, s2 picked as next, one listener: the web app sees the next song too.
+    assert!(changes.len() >= 3, "{changes:?}");
+    drop(listen.guard);
+    assert_eq!(told.try_recv().ok(), Some(Change::Live("p1".into())), "a listener leaving is told");
 }
 
 #[tokio::test(flavor = "multi_thread")]

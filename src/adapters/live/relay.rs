@@ -3,16 +3,19 @@
 
 use std::{collections::HashMap, time::Duration};
 
-use parking_lot::Mutex;
+use tokio::sync::watch::Sender;
 
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 use super::station::args;
-use crate::domain::{
-    PlaylistRef,
-    relay::{Caller, RelayAddresses, RelayReaders, RelayState, RelayStatus, RelayStream},
+use crate::{
+    domain::{
+        PlaylistRef,
+        relay::{Caller, RelayAddresses, RelayReaders, RelayState, RelayStatus, RelayStream},
+    },
+    usecases::ports::{Change, Changes},
 };
 
 /// The user Maio publishes and calls the API as; its password is `Target::secret`.
@@ -230,7 +233,7 @@ struct PathList {
 }
 
 /// Asks MediaMTX how it is and what it carries, every 5 s.
-pub async fn watch(t: Target, seen: std::sync::Arc<Mutex<Seen>>, tell: super::station::Tell) {
+pub async fn watch(t: Target, seen: std::sync::Arc<Sender<Seen>>, changes: Changes) {
     let http = client();
     loop {
         let now = match check(&http, &t).await {
@@ -240,21 +243,22 @@ pub async fn watch(t: Target, seen: std::sync::Arc<Mutex<Seen>>, tell: super::st
                 Seen { checked: true, ..Seen::default() }
             }
         };
-        store(&seen, now, &tell);
+        store(&seen, now, &changes);
         tokio::time::sleep(Duration::from_secs(5)).await;
     }
 }
 
 /// Keeps what a check found; tells when it differs from the last.
-fn store(seen: &Mutex<Seen>, now: Seen, tell: &super::station::Tell) {
-    let changed = {
-        let mut s = seen.lock();
-        let changed = *s != now;
+fn store(seen: &Sender<Seen>, now: Seen, changes: &Changes) {
+    let changed = seen.send_if_modified(|s| {
+        if *s == now {
+            return false;
+        }
         *s = now;
-        changed
-    };
+        true
+    });
     if changed {
-        tell();
+        drop(changes.send(Change::Relay)); // closed only when the server stops
     }
 }
 
@@ -295,18 +299,15 @@ mod tests {
 
     #[test]
     fn a_check_that_finds_something_new_is_told_once() {
-        let told = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        let t = told.clone();
-        let tell: super::super::station::Tell = std::sync::Arc::new(move || {
-            t.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        });
-        let seen = Mutex::new(Seen::default());
+        let (changes, mut told) = tokio::sync::mpsc::unbounded_channel();
+        let mut count = || std::iter::from_fn(|| told.try_recv().ok()).inspect(|c| assert_eq!(*c, Change::Relay)).count();
+        let seen = Sender::new(Seen::default());
         let up = Seen { checked: true, version: Some("1.21.2".into()), ..Seen::default() };
-        store(&seen, up.clone(), &tell);
-        store(&seen, up, &tell);
-        assert_eq!(told.load(std::sync::atomic::Ordering::Relaxed), 1, "MediaMTX came up, then nothing changed");
-        store(&seen, Seen { checked: true, ..Seen::default() }, &tell);
-        assert_eq!(told.load(std::sync::atomic::Ordering::Relaxed), 2, "MediaMTX stopped answering");
+        store(&seen, up.clone(), &changes);
+        store(&seen, up, &changes);
+        assert_eq!(count(), 1, "MediaMTX came up, then nothing changed");
+        store(&seen, Seen { checked: true, ..Seen::default() }, &changes);
+        assert_eq!(count(), 1, "MediaMTX stopped answering");
     }
 
     fn target() -> Target {

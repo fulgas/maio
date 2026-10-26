@@ -1,7 +1,6 @@
 //! One live playlist on air (arc42 8.4): decode the next song, crossfade, pace 20 ms chunks onto the PCM bus;
 //! encoders turn the bus into MP3, AAC and HLS bytes and publish AAC to the relay.
 
-use parking_lot::Mutex;
 use std::{
     path::{Path, PathBuf},
     process::Stdio,
@@ -22,7 +21,7 @@ use tokio::{
 use super::mixer::{CHANNELS, CHUNK, Deck, MixEvent, Mixer, SAMPLE_RATE};
 use crate::{
     domain::{Playlist, live::PlayOrder},
-    usecases::ports::LiveSong,
+    usecases::ports::{Change, Changes, LiveSong},
 };
 
 /// Start decoding the next song this long before the current one starts fading.
@@ -34,16 +33,14 @@ pub struct Setlist {
     pub shuffle: bool,
 }
 
-/// Told when something a listener sees changes (the song on air, who listens), so the web app can show it.
-pub type Tell = Arc<dyn Fn() + Send + Sync>;
-
 pub struct Station {
     pub id: String,
-    pub tell: Tell,
+    /// Where a change a listener sees goes (the song on air, the next one, who listens), so the web app shows it.
+    pub changes: Changes,
     pub data_dir: PathBuf,
-    pub setlist: Mutex<Setlist>,
-    pub now: Mutex<Option<LiveSong>>,
-    pub next: Mutex<Option<LiveSong>>,
+    pub setlist: watch::Sender<Setlist>,
+    pub now: watch::Sender<Option<LiveSong>>,
+    pub next: watch::Sender<Option<LiveSong>>,
     /// 20 ms PCM chunks; encoders subscribe.
     pub pcm: broadcast::Sender<Bytes>,
     pub mp3: broadcast::Sender<Bytes>,
@@ -52,28 +49,28 @@ pub struct Station {
     /// Bumped when the address changes: open streams end, the relay republishes on the new path.
     pub moved: watch::Sender<u64>,
     /// The address streams were opened on (`stream_base`); a change bumps `moved`.
-    pub address: Mutex<String>,
+    pub address: watch::Sender<String>,
     pub closed: watch::Sender<bool>,
     /// Set when MediaMTX relays this station: a move kicks the readers of the old path.
     pub relay: Option<super::relay::Target>,
 }
 
 impl Station {
-    pub fn new(p: &Playlist, songs: &[LiveSong], data_dir: PathBuf, relay: Option<super::relay::Target>, tell: Tell) -> Arc<Self> {
+    pub fn new(p: &Playlist, songs: &[LiveSong], data_dir: PathBuf, relay: Option<super::relay::Target>, changes: Changes) -> Arc<Self> {
         Arc::new(Self {
             id: p.id.clone(),
-            tell,
+            changes,
             data_dir,
-            setlist: Mutex::new(Setlist { songs: songs.to_vec(), shuffle: p.live.shuffle }),
-            now: Mutex::new(None),
-            next: Mutex::new(None),
+            setlist: watch::Sender::new(Setlist { songs: songs.to_vec(), shuffle: p.live.shuffle }),
+            now: watch::Sender::new(None),
+            next: watch::Sender::new(None),
             pcm: broadcast::channel(256).0,
             // ponytail: 512 chunks of backlog per bus; a listener further behind is dropped (lagged).
             mp3: broadcast::channel(512).0,
             aac: broadcast::channel(512).0,
             listeners: Arc::new(AtomicUsize::new(0)),
             moved: watch::channel(0).0,
-            address: Mutex::new(crate::domain::live::stream_base(p)),
+            address: watch::Sender::new(crate::domain::live::stream_base(p)),
             closed: watch::channel(false).0,
             relay,
         })
@@ -81,19 +78,29 @@ impl Station {
 
     /// Its path on the relay now (`live/{id}` or `listen/{key}`).
     pub fn relay_path(&self) -> String {
-        self.address.lock().trim_start_matches('/').to_string()
+        self.address.borrow().trim_start_matches('/').to_string()
+    }
+
+    /// Tells the web app that something a listener sees has changed.
+    pub fn tell(&self) {
+        drop(self.changes.send(Change::Live(self.id.clone()))); // closed only when the server stops
     }
 
     /// Takes the playlist as it is now; a new address ends open streams.
     pub fn update(&self, p: &Playlist, songs: &[LiveSong]) {
-        *self.setlist.lock() = Setlist { songs: songs.to_vec(), shuffle: p.live.shuffle };
+        self.setlist.send_replace(Setlist { songs: songs.to_vec(), shuffle: p.live.shuffle });
         let address = crate::domain::live::stream_base(p);
-        let mut current = self.address.lock();
-        if *current != address {
+        let moved = self.address.send_if_modified(|current| {
+            if *current == address {
+                return false;
+            }
             if let Some(t) = self.relay.clone() {
                 tokio::spawn(super::relay::kick(t, current.trim_start_matches('/').to_string()));
             }
             *current = address;
+            true
+        });
+        if moved {
             self.moved.send_modify(|n| *n += 1);
         }
     }
@@ -200,16 +207,17 @@ pub async fn playout(st: Arc<Station>, crossfade_s: f32) {
         let now = tokio::time::Instant::now();
         if queued.is_none() && mixer.next.is_none() && loading.is_none() && now >= next_try {
             let (ids, shuffle) = {
-                let s = st.setlist.lock();
+                let s = st.setlist.borrow();
                 (s.songs.iter().map(|x| x.id.clone()).collect::<Vec<_>>(), s.shuffle)
             };
             match order.next(&ids, shuffle, last_picked.as_deref(), seed()) {
                 None => next_try = now + Duration::from_secs(1), // empty: silence, look again in a second
                 Some(id) => {
                     last_picked = Some(id.clone());
-                    let song = st.setlist.lock().songs.iter().find(|s| s.id == id).cloned();
+                    let song = st.setlist.borrow().songs.iter().find(|s| s.id == id).cloned();
                     if let Some(song) = song {
-                        *st.next.lock() = Some(song.clone());
+                        st.next.send_replace(Some(song.clone()));
+                        st.tell();
                         queued = Some(song);
                     }
                 }
@@ -236,9 +244,10 @@ pub async fn playout(st: Arc<Station>, crossfade_s: f32) {
         for e in events.drain(..) {
             if let MixEvent::Started(id) = e {
                 remember(&st.data_dir, &st.id, &id);
-                let song = st.next.lock().take().filter(|s| s.id == id).or_else(|| st.setlist.lock().songs.iter().find(|s| s.id == id).cloned());
-                *st.now.lock() = song;
-                (st.tell)();
+                let song =
+                    st.next.send_replace(None).filter(|s| s.id == id).or_else(|| st.setlist.borrow().songs.iter().find(|s| s.id == id).cloned());
+                st.now.send_replace(song);
+                st.tell();
             }
         }
         let mut bytes = Vec::with_capacity(CHUNK * 2);
@@ -325,21 +334,26 @@ pub async fn encoder(
     }
 }
 
-/// Counts one listener until dropped.
-pub struct ListenerGuard(Arc<AtomicUsize>, Tell);
+/// Counts one listener until dropped, and tells the web app when it joins and leaves. It holds the count, not the
+/// station, so a station taken off air still ends its streams.
+pub struct ListenerGuard {
+    count: Arc<AtomicUsize>,
+    changes: Changes,
+    playlist: String,
+}
 
 impl ListenerGuard {
-    pub fn new(count: Arc<AtomicUsize>, tell: Tell) -> Self {
-        count.fetch_add(1, Ordering::Relaxed);
-        tell();
-        Self(count, tell)
+    pub fn new(st: &Station) -> Self {
+        st.listeners.fetch_add(1, Ordering::Relaxed);
+        st.tell();
+        Self { count: st.listeners.clone(), changes: st.changes.clone(), playlist: st.id.clone() }
     }
 }
 
 impl Drop for ListenerGuard {
     fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::Relaxed);
-        (self.1)();
+        self.count.fetch_sub(1, Ordering::Relaxed);
+        drop(self.changes.send(Change::Live(self.playlist.clone())));
     }
 }
 
@@ -349,17 +363,13 @@ mod tests {
 
     #[test]
     fn a_listener_joining_and_leaving_is_told() {
-        let told = Arc::new(AtomicUsize::new(0));
-        let t = told.clone();
-        let guard = ListenerGuard::new(
-            Arc::new(AtomicUsize::new(0)),
-            Arc::new(move || {
-                t.fetch_add(1, Ordering::Relaxed);
-            }),
-        );
-        assert_eq!(told.load(Ordering::Relaxed), 1, "joined");
+        let (changes, mut told) = tokio::sync::mpsc::unbounded_channel();
+        let p = Playlist::new("p1".into(), "Late", "k".repeat(32), "t".into()).unwrap();
+        let st = Station::new(&p, &[], std::env::temp_dir(), None, changes);
+        let guard = ListenerGuard::new(&st);
+        assert_eq!((told.try_recv().ok(), st.listeners.load(Ordering::Relaxed)), (Some(Change::Live("p1".into())), 1), "joined");
         drop(guard);
-        assert_eq!(told.load(Ordering::Relaxed), 2, "left");
+        assert_eq!((told.try_recv().ok(), st.listeners.load(Ordering::Relaxed)), (Some(Change::Live("p1".into())), 0), "left");
     }
 
     #[test]

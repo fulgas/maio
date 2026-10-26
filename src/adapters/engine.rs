@@ -1,6 +1,5 @@
 //! ACE-Step 1.5's own HTTP API, `acestep-api` (arc42 3.3).
 
-use parking_lot::{Mutex, MutexGuard};
 use std::{
     collections::HashMap,
     path::Path,
@@ -10,12 +9,12 @@ use std::{
 
 use crate::domain::engine::{Caps, EngineInfo, EngineStatus, Health};
 use crate::domain::{Commercial, Licence};
-use crate::usecases::ports::{CallError, EngineRequest, Metas, MusicEngine, RemoteError, RemoteJob};
+use crate::usecases::ports::{CallError, Change, Changes, EngineRequest, Metas, MusicEngine, RemoteError, RemoteJob};
 use async_trait::async_trait;
 use futures::StreamExt;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use tokio::io::AsyncWriteExt;
+use tokio::{io::AsyncWriteExt, sync::watch};
 
 /// `[[engine]]` in config (arc42 3.3).
 #[derive(Clone, PartialEq)]
@@ -53,9 +52,10 @@ struct Seen {
 pub struct HttpEngine {
     cfg: EngineConfig,
     http: reqwest::Client,
-    seen: Mutex<Seen>,
-    /// Told when the health changes, so the web app can show it at once.
-    on_change: std::sync::OnceLock<Box<dyn Fn() + Send + Sync>>,
+    /// What Maio knows of it: the latest value, read by anyone, changed only through `update`.
+    seen: watch::Sender<Seen>,
+    /// Where a change of its status goes, so the web app shows it at once (arc42 3.5).
+    changes: Changes,
 }
 
 fn transport(e: impl std::fmt::Display) -> CallError {
@@ -104,7 +104,7 @@ struct Wrapped<T> {
 }
 
 impl HttpEngine {
-    pub fn new(cfg: EngineConfig) -> Self {
+    pub fn new(cfg: EngineConfig, changes: Changes) -> Self {
         let http = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(5))
             .timeout(Duration::from_secs(60))
@@ -112,12 +112,7 @@ impl HttpEngine {
             .expect("an HTTP client builds");
         let seen =
             Seen { info: None, health: Health::Unknown, failures: 0, rtf: FIRST_RTF, started: HashMap::new(), switching: false, kept_plan: None };
-        Self { cfg, http, seen: Mutex::new(seen), on_change: std::sync::OnceLock::new() }
-    }
-
-    /// Sets what to tell when the engine's status changes (its health, model, queue); set once, at start.
-    pub fn on_change(&self, f: impl Fn() + Send + Sync + 'static) {
-        let _ = self.on_change.set(Box::new(f));
+        Self { cfg, http, seen: watch::Sender::new(seen), changes }
     }
 
     fn url(&self, path: &str) -> String {
@@ -145,8 +140,34 @@ impl HttpEngine {
         }
     }
 
-    fn seen(&self) -> MutexGuard<'_, Seen> {
-        self.seen.lock()
+    fn seen(&self) -> watch::Ref<'_, Seen> {
+        self.seen.borrow()
+    }
+
+    /// Changes what Maio knows of the engine. A change of its status (health, model, queue) is sent to the web app at
+    /// once, and a change of health is logged.
+    fn update(&self, f: impl FnOnce(&mut Seen)) {
+        let mut health = None;
+        self.seen.send_if_modified(|s| {
+            let before = (s.health, s.info.clone());
+            f(s);
+            let changed = (s.health, &s.info) != (before.0, &before.1);
+            health = changed.then_some((before.0, s.health));
+            changed
+        });
+        let Some((before, after)) = health else { return };
+        drop(self.changes.send(Change::Engine(self.cfg.id.clone()))); // closed only when the server stops
+        if after == before {
+            return;
+        }
+        let id = &self.cfg.id;
+        match after {
+            Health::Up => tracing::info!(engine = %id, "engine is up"),
+            Health::Loading => tracing::info!(engine = %id, "engine is loading its model"),
+            Health::Down => tracing::warn!(engine = %id, "engine is down"),
+            Health::Incompatible => tracing::warn!(engine = %id, "engine answers, but not as acestep-api; it gets no jobs"),
+            Health::Unknown => {}
+        }
     }
 
     async fn get<T: serde::de::DeserializeOwned>(&self, path: &str) -> Result<T, CallError> {
@@ -171,34 +192,6 @@ impl HttpEngine {
 
     /// One health check (arc42 3.3): `down` after 3 failures in a row; loading until ACE-Step's models are up.
     pub async fn check(&self) {
-        let before = self.status();
-        self.check_once().await;
-        self.changed(before);
-    }
-
-    /// Logs a change of health, and tells any change of status.
-    fn changed(&self, before: EngineStatus) {
-        let after = self.status();
-        if after != before
-            && let Some(tell) = self.on_change.get()
-        {
-            tell();
-        }
-        if after.health == before.health {
-            return;
-        }
-        let after = after.health;
-        let id = &self.cfg.id;
-        match after {
-            Health::Up => tracing::info!(engine = %id, "engine is up"),
-            Health::Loading => tracing::info!(engine = %id, "engine is loading its model"),
-            Health::Down => tracing::warn!(engine = %id, "engine is down"),
-            Health::Incompatible => tracing::warn!(engine = %id, "engine answers, but not as acestep-api; it gets no jobs"),
-            Health::Unknown => {}
-        }
-    }
-
-    async fn check_once(&self) {
         #[derive(Deserialize)]
         struct H {
             service: String,
@@ -234,28 +227,27 @@ impl HttpEngine {
             Err(_) => return self.fail(),
         };
         if h.service != "ACE-Step API" {
-            let mut s = self.seen();
-            (s.failures, s.health) = (0, Health::Incompatible);
-            return;
+            return self.update(|s| (s.failures, s.health) = (0, Health::Incompatible));
         }
         let stats: Option<Stats> = self.get("/v1/stats").await.ok();
         let inventory: Option<Inventory> = self.get("/v1/model_inventory").await.ok();
-        let mut s = self.seen();
-        s.failures = 0;
-        s.health = if h.models_initialized && !s.switching { Health::Up } else { Health::Loading };
         let jobs = stats.map(|x| x.jobs).unwrap_or_default();
-        s.info = Some(EngineInfo {
-            id: "ace-step".into(),
-            name: "ACE-Step 1.5".into(),
-            version: h.version,
-            licence: Licence { name: "MIT".into(), commercial: Commercial::Yes, note: String::new() },
-            capabilities: Caps { min_seconds: 10, max_seconds: 600, vocals: true, tempo: true, concurrency: 1 },
-            realtime_factor: s.rtf,
-            model: h.loaded_model.unwrap_or_default(),
-            lm_model: h.loaded_lm_model,
-            models: inventory.map(|i| i.models.into_iter().map(|m| m.name).collect()).unwrap_or_default(),
-            queued: jobs.queued,
-            running: jobs.running,
+        self.update(|s| {
+            s.failures = 0;
+            s.health = if h.models_initialized && !s.switching { Health::Up } else { Health::Loading };
+            s.info = Some(EngineInfo {
+                id: "ace-step".into(),
+                name: "ACE-Step 1.5".into(),
+                version: h.version,
+                licence: Licence { name: "MIT".into(), commercial: Commercial::Yes, note: String::new() },
+                capabilities: Caps { min_seconds: 10, max_seconds: 600, vocals: true, tempo: true, concurrency: 1 },
+                realtime_factor: s.rtf,
+                model: h.loaded_model.unwrap_or_default(),
+                lm_model: h.loaded_lm_model,
+                models: inventory.map(|i| i.models.into_iter().map(|m| m.name).collect()).unwrap_or_default(),
+                queued: jobs.queued,
+                running: jobs.running,
+            });
         });
     }
 
@@ -263,24 +255,22 @@ impl HttpEngine {
     /// starts; the next health check that gets an answer brings it back (arc42 3.3).
     fn call_failed(&self, e: CallError) -> CallError {
         if matches!(e, CallError::Unreachable(_)) {
-            let before = self.status();
             self.mark_down();
-            self.changed(before);
         }
         e
     }
 
     fn mark_down(&self) {
-        let mut s = self.seen();
-        (s.failures, s.health) = (3, Health::Down);
+        self.update(|s| (s.failures, s.health) = (3, Health::Down));
     }
 
     fn fail(&self) {
-        let mut s = self.seen();
-        s.failures += 1;
-        if s.failures >= 3 {
-            s.health = Health::Down;
-        }
+        self.update(|s| {
+            s.failures += 1;
+            if s.failures >= 3 {
+                s.health = Health::Down;
+            }
+        });
     }
 
     /// The first result of a task, or `NotFound`.
@@ -334,7 +324,9 @@ impl MusicEngine for HttpEngine {
         let mut plan = None;
         if request.vocals && request.write_lyrics {
             // The plan of this same request, kept when ACE-Step was busy: written once, not again on each try.
-            let kept = self.seen().kept_plan.take().filter(|(r, _)| r == request).map(|(_, p)| p);
+            let mut kept = None;
+            self.update(|s| kept = s.kept_plan.take());
+            let kept = kept.filter(|(r, _)| r == request).map(|(_, p)| p);
             let p: Plan = match kept {
                 Some(p) => p,
                 None => {
@@ -358,12 +350,12 @@ impl MusicEngine for HttpEngine {
         });
         let released: Released = match self.post("/release_task", body, Duration::from_secs(60)).await {
             Err(CallError::Busy) => {
-                self.seen().kept_plan = plan.map(|p| (request.clone(), p));
+                self.update(|s| s.kept_plan = plan.map(|p| (request.clone(), p)));
                 return Err(CallError::Busy);
             }
             r => r?,
         };
-        self.seen().started.insert(released.task_id.clone(), (Instant::now(), request.seconds));
+        self.update(|s| _ = s.started.insert(released.task_id.clone(), (Instant::now(), request.seconds)));
         Ok(released.task_id)
     }
 
@@ -381,12 +373,11 @@ impl MusicEngine for HttpEngine {
                 let metas = &first["metas"];
                 let text = |k: &str| metas[k].as_str().filter(|v| !v.is_empty()).map(str::to_string);
                 let seconds = metas["duration"].as_f64();
-                // One lock at a time: a guard held in an `if let` lives through its body.
-                let mut s = self.seen();
-                if let (Some((at, _)), Some(secs)) = (s.started.remove(id), seconds) {
-                    s.rtf = 0.7 * s.rtf + 0.3 * (at.elapsed().as_secs_f32() / secs.max(1.0) as f32);
-                }
-                drop(s);
+                self.update(|s| {
+                    if let (Some((at, _)), Some(secs)) = (s.started.remove(id), seconds) {
+                        s.rtf = 0.7 * s.rtf + 0.3 * (at.elapsed().as_secs_f32() / secs.max(1.0) as f32);
+                    }
+                });
                 Ok(RemoteJob {
                     state: "done".into(),
                     progress: 1.0,
@@ -398,7 +389,7 @@ impl MusicEngine for HttpEngine {
                 })
             }
             _ => {
-                self.seen().started.remove(id);
+                self.update(|s| _ = s.started.remove(id));
                 let message = first["error"].as_str().unwrap_or("ACE-Step could not make the song").to_string();
                 Ok(RemoteJob {
                     state: "failed".into(),
@@ -427,17 +418,13 @@ impl MusicEngine for HttpEngine {
     /// ACE-Step can neither cancel nor delete a task: a cancelled song finishes there and is not fetched,
     /// and ACE-Step's own cleanup removes its file.
     async fn delete(&self, id: &str) {
-        self.seen().started.remove(id);
+        self.update(|s| _ = s.started.remove(id));
     }
 
     async fn switch_model(&self, model: &str) -> Result<(), CallError> {
-        {
-            let mut s = self.seen();
-            s.switching = true;
-            s.health = Health::Loading;
-        }
+        self.update(|s| (s.switching, s.health) = (true, Health::Loading));
         let done: Result<Value, CallError> = self.post("/v1/init", json!({ "model": model, "slot": 1 }), Duration::from_secs(600)).await;
-        self.seen().switching = false;
+        self.update(|s| s.switching = false);
         self.check().await; // what ACE-Step says now: the new model, or the old one after a failure
         done.map(|_| ())
     }
@@ -550,7 +537,18 @@ mod tests {
     }
 
     fn engine(url: String) -> HttpEngine {
-        HttpEngine::new(EngineConfig { id: "ace-step".into(), url, api_key: None })
+        telling(url).0
+    }
+
+    /// An engine, and what it tells the event queue.
+    fn telling(url: String) -> (HttpEngine, tokio::sync::mpsc::UnboundedReceiver<Change>) {
+        let (changes, told) = tokio::sync::mpsc::unbounded_channel();
+        (HttpEngine::new(EngineConfig { id: "ace-step".into(), url, api_key: None }, changes), told)
+    }
+
+    /// How many changes it told since the last look; each names this engine.
+    fn told(rx: &mut tokio::sync::mpsc::UnboundedReceiver<Change>) -> usize {
+        std::iter::from_fn(|| rx.try_recv().ok()).inspect(|c| assert_eq!(*c, Change::Engine("ace-step".into()))).count()
     }
 
     fn request() -> EngineRequest {
@@ -592,29 +590,41 @@ mod tests {
 
     #[tokio::test]
     async fn a_change_of_health_is_told() {
-        let e = engine("http://127.0.0.1:9".into());
-        let told = Arc::new(Mutex::new(0));
-        let t = told.clone();
-        e.on_change(move || *t.lock() += 1);
+        let (e, mut rx) = telling("http://127.0.0.1:9".into());
         e.check().await;
         e.check().await;
-        assert_eq!(*told.lock(), 1, "once, when it went down");
+        assert_eq!(told(&mut rx), 1, "once, when it went down");
     }
 
     #[tokio::test]
     async fn a_change_in_what_the_engine_reports_is_told_too() {
         let fake = Fake::default();
         *fake.initialized.lock() = true;
-        let e = engine(serve(fake.clone()).await);
-        let told = Arc::new(Mutex::new(0));
-        let t = told.clone();
-        e.on_change(move || *t.lock() += 1);
+        let (e, mut rx) = telling(serve(fake.clone()).await);
         e.check().await;
         e.check().await;
-        assert_eq!(*told.lock(), 1, "up, then nothing new");
+        assert_eq!(told(&mut rx), 1, "up, then nothing new");
         *fake.model.lock() = Some("acestep-v15-base");
         e.check().await;
-        assert_eq!(*told.lock(), 2, "another model, though still up");
+        assert_eq!(told(&mut rx), 1, "another model, though still up");
+    }
+
+    #[tokio::test]
+    async fn a_model_switch_is_told_as_loading_at_once() {
+        let fake = Fake::default();
+        *fake.initialized.lock() = true;
+        *fake.init_ms.lock() = 500;
+        let (e, mut rx) = telling(serve(fake.clone()).await);
+        let e = Arc::new(e);
+        e.check().await;
+        told(&mut rx);
+        let switching = tokio::spawn({
+            let e = e.clone();
+            async move { e.switch_model("acestep-v15-base").await }
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        assert_eq!(told(&mut rx), 1, "loading, before ACE-Step answers");
+        switching.await.unwrap().unwrap();
     }
 
     #[tokio::test]
@@ -769,7 +779,10 @@ mod tests {
         let fake = Fake::default();
         *fake.status.lock() = 1;
         let url = serve(fake.clone()).await;
-        let e = HttpEngine::new(EngineConfig { id: "ace-step".into(), url, api_key: Some("ace-secret".into()) });
+        let e = HttpEngine::new(
+            EngineConfig { id: "ace-step".into(), url, api_key: Some("ace-secret".into()) },
+            tokio::sync::mpsc::unbounded_channel().0,
+        );
         e.check().await;
         e.submit(&request()).await.unwrap();
         e.job("t1").await.unwrap();

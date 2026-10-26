@@ -6,16 +6,7 @@ use serde_json::json;
 
 use crate::web::state::{App, Shared};
 
-/// What changed, by id.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Change {
-    Song(String),
-    /// Also tells each of its songs, whose playlist marks may have changed.
-    Playlist(String),
-    Live(String),
-    Engine(String),
-    Relay,
-}
+pub use crate::usecases::ports::Change;
 
 /// Tells the changes the adapters queue, one at a time, so they reach the browsers in the order they happened.
 pub async fn run(app: Shared, mut changes: tokio::sync::mpsc::UnboundedReceiver<Change>) {

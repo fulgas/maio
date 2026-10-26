@@ -220,6 +220,22 @@ pub trait Notifier: Send + Sync {
     fn song(&self, song: &Song);
 }
 
+/// What changed, by id: the event queue's item. Request handlers send it, and so do the adapters whose state changes
+/// on its own (an engine's health, the song on air, MediaMTX); one task turns each into an event carrying the new
+/// state, in the order they were sent (arc42 3.5).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Change {
+    Song(String),
+    /// Also tells each of its songs, whose playlist marks may have changed.
+    Playlist(String),
+    Live(String),
+    Engine(String),
+    Relay,
+}
+
+/// Where changes are sent; it never blocks, so a song starting or a listener leaving never waits for the web app.
+pub type Changes = tokio::sync::mpsc::UnboundedSender<Change>;
+
 /// The one account and its sessions (arc42 8.1). Session ids arrive in the clear; how they are kept is the adapter's business.
 pub trait AccountStore: Send + Sync {
     /// The username and password hash, once the account exists.

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::adapters::{
     engine::{self, HttpEngine},
     ffmpeg::Ffmpeg,
-    live::{Changed, Stations, StationsConfig, relay},
+    live::{Stations, StationsConfig, relay},
     passwords::Argon2Passwords,
     sqlite::{Db, SqliteAccount, SqlitePlaylists, SqliteSongs},
     system::{RandomIds, SystemClock},
@@ -38,7 +38,10 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
     let account = Account::new(Arc::new(SqliteAccount(db)), Arc::new(Argon2Passwords), ids.clone(), clock.clone(), cfg.api_token.clone());
     account.ensure(admin.0, admin.1)?;
 
-    let engines: Vec<Arc<HttpEngine>> = cfg.engine_configs().into_iter().map(|c| Arc::new(HttpEngine::new(c))).collect();
+    // What changes on its own is sent by the adapter where it happens (ADR 0018), straight into the queue the
+    // request handlers' changes go through; one task tells them in the order they were sent.
+    let (queue, changes) = tokio::sync::mpsc::unbounded_channel::<Change>();
+    let engines: Vec<Arc<HttpEngine>> = cfg.engine_configs().into_iter().map(|c| Arc::new(HttpEngine::new(c, queue.clone()))).collect();
     for e in &engines {
         tokio::spawn(engine::watch(e.clone()));
     }
@@ -69,14 +72,17 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         rtmp_port: cfg.relay.rtmp_port,
         secret: ids.secret(),
     });
-    let stations = Stations::new(StationsConfig {
-        data_dir: cfg.data_dir.clone(),
-        crossfade_s: cfg.crossfade_s,
-        mp3: cfg.serve.mp3,
-        aac: cfg.serve.aac,
-        hls: cfg.serve.hls,
-        relay,
-    });
+    let stations = Stations::new(
+        StationsConfig {
+            data_dir: cfg.data_dir.clone(),
+            crossfade_s: cfg.crossfade_s,
+            mp3: cfg.serve.mp3,
+            aac: cfg.serve.aac,
+            hls: cfg.serve.hls,
+            relay,
+        },
+        queue,
+    );
     let app = Arc::new(App {
         account,
         songs: Songs::new(songs.clone(), playlists.clone(), files),
@@ -92,20 +98,6 @@ pub fn start(cfg: &Config, admin: (Option<&str>, Option<&str>)) -> Result<Shared
         metrics,
         stopping: tokio::sync::watch::channel(false).0,
         serve: cfg.serve.clone(),
-    });
-    // What changes on its own is told where it happens (ADR 0018). The adapters' hooks only queue the change, which
-    // never blocks a song starting or a listener leaving; one task tells them in the order they happened.
-    let (queue, changes) = tokio::sync::mpsc::unbounded_channel::<Change>();
-    for e in &engines {
-        let (queue, id) = (queue.clone(), e.status().id);
-        e.on_change(move || drop(queue.send(Change::Engine(id.clone()))));
-    }
-    stations.on_change(move |c| {
-        let change = match c {
-            Changed::Live(id) => Change::Live(id),
-            Changed::Relay => Change::Relay,
-        };
-        drop(queue.send(change)); // the queue closes only when the server stops
     });
     tokio::spawn(push::run(app.clone(), changes));
     // Playlists that were live before a restart go back on air.

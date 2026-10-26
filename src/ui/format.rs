@@ -49,6 +49,15 @@ pub fn meta(song: &Song) -> String {
     [song.mood.as_deref(), song.key.as_deref()].into_iter().flatten().collect::<Vec<_>>().join(", ")
 }
 
+/// What a song's playlist marks say on screen: the first playlist's name, and how many more ("Rainy jazz +2").
+pub fn playlist_mark(playlists: &[PlaylistRef]) -> String {
+    match playlists {
+        [] => String::new(),
+        [one] => one.name.clone(),
+        [first, rest @ ..] => format!("{} +{}", first.name, rest.len()),
+    }
+}
+
 /// "In A, B and C": the label on a song's playlist marks.
 pub fn in_playlists(playlists: &[PlaylistRef]) -> String {
     let names: Vec<&str> = playlists.iter().map(|p| p.name.as_str()).collect();
@@ -322,6 +331,9 @@ mod tests {
         assert_eq!(in_playlists(&[]), "In no playlist");
         assert_eq!(in_playlists(&[p("Rainy jazz")]), "In Rainy jazz");
         assert_eq!(in_playlists(&[p("A"), p("B"), p("C")]), "In A, B and C");
+        assert_eq!(playlist_mark(&[]), "", "no name when in none");
+        assert_eq!(playlist_mark(&[p("Rainy jazz")]), "Rainy jazz");
+        assert_eq!(playlist_mark(&[p("A"), p("B"), p("C")]), "A +2", "the first name, and how many more");
     }
 
     #[test]

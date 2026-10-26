@@ -601,7 +601,8 @@ fn SongList(playlists: Playlists) -> impl IntoView {
                                 <span class="song-prompt">{subtitle}</span>
                             </span>
                             <span class="marks" role="img" data-tip=format::in_playlists(&s.playlists) aria-label=format::in_playlists(&s.playlists)>
-                                {marks.into_iter().map(|c| view! { <i style:background=c></i> }).collect_view()}
+                                {marks.into_iter().take(3).map(|c| view! { <i style:background=c></i> }).collect_view()}
+                                <span class="marks-name">{format::playlist_mark(&s.playlists)}</span>
                             </span>
                             <span class="meta">{format::meta(&s.song)}</span>
                             <span class="len">{format::clock(s.song.seconds)}</span>

@@ -374,3 +374,18 @@ test('the site\'s own labels are sentence case at a readable size: no tracked ca
   assert.match(explorer, /<button id="fullscreen"[^>]*><svg[^>]*aria-hidden="true"/, 'the fullscreen button draws its icon');
   assert.match(css, /\.compass\{[^}]*align-items:start/, 'a short corner keeps its own height');
 });
+
+test('a change to the documentation site never makes a release, nor a line in the changelog', async () => {
+  const config = await readFile(path.join(repositoryRoot, 'release-plz.toml'), 'utf8');
+  const releases = new RegExp(config.match(/^release_commits = "(.+)"/m)[1].replaceAll('\\\\', '\\'));
+  for (const subject of ['fix(ui): a row fits a phone', 'feat: playlists from a mood', 'perf(live): less CPU per station', 'fix: the player keeps its song', 'refactor(api)!: the song id is a string'])
+    assert.ok(releases.test(subject), `${subject} makes a release`);
+  for (const subject of ['fix(docs-site): labels in sentence case', 'feat(docs-site): clips in the guides', 'docs: a new guide', 'chore: tidy', 'ci: pin the runners'])
+    assert.ok(!releases.test(subject), `${subject} makes no release`);
+  assert.match(config, /commit_parsers = \[\s*\{ message = "\^\\\\w\+\\\\\(docs-site\\\\\)", skip = true \}/, 'the changelog skips docs-site commits first');
+  assert.match(docs.get('project-rules').markdown, /`docs-site`[^.]*never[^.]*release/, 'the rules say so');
+  const scopes = docs.get('project-rules').markdown.match(/^Scopes, when they help: (.+)\. One/m)[1].match(/`([a-z-]+)`/g).map(s => s.slice(1, -1)).filter(s => s !== 'docs-site');
+  const lists = [...config.match(/^release_commits = .+$/m)[0].matchAll(/\\\\\(\((\w[\w|-]+)\)/g)].map(m => m[1].split('|'));
+  assert.equal(lists.length, 2, 'the scopes that release, in both halves of the regex');
+  for (const list of lists) assert.deepEqual(list, scopes, 'every scope in the rules but docs-site makes a release');
+});

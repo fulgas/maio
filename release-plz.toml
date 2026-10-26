@@ -7,7 +7,9 @@ semver_check = false # no public Rust API to check
 release_always = false # release only when the release pull request is merged
 features_always_increment_minor = true # feat bumps the minor version, also while Maio is 0.x
 # Only what changes Maio for the person using it makes a release; docs, tests, refactors and upkeep wait for one.
-release_commits = "^(feat|fix|perf|revert)(\\(.+\\))?!?:|^\\w+(\\(.+\\))?!:|BREAKING CHANGE:"
+# The documentation site is not Maio: a `docs-site` commit never makes one. The regex has no look-ahead, so the scopes
+# that do are listed, the ones in docs/project-rules.md but `docs-site`.
+release_commits = "^(feat|fix|perf|revert)(\\((songs|playlists|player|live|relay|engine|text|account|api|ui|config|telemetry)\\))?!?:|^\\w+(\\((songs|playlists|player|live|relay|engine|text|account|api|ui|config|telemetry)\\))?!:|BREAKING CHANGE:"
 git_tag_name = "v{{ version }}"
 # A draft until publish.yml has attached every file: releases are immutable once published.
 git_release_draft = true
@@ -22,6 +24,7 @@ Every release of Maio, made from its Conventional Commits (see docs/project-rule
 protect_breaking_commits = true
 sort_commits = "oldest"
 commit_parsers = [
+    { message = "^\\w+\\(docs-site\\)", skip = true },
     { message = "^feat", group = "Features" },
     { message = "^fix", group = "Fixes" },
     { message = "^perf", group = "Performance" },

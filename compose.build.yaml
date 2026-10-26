@@ -1,0 +1,5 @@
+# For working on Maio: `just stack` adds this to compose.yaml, so Maio is built from this checkout, not pulled.
+services:
+  maio:
+    build: .
+    image: maio:dev

@@ -7,9 +7,9 @@ engine_port := "7801"
 zola_version := "0.23.6"
 zola := justfile_directory() / "docs-site/.zola/zola"
 
-# Start Maio and MediaMTX in the background (rebuilds when the code changed).
+# Start Maio, built from this checkout, and MediaMTX in the background (rebuilds when the code changed).
 stack:
-    docker compose up -d --build
+    docker compose -f compose.yaml -f compose.build.yaml up -d --build
     @echo "Maio on http://localhost:8080"
 
 # Run the fake ACE-Step instead (sine tones, no GPU), for trying things quickly.

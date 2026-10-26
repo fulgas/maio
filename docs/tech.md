@@ -41,7 +41,7 @@ The layers and their ports: [arc42 5](architecture/05-building-block-view.md).
 
 | Command | Does |
 |---------|------|
-| `just stack` | The default (`just`): starts Maio and MediaMTX in Docker, rebuilding when the code changed. |
+| `just stack` | The default (`just`): starts Maio, built from this checkout, and MediaMTX in Docker, rebuilding when the code changed; people running Maio use `docker compose up -d` and the published image. |
 | `just fake` | Runs a fake ACE-Step (sine tones, no GPU). |
 | `just stop` | Stops the stack. |
 | `just logs` | Follows Maio's log. |

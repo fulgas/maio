@@ -7,6 +7,7 @@ deployment
 ```
 
 - The compose project is `maio`, on its own network `maio_default`.
+- `compose.yaml` runs the published image, `ghcr.io/fulgas/maio`, at the release `MAIO_VERSION` in `.env` names, or the latest. `compose.build.yaml`, which `just stack` adds, builds the image from the checkout instead, as `maio:dev`.
 - The compose project runs on any Docker host. ACE-Step runs as its own server on the machine with the GPU (CUDA, Apple silicon, AMD ROCm, Intel XPU or CPU), set up as [ACE-Step's own instructions](https://github.com/ace-step/ACE-Step-1.5#readme) say. On the same machine, the `[[engine]]` url is `http://host.docker.internal:7801`; on another, it is that machine's address.
 - `just` starts Maio and MediaMTX in Docker; ACE-Step runs on its own, as [Run ACE-Step for Maio](../how-to/01-run-ace-step-for-maio.md) says. `just fake` runs a fake engine (sine tones, no GPU) instead.
 - The host ports 8555, 8891 and 1936 leave 8554, 8890 and 1935 free for another MediaMTX on the same machine. From another container, use `host.docker.internal:8555`; inside Maio's compose network, `mediamtx:8554`.

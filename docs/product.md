@@ -28,6 +28,7 @@ The rules (what can be deleted, how many playlists can be live) are in [arc42 1.
 3. **Never open**: no start without an account; every call needs a session or the API token.
 4. **Usable by everyone**: WCAG 2.1 AA, from 360 px wide.
 5. **A stream that keeps going**: live playlists play on the server and survive restarts.
+6. **Up to date and resilient**: every open page shows changes as they happen; a busy or stopped engine is waited for, never flooded.
 
 How each goal is checked: [arc42 10](architecture/10-quality-requirements.md).
 

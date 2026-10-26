@@ -16,11 +16,15 @@
 | Usable by everyone | Any control | A target of at least 24 × 24 px and an accessible name; text contrast at least 4.5:1, non-text 3:1. |
 | Stream keeps going | Maio restarts while a playlist is live | It comes back on air with the song that was on air. |
 | Stream keeps going | MediaMTX stops | Within 5 s of the next look the header says "MediaMTX not answering", with a toast; when it is back Maio republishes and says so. |
-| Stream keeps going | ACE-Step loses a task in a restart | The job fails as lost and is tried once more on another engine when there is one. |
+| Up to date and resilient | A song, playlist or live stream changes in another tab or through the API | Every open page shows it at once, with nothing fetched. |
+| Up to date and resilient | A page left open with nothing happening | It makes no requests; only the event stream stays open. |
+| Up to date and resilient | ACE-Step stops | Within 10 s the engine icon turns grey and new songs are refused with `503 engine_unavailable`; within 5 s of it answering again with its models loaded, songs are taken again. |
+| Up to date and resilient | ACE-Step's queue is full (`429`) | The song waits and tries again after 2, 4, 8, 16, then 30 s, until accepted or cancelled; its lyrics are not written again. |
+| Up to date and resilient | ACE-Step loses a task in a restart | The job fails as lost and is tried once more on another engine when there is one. |
 
 ## 10.2 How it is checked
 
 - `just test`: format check, every unit and integration test (domain rules, use cases with fakes, adapters against SQLite, ffmpeg and fake engines, the HTTP API, pages, logs, traces), and the WebAssembly build.
-- `just e2e`: a real browser through every screen against a fake `acestep-api` (`e2e/fake-ace.mjs`): making songs, playlists, live with private links, listening live, the accessibility checks (focus, targets, contrast, dialogs, captions inside the window, announcements), no console errors.
+- `just e2e`: a real browser through every screen against a fake `acestep-api` (`e2e/fake-ace.mjs`): making songs, playlists, live with private links, listening live, changes made elsewhere showing with nothing fetched, the accessibility checks (focus, targets, contrast, dialogs, captions inside the window, announcements), no console errors.
 - `just test` also builds the architecture website and checks it: every link, every model reference into the documentation, every C4 view, and the model's geometry (`docs-site/tests`).
 - An accessibility review before a release: axe-core on every screen and dialog in both themes, a keyboard pass, 200 % zoom.

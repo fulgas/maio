@@ -32,6 +32,7 @@ Rules:
 | 3 | Never open | No start without an account; every API call needs the session or the API token; secrets never reach a log. |
 | 4 | Usable by everyone | WCAG 2.1 AA: keyboard throughout, visible focus, 4.5:1 text contrast, from 360 px wide. |
 | 5 | A stream that keeps going | Live playlists play on the server, survive restarts with the song on air, and say when something is wrong. |
+| 6 | Up to date and resilient | Every open page shows a change as it happens, with nothing polled; a busy or stopped engine is waited for or refused, never flooded, and a song is never lost without saying so. |
 
 ## 1.4 Stakeholders
 

@@ -309,6 +309,9 @@ test('the compass is the home page and leads to the four corners of Diátaxis, e
   const corners = [...compass.matchAll(/<div class="quadrant quadrant-([a-z-]+)">/g)].map(m => m[1]);
   assert.deepEqual(corners, ['tutorials', 'how-to', 'explanation', 'reference'], 'Tutorials and How-to on top, Explanation and Reference below');
   for (const axis of ['Doing', 'Understanding', 'Learning', 'Working']) assert.match(compass, new RegExp(`class="axis[^"]*">${axis}<`), axis);
+  assert.ok(!/class="eyebrow"/.test(compass), 'no label above the compass title');
+  const css = await readFile(path.join(repositoryRoot, 'docs-site/static/style.css'), 'utf8');
+  assert.ok(!/\.axis\{[^}]*text-transform:uppercase/.test(css), 'the axes are in sentence case, not tracked capitals');
   for (const id of ['tutorials/01-your-first-song-on-air', 'how-to/02-add-a-text-engine', 'product', 'architecture/01-introduction-and-goals', 'architecture/09-architecture-decisions', 'reference', 'design'])
     assert.ok(compass.includes(`href="/${id}/"`), `the compass links ${id}`);
   for (const id of ['overview', 'project-rules', 'contributing', 'security', 'code-of-conduct']) assert.ok(compass.includes(`href="/${id}/"`), `the project row links ${id}`);

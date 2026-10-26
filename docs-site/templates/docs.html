@@ -25,7 +25,7 @@
 {% set root = get_section(path="_index.md") %}{% set arch = get_section(path="architecture/_index.md") %}{% set tutorials = get_section(path="tutorials/_index.md") %}{% set howto = get_section(path="how-to/_index.md") %}
 {% set project_pages = [p for p in root.pages if p.extra.group == "project"] %}{% set reference_pages = [p for p in root.pages if p.extra.group == "reference"] %}{% set product = [p for p in root.pages if p.extra.group == "explanation"] %}{% set current = "" %}
     <section id="compass-page" aria-labelledby="compass-title">
-      <div class="view-heading"><div><p class="eyebrow">DOCUMENTATION</p><h1 id="compass-title">Find your way</h1><p>Four kinds of documentation, laid out as <a href="https://diataxis.fr">Diátaxis</a> draws them: what you want to do decides where to start.</p></div></div>
+      <div class="view-heading"><div><h1 id="compass-title">Find your way</h1><p>Four kinds of documentation, laid out as <a href="https://diataxis.fr">Diátaxis</a> draws them: what you want to do decides where to start.</p></div></div>
       <div class="compass">
         <span class="axis axis-top">Doing</span><span class="axis axis-bottom">Understanding</span><span class="axis axis-left">Learning</span><span class="axis axis-right">Working</span>
         <div class="quadrant quadrant-tutorials"><h2><a href="{{ tutorials.pages[0].permalink | safe }}">Tutorials</a></h2><p>Learning by doing: a lesson that takes you from nothing to a song on air.</p><ul>{% for p in tutorials.pages %}<li>{% include "partials/link.html" %}</li>{% endfor %}</ul></div>

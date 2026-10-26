@@ -36,7 +36,7 @@ jobs:
 
       - name: Install cargo-audit
         if: steps.cache-audit.outputs.cache-hit != 'true'
-        run: cargo install cargo-audit --locked --version $CARGO_AUDIT_VERSION
+        run: cargo install cargo-audit --locked --version "$CARGO_AUDIT_VERSION"
 
       - name: Run cargo audit
         id: audit

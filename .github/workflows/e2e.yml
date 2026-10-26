@@ -3,7 +3,7 @@ name: E2E
 on:
   push:
     branches: [ main ]
-    paths: &code
+    paths:
       # Not for changes to the documentation or automation alone; later lines win, so this file still counts.
       - '**'
       - '!docs/**'
@@ -13,7 +13,13 @@ on:
       - '.github/workflows/e2e.yml'
   pull_request:
     branches: [ main ]
-    paths: *code
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!docs-site/**'
+      - '!**/*.md'
+      - '!.github/**'
+      - '.github/workflows/e2e.yml'
 
 permissions:
   contents: read

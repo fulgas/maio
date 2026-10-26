@@ -14,7 +14,7 @@ test('every arc42 section and decision record is published, grouped for the read
   const arc42 = result.documents.filter(d => d.group === 'architecture');
   assert.equal(arc42.length, 12);
   assert.deepEqual(arc42.map(d => d.title.match(/^\d+/)[0]), ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']);
-  assert.equal(result.documents.filter(d => /^adr\/\d/.test(d.id)).length, 18);
+  assert.equal(result.documents.filter(d => /^adr\/\d/.test(d.id)).length, 19);
   for (const id of ['overview', 'project-rules']) assert.ok(docs.get(id), `missing ${id}`);
   assert.ok(!docs.has('adr/README'), 'section 9 is the decision index');
   assert.ok(!docs.has('index') && !docs.has('ARCHITECTURE'), 'no separate index pages');

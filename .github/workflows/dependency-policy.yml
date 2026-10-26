@@ -1,10 +1,6 @@
 name: Dependency Policy
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - '**/Cargo.toml'
   pull_request:
     paths:
       - '**/Cargo.toml'

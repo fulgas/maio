@@ -2,8 +2,9 @@ name: Release
 
 # A release comes through a pull request (docs/project-rules.md). On every push to main, release-plz keeps the release
 # pull request up to date: the next version from the commits, and its changelog. Merging it tags vX.Y.Z and makes the
-# GitHub Release; publish.yml then builds and attaches what people download. The release app's token is used so CI runs
-# on the release pull request, so the tag can be made under the tag ruleset, and so the new release starts publish.yml.
+# GitHub Release as a draft; the tag starts binaries.yml, which attaches what people download and then publishes the
+# release, and image.yml, which publishes the container image. The release app's token is used so CI runs on the
+# release pull request, so the tag can be made under the tag ruleset, and so the tag starts the other workflows.
 
 on:
   push:

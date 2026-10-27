@@ -146,7 +146,7 @@ fn decode(song: &LiveSong, data_dir: &Path) -> Deck {
             if raw.len() % 2 == 1 {
                 carry = raw.pop(); // half a sample: keep it for the next read
             }
-            let slice: Vec<i16> = raw.chunks_exact(2).map(|b| i16::from_le_bytes([b[0], b[1]])).collect();
+            let slice: Vec<i16> = raw.as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes(*b)).collect();
             if tx.send(slice).await.is_err() {
                 break; // the deck was dropped (off air, or skipped): stop decoding
             }

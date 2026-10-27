@@ -35,7 +35,7 @@ const signedIn = await (async () => {
   await page.goto(base + "/sign-in");
   await page.waitForLoadState("networkidle"); // fill the form once the page is live, so Sign in is enabled
   await page.getByLabel("Username").fill(process.env.E2E_USER);
-  await page.getByLabel("Password").fill(process.env.E2E_PASSWORD);
+  await page.getByLabel("Password", { exact: true }).fill(process.env.E2E_PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(base + "/");
   const state = await context.storageState();
@@ -253,7 +253,7 @@ await guide("engine", async ({ page, step, click, look }) => {
   await step(1, () => [page.locator("header.top"), page.locator(".engines")], async () => { await click(page.locator("button.engine").first()); await look(page.locator(".engines")); });
 });
 
-await guide("account", async ({ page, step, click, look }) => {
+await guide("account", async ({ page, step, click, type, look }) => {
   await page.goto(base + "/");
   const header = () => [page.locator("header.top")];
   await step(1, header, async () => {
@@ -265,7 +265,9 @@ await guide("account", async ({ page, step, click, look }) => {
     await click(page.getByRole("button", { name: "Account: change password or sign out" }));
     await click(page.locator(".dropdown-list:visible").getByRole("button", { name: "Change password" }).or(page.locator(".dropdown-list:visible").getByRole("link", { name: "Change password" })).first());
     await page.waitForURL(/\/password$/);
-    await look(page.getByLabel("Current password"));
+    await type(page.getByLabel("Current password"), "my-old-password");
+    // The eye shows what was typed.
+    await click(page.locator("form.narrow").getByRole("button", { name: "Show password" }).first());
   });
 });
 

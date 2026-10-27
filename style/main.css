@@ -92,6 +92,12 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .error { margin: 0; min-height: 1.45em; color: #FF8A80; }
 :root[data-theme="light"] .error { color: #B3261E; }
 .hint { font-size: 13px; }
+/* A password field with its eye inside, at the right end. */
+.secret { position: relative; display: flex; }
+.secret input { flex: 1; min-width: 0; padding-right: 48px; }
+.secret .reveal { position: absolute; top: 0; right: 0; color: var(--muted); }
+.secret .reveal:hover { background: transparent; color: var(--ink); }
+.secret [data-tip]:hover::after, .secret [data-tip]:focus-visible::after { left: auto; right: 0; transform: none; }
 .narrow { display: flex; flex-direction: column; gap: 16px; max-width: 420px; }
 .sign-in { flex: 1; display: grid; place-items: center; padding: 24px 16px; }
 .sign-in form { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 16px; padding: 28px; border-radius: 8px; background: var(--panel); }

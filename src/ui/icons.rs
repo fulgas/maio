@@ -42,6 +42,8 @@ pub enum Icon {
     Voice,
     Language,
     Pen,
+    Eye,
+    EyeOff,
 }
 
 /// (filled, inner SVG markup) on a 24×24 grid.
@@ -102,6 +104,10 @@ fn shape(icon: Icon) -> (bool, &'static str) {
         Voice => (false, r#"<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>"#),
         Language => (false, r#"<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>"#),
         Pen => (false, r#"<path d="M4 20h4L19 9l-4-4L4 16v4z"/>"#),
+        Eye => (false, r#"<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>"#),
+        EyeOff => {
+            (false, r#"<path d="M2 12s3.6-7 10-7c2 0 3.8.7 5.2 1.6M22 12s-3.6 7-10 7c-2 0-3.8-.7-5.2-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/>"#)
+        }
         Grip => (
             true,
             r#"<circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/>"#,

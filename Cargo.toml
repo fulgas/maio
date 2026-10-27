@@ -31,7 +31,7 @@ testing = []
 [dependencies]
 anyhow = { version = "1", optional = true }
 backon = { version = "1.6", default-features = false, features = ["std", "tokio-sleep"], optional = true }
-argon2 = { version = "0.5", optional = true }
+argon2 = { version = "0.6", optional = true }
 async-trait = { version = "0.1", optional = true }
 axum = { version = "0.8", optional = true }
 bytes = { version = "1", optional = true }
@@ -41,12 +41,12 @@ opentelemetry = { version = "0.33", optional = true }
 opentelemetry-appender-tracing = { version = "0.33", optional = true }
 opentelemetry-otlp = { version = "0.33", optional = true }
 opentelemetry_sdk = { version = "0.33", optional = true }
-rand = { version = "0.9", optional = true }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"], optional = true }
-rusqlite = { version = "0.40", features = ["bundled"], optional = true }
+rand = { version = "0.10", optional = true }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"], optional = true }
+rusqlite = { version = "0.41", features = ["bundled"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sha2 = { version = "0.10", optional = true }
+sha2 = { version = "0.11", optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 tokio-stream = { version = "0.1", features = ["sync"], optional = true }
 toml = { version = "1", optional = true }
@@ -68,7 +68,7 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = ["DataTransfer", "DragEvent", "EventSource", "FocusEvent", "HtmlAudioElement", "HtmlDialogElement", "HtmlDocument", "HtmlElement", "HtmlTextAreaElement", "HtmlMediaElement", "KeyboardEvent", "Location", "MessageEvent", "Navigator", "Clipboard", "Node", "NodeList", "Storage", "ToggleEvent", "Window"] }
 console_error_panic_hook = { version = "0.1", optional = true }
-parking_lot = { version = "0.12", optional = true }
+parking_lot = { version = "0.13", optional = true }
 
 [dev-dependencies]
 maio = { path = ".", features = ["testing"] }
@@ -76,7 +76,7 @@ opentelemetry_sdk = { version = "=0.33.1", features = ["testing"] }
 serde_json = "=1.0.154"
 tempfile = "=3.27.0"
 http-body-util = "=0.1.5"
-tokio = { version = "=1.53.3", features = ["test-util"] }
+tokio = { version = "=1.54.1", features = ["test-util"] }
 
 [lints.clippy]
 correctness = { level = "deny", priority = -1 }

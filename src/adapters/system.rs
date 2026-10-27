@@ -1,7 +1,7 @@
 //! Time and ids from the system.
 
 use crate::usecases::ports::{Clock, Ids};
-use rand::{Rng, distr::Alphanumeric};
+use rand::{RngExt, distr::Alphanumeric};
 
 pub struct SystemClock;
 

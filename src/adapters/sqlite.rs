@@ -313,7 +313,7 @@ impl PlaylistRepository for SqlitePlaylists {
 pub struct SqliteAccount(pub Arc<Db>);
 
 fn id_hash(id: &str) -> String {
-    format!("{:x}", Sha256::digest(id.as_bytes()))
+    Sha256::digest(id.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
 }
 
 impl AccountStore for SqliteAccount {
@@ -379,6 +379,12 @@ mod song_tests {
 
     fn ids(found: Vec<Song>) -> Vec<String> {
         found.into_iter().map(|s| s.id).collect()
+    }
+
+    #[test]
+    fn a_session_id_is_kept_as_its_sha256_in_lowercase_hex() {
+        // The standard test vector: sessions stored before stay valid whatever crate formats the digest.
+        assert_eq!(id_hash("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     }
 
     #[test]

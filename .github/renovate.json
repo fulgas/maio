@@ -19,13 +19,36 @@
       "rangeStrategy": "bump"
     },
     {
-      "description": "Every Rust crate update in one pull request, majors included; give a crate its own rule to split it out",
+      "description": "Rust crate minor and patch updates in one pull request",
       "matchDatasources": [
         "cargo"
       ],
-      "groupName": "Rust dependencies",
-      "separateMajorMinor": false,
-      "separateMultipleMajor": false
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Rust dependencies"
+    },
+    {
+      "description": "Rust crate updates that can break the build in a second pull request: majors, and a minor bump of a 0.x crate (0.10 to 0.11 breaks in Cargo's rules); give a crate its own rule to split it out",
+      "matchDatasources": [
+        "cargo"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "groupName": "Rust dependencies (major)"
+    },
+    {
+      "description": "A minor bump of a 0.x crate goes with the majors",
+      "matchDatasources": [
+        "cargo"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "matchCurrentVersion": "<1.0.0",
+      "groupName": "Rust dependencies (major)"
     },
     {
       "description": "Every GitHub Actions update in one pull request",

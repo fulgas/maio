@@ -17,6 +17,7 @@ use crate::{
 pub fn facts(s: &Song) -> Vec<(&'static str, String)> {
     let mut f: Vec<(&'static str, Option<String>)> = vec![
         ("Described as", Some(s.prompt.clone()).filter(|p| !p.is_empty())),
+        ("Sent to the engine", s.engine_prompt.clone()),
         ("About", s.description.clone()),
         ("Mood", s.mood.clone()),
         ("Genre", s.genre.clone()),
@@ -28,12 +29,16 @@ pub fn facts(s: &Song) -> Vec<(&'static str, String)> {
         (
             "Voice",
             Some(if s.vocals {
-                format!("Sung in {}", s.vocal_language.clone().unwrap_or_else(|| "the default language".into()))
+                let language = s.vocal_language.clone().unwrap_or_else(|| "the default language".into());
+                match crate::ui::make::VOICES.iter().find(|(c, _)| !c.is_empty() && s.voice.as_deref() == Some(*c)) {
+                    Some((_, voice)) => format!("{voice}, sung in {language}"),
+                    None => format!("Sung in {language}"),
+                }
             } else {
                 "Instrumental".into()
             }),
         ),
-        ("Seed", Some(format!("{}: with the same settings, the same song again", s.seed))),
+        ("Seed", Some(s.seed.to_string())),
         ("Engine", Some(s.engine.clone())),
         ("Lyrics by", s.lyrics_engine.clone()),
         ("Named by", s.title_engine.clone()),
@@ -42,6 +47,15 @@ pub fn facts(s: &Song) -> Vec<(&'static str, String)> {
     ];
     f.retain(|(_, v)| v.is_some());
     f.into_iter().map(|(k, v)| (k, v.unwrap_or_default())).collect()
+}
+
+/// What a fact's name says on hover and focus, and to screen readers with the name.
+pub fn caption(fact: &str) -> Option<&'static str> {
+    match fact {
+        "Seed" => Some("The number this song started from. Make one like this uses it to make the song again, or a variation of it"),
+        "Sent to the engine" => Some("The exact text the engine received: your words with the settings added"),
+        _ => None,
+    }
 }
 
 #[component]
@@ -62,7 +76,13 @@ pub fn SongDetails(open: RwSignal<bool>, song: RwSignal<Option<Song>>) -> impl I
         <Modal open title=Signal::derive(move || song.get().map(|s| s.title).unwrap_or_default())>
                     {move || song.get().map(|s| view! {
                         <dl class="facts">
-                            {facts(&s).into_iter().map(|(k, v)| view! { <dt>{k}</dt><dd>{v}</dd> }).collect_view()}
+                            {facts(&s).into_iter().map(|(k, v)| view! {
+                                <dt>{match caption(k) {
+                                    Some(tip) => view! { <span class="captioned" tabindex="0" data-tip=tip aria-label=format!("{k}. {tip}")>{k}</span> }.into_any(),
+                                    None => view! { {k} }.into_any(),
+                                }}</dt>
+                                <dd>{v}</dd>
+                            }).collect_view()}
                         </dl>
                         {s.lyrics.clone().map(|l| view! { <h3 class="lyrics-head">"Lyrics"</h3><pre class="lyrics-text">{l}</pre> })}
                         <div class="downloads" role="group" aria-labelledby="downloads-label">
@@ -109,7 +129,22 @@ mod tests {
         assert_eq!(get("Tempo"), Some("93 bpm"));
         assert_eq!(get("Key"), Some("A minor"));
         assert_eq!(get("Voice"), Some("Sung in pt"));
-        assert_eq!(get("Seed"), Some("1234: with the same settings, the same song again"));
+        assert_eq!(get("Seed"), Some("1234"));
+        assert_eq!(get("Sent to the engine"), Some("warm pads, ambient, calm mood, 70 bpm, instrumental"));
         assert!(get("Engine").is_some());
+        let duet = facts(&crate::domain::Song { voice: Some("duet".into()), ..s.clone() });
+        assert!(duet.contains(&("Voice", "Duet, sung in pt".into())));
+        let old = facts(&crate::domain::Song { engine_prompt: None, ..s });
+        assert!(old.iter().all(|(k, _)| *k != "Sent to the engine"), "older songs leave the line out");
+    }
+
+    #[test]
+    fn the_seed_and_the_engine_text_carry_captions() {
+        assert_eq!(
+            super::caption("Seed"),
+            Some("The number this song started from. Make one like this uses it to make the song again, or a variation of it")
+        );
+        assert!(super::caption("Sent to the engine").is_some());
+        assert_eq!(super::caption("Mood"), None);
     }
 }

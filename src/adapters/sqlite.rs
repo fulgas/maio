@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 ";
 
+/// Columns added to `songs` after the first release: added on open when missing, empty for the songs already there.
+const ADDED_SONG_COLS: [&str; 2] = ["voice", "engine_prompt"];
+
 /// The one connection both repositories share.
 pub struct Db {
     conn: Mutex<Connection>,
@@ -56,6 +59,12 @@ impl Db {
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.execute_batch(SCHEMA)?;
+        for col in ADDED_SONG_COLS {
+            let has: bool = conn.query_row("SELECT COUNT(*) FROM pragma_table_info('songs') WHERE name = ?", [col], |r| r.get(0))?;
+            if !has {
+                conn.execute_batch(&format!("ALTER TABLE songs ADD COLUMN {col} TEXT"))?;
+            }
+        }
         Ok(Self { conn: Mutex::new(conn) })
     }
 
@@ -71,7 +80,7 @@ fn sql_int(n: u64, what: &str) -> Result<i64> {
 
 const SONG_COLS: &str = "id, title, title_source, description, prompt, mood, genre, energy, seconds, bpm, seed, vocals, \
     musical_key, time_signature, lyrics, vocal_language, engine, licence_name, commercial, licence_note, lyrics_engine, \
-    title_engine, artist, file, bytes, created_at";
+    title_engine, artist, file, bytes, created_at, voice, engine_prompt";
 
 pub struct SqliteSongs(pub Arc<Db>);
 
@@ -111,6 +120,8 @@ impl SqliteSongs {
                 s.file,
                 bytes,
                 s.created_at,
+                s.voice,
+                s.engine_prompt,
             ],
         )?;
         Ok(())
@@ -146,6 +157,8 @@ fn song_from(r: &Row) -> rusqlite::Result<Song> {
         bytes: u64::try_from(r.get::<_, i64>(24)?)
             .map_err(|e| rusqlite::Error::FromSqlConversionFailure(24, rusqlite::types::Type::Integer, Box::new(e)))?,
         created_at: r.get(25)?,
+        voice: r.get(26)?,
+        engine_prompt: r.get(27)?,
     })
 }
 
@@ -379,6 +392,7 @@ mod song_tests {
         s.time_signature = Some("4".into());
         s.lyrics = Some("[chorus]\nnight bus".into());
         s.vocal_language = Some("en".into());
+        s.voice = Some("duet".into());
         s.licence.commercial = Commercial::Limited;
         s.licence.note = "revenue cap".into();
         s.lyrics_engine = Some("local".into());
@@ -387,6 +401,22 @@ mod song_tests {
         db.insert(&s).unwrap();
         assert_eq!(db.get("a").unwrap(), Some(s));
         assert_eq!(db.get("b").unwrap(), None);
+    }
+
+    #[test]
+    fn a_library_from_before_voice_and_engine_text_opens_with_its_songs() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA).unwrap();
+        conn.execute_batch(
+            "INSERT INTO songs VALUES ('old', 'Old', 'words', NULL, 'pads', NULL, NULL, NULL, 60.0, NULL, 1, 0, NULL, NULL, NULL, \
+             NULL, 'ace-step', 'MIT', 'yes', '', NULL, NULL, 'Maio', 'songs/old.opus', 10, '2026-01-01T00:00:00Z')",
+        )
+        .unwrap();
+        let db = SqliteSongs(Arc::new(Db::init(conn).unwrap()));
+        let old = db.get("old").unwrap().unwrap();
+        assert_eq!((old.voice, old.engine_prompt), (None, None));
+        db.insert(&song("new")).unwrap();
+        assert_eq!(db.get("new").unwrap(), Some(song("new")));
     }
 
     #[test]

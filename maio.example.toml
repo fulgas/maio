@@ -7,6 +7,8 @@ secure_cookies = false
 # Log lines on stdout: "text" or "json". RUST_LOG filters them (default info).
 log_format = "text"
 moods = ["calm", "focused", "upbeat", "playful", "tense", "dreamy", "melancholy", "triumphant"]
+# A song left on Auto length is 2:00 to 4:00 long: [shortest, longest] in seconds, 15 to 600.
+auto_seconds = [120, 240]
 genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic", "hip-hop", "funk", "folk", "chillhop", "reggae"]
 # A job whose engine shows no progress for this long fails, and is tried once more on another engine.
 engine_stall_s = 600

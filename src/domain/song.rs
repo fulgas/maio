@@ -70,6 +70,8 @@ pub struct Song {
     pub description: Option<String>,
     /// What the person wrote; empty when they asked by mood only.
     pub prompt: String,
+    /// The text sent to the engine (arc42 8.2); none for songs made before it was kept.
+    pub engine_prompt: Option<String>,
     pub mood: Option<String>,
     pub genre: Option<String>,
     pub energy: Option<String>,
@@ -77,6 +79,8 @@ pub struct Song {
     pub bpm: Option<u32>,
     pub seed: i64,
     pub vocals: bool,
+    /// `female`, `male` or `duet`, when the request asked for one.
+    pub voice: Option<String>,
     pub key: Option<String>,
     pub time_signature: Option<String>,
     pub lyrics: Option<String>,

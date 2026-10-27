@@ -116,43 +116,77 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .prompt textarea { min-height: 84px; resize: vertical; font-size: 18px; font-weight: 500; }
 .make-button { flex: 0 0 84px; height: 84px; align-self: flex-start; border: 0; border-radius: 8px; background: var(--mustard); color: var(--on-colour); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-weight: 700; font-size: 13px; cursor: pointer; }
 .make-button:disabled { opacity: 0.6; cursor: default; }
-.chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip { flex-direction: row; align-items: center; gap: 8px; height: 44px; padding: 0 12px; border: 1px solid var(--line2); border-radius: 22px; background: transparent; color: var(--ink); font-size: 14px; }
 .chip svg { color: var(--muted); }
-.chip select, .chip input { border: 0; min-height: 0; padding: 0; background: transparent; color: var(--ink); font-weight: 600; font-size: 14px; }
-/* The control fills its pill, so the whole 44 px pill is the target, not just the text. */
-.chip select, .search input { align-self: stretch; }
-.chip.toggle { cursor: pointer; font-weight: 600; }
-.chip.toggle[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.chip.toggle[aria-pressed="true"] svg { color: var(--bg); }
-.chip.seed { margin-left: auto; border-style: dashed; }
-.chip.length, .chip.tempo { flex: 1 1 240px; max-width: 280px; gap: 10px; }
-.chip input[type=range] { flex: 1; min-width: 0; height: 24px; margin: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+/* The settings button in the card's header, with a count of the settings that are set. */
+.make-head .hint { flex: 1; }
+.settings-toggle { align-self: center; border: 1px solid var(--line2); }
+.settings-toggle[aria-expanded="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.settings-toggle .badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--mustard); color: var(--on-colour); font: 700 11px/18px "Albert Sans", sans-serif; }
+.make-head [data-tip]:hover::after, .make-head [data-tip]:focus-visible::after { left: auto; right: 0; transform: none; }
+/* The panel opens on the right of the same card; nothing is covered. */
+.make { flex-direction: row; align-items: flex-start; gap: 24px; }
+.make-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.make-settings { flex: none; display: flex; flex-direction: column; gap: 10px; padding-left: 24px; border-left: 1px solid var(--line); }
+.make-settings[hidden] { display: none; }
+.settings-head { display: flex; align-items: center; justify-content: space-between; margin: -10px -10px 0 0; }
+.settings-head h3 { margin: 0 auto 0 0; font-size: 14px; }
+.settings-head .icon:disabled { opacity: .4; cursor: default; }
+.settings-head .icon:disabled:hover { background: transparent; }
+.set-group { display: flex; flex-direction: column; gap: 6px; }
+.set-group h4 { margin: 4px 0 0; font: 600 12px "Albert Sans", sans-serif; letter-spacing: 0; color: var(--muted); }
+/* Each group sizes its own pills: every pill shares the group's columns, so values start just past the longest name,
+   dropdowns are as wide as the longest value (the arrows line up), and every pill is the same width. */
+.sets { display: grid; grid-template-columns: repeat(4, max-content); row-gap: 6px; }
+.set { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; height: 44px; padding: 0 0 0 14px; border: 1px solid var(--line2); border-radius: 22px; color: var(--ink); font-size: 14px; flex-direction: row; gap: 0; }
+.set-name { display: flex; align-items: center; gap: 8px; margin-right: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+.set-control { display: flex; min-width: 0; padding-right: 12px; }
+.set-value:empty, .set-reset:empty { display: none; }
+.set:has(.set-value:empty) .set-control { grid-column: 2 / -1; }
+.set .field { width: 100%; min-height: 0; height: 42px; padding: 0 4px; border: 0; border-radius: 0; background: transparent; color: var(--ink); font-weight: 600; font-size: 14px; cursor: pointer; }
+.set input.field { width: 12ch; min-height: 0; padding: 0 4px; border: 0; background: transparent; font-size: 14px; font-variant-numeric: tabular-nums; cursor: text; }
+.set input.field::placeholder { color: var(--muted); opacity: 1; }
+.set select.field option { background: var(--panel); color: var(--ink); }
+.set input[type=range] { width: 140px; height: 24px; margin: 0; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
 /* The track: filled in the accent up to the value, the rest in --faint, so the whole length reads on the dark ground. */
-.chip input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--faint) var(--fill, 0%)); }
-.chip input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--faint); }
-.chip input[type=range]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
-.chip input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border: 0; border-radius: 50%; background: var(--accent); }
-.chip input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: var(--accent); }
-.chip.length output { min-width: 5ch; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-/* A fixed width that fits "Auto" and "220 bpm", so a drag never resizes the chip. */
-.chip.tempo output { width: 7.5ch; flex: 0 0 auto; white-space: nowrap; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
-/* On Auto the slider is dimmed and the reset hidden, its place kept. */
-.chip.tempo.auto input[type=range] { opacity: .45; }
-.chip.tempo.auto .icon { visibility: hidden; }
-/* A small reset with a 44 px target: it reaches into the chip's padding and over its border. */
-.chip.tempo .icon { margin: -1px -12px -1px -12px; }
-.chip.tempo .icon:hover { background: transparent; }
-.chip.tempo .icon:hover svg { color: var(--ink); }
-.lyrics { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; }
-.lyrics-side { display: flex; flex-direction: column; gap: 12px; }
+.set input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--fill, 0%), var(--faint) var(--fill, 0%)); }
+.set input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--faint); }
+.set input[type=range]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--accent); }
+.set input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border: 0; border-radius: 50%; background: var(--accent); }
+.set input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: var(--accent); }
+/* A fixed width for the value ("Auto", "10:00", "220 bpm"), so a drag never resizes the pill. */
+output.set-value { width: 7.5ch; white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* On Auto the slider is dimmed, the value muted and the reset hidden, its place kept. */
+.set.auto input[type=range] { opacity: .45; }
+.set.auto output.set-value { color: var(--muted); }
+.set.auto .set-reset .icon { visibility: hidden; }
+/* Icon buttons keep a 44 px target, reaching over the pill's border. */
+.set .icon { width: 44px; height: 44px; margin: -1px 0; }
+.set .set-reset .icon { margin-right: -1px; }
+.set .icon:hover { background: transparent; }
+.set .icon:hover svg { color: var(--ink); }
+.set:has(:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+.set .field:focus-visible, .set input[type=range]:focus-visible { outline: none; }
+.set .icon:focus-visible { outline-offset: -3px; }
+.set[data-tip]:has(.field:focus-visible)::after, .set[data-tip]:hover::after { left: 0; transform: none; top: calc(100% + 8px); bottom: auto; }
+.set[data-tip]:has(.field:focus-visible)::after { content: attr(data-tip); position: absolute; z-index: 50; width: max-content; max-width: 240px; padding: 6px 10px; border-radius: 6px; background: var(--ink); color: var(--bg); font: 500 13px/1.35 "Albert Sans", sans-serif; text-align: center; pointer-events: none; }
+.lyrics { display: flex; flex-direction: column; gap: 8px; }
+.lyrics-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.lyrics-top > label { font-weight: 600; }
+.captioned { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
+@media (max-width: 899px) {
+  .make { flex-direction: column; }
+  .make-settings { width: 100%; padding: 14px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+  .sets { grid-template-columns: max-content minmax(0, 1fr) max-content max-content; }
+  .set input[type=range] { width: 100%; }
+}
 @media (max-width: 720px) {
   .make { padding: 16px; }
+  .make-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 4px; }
+  .make-head .hint { grid-row: 2; }
+  .settings-toggle { grid-column: 2; grid-row: 1 / span 2; }
   .make-row { flex-direction: column; }
   .make-button { flex: 0 0 auto; height: 56px; align-self: stretch; flex-direction: row; }
-  .lyrics { grid-template-columns: 1fr; }
-  .chip.seed { margin-left: 0; }
-  .chip.length, .chip.tempo { flex-basis: 100%; max-width: none; order: 1; }
 }
 
 /* Being made */
@@ -171,10 +205,10 @@ input:not([type=checkbox]):not([type=range]), textarea, select.field { min-heigh
 .list-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
 .list-head h1 { margin: 0; font-size: 34px; font-weight: 800; }
 .search { margin-left: auto; flex-direction: row; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border: 1px solid var(--line2); border-radius: 22px; background: var(--panel); }
-.search input { border: 0 !important; min-height: 0 !important; padding: 0 !important; background: transparent !important; width: 220px; max-width: 50vw; }
+.search input { align-self: stretch; border: 0 !important; min-height: 0 !important; padding: 0 !important; background: transparent !important; width: 220px; max-width: 50vw; }
 /* The focus ring goes around the whole pill: on the field inside it, it would sit cut inside the pill's round ends. */
-.search:focus-within, .chip:has(select:focus-visible), .chip:has(input[type=range]:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
-.search input:focus-visible, .chip select:focus-visible, .chip input[type=range]:focus-visible { outline: none; }
+.search:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+.search input:focus-visible { outline: none; }
 .songs { display: flex; flex-direction: column; }
 .song { display: grid; grid-template-columns: 44px minmax(0, 1fr) 170px 170px 56px 44px 44px; gap: 14px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
 .song .play { background: var(--panel); }
@@ -264,8 +298,6 @@ body > .thaw-config-provider { background-color: transparent; color: var(--ink);
 /* Near the top of the page, show the caption below; at the right edge, align it to the right so it never runs off-screen. */
 .top [data-tip]:hover::after, .top [data-tip]:focus-visible::after, .shelf [data-tip]:hover::after, .shelf [data-tip]:focus-visible::after { top: calc(100% + 8px); bottom: auto; }
 .top .dropdown [data-tip]::after, .top > .icon[data-tip]::after, .top > .engine[data-tip]::after, .volume [data-tip]::after { left: auto; right: 0; transform: none; }
-.chip.seed { gap: 4px; padding-right: 4px; }
-.chip.seed .icon { width: 28px; height: 28px; }
 /* Captions at the left edge open to the right. */
 .song > .icon:first-child::after, .track > .grip::after, .tile.new::after, .live-strip .live-switch::after { left: 0; transform: none; }
 /* Button chips centre their icon like the label chips do. */

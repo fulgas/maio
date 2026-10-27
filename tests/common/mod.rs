@@ -90,6 +90,7 @@ fn build(meter: &opentelemetry::metrics::Meter, public_origin: Option<String>) -
             genres: vec!["jazz".into()],
             default_language: "en".into(),
             default_lyrics_by: "ace-step".into(),
+            auto_seconds: (120, 240),
             naming_engine: None,
             make_rate: Rate { max: 3, window_s: 600 },
             pending_jobs: 4,

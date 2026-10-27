@@ -38,6 +38,9 @@ pub struct Config {
     pub moods: Vec<String>,
     #[serde(default)]
     pub genres: Vec<String>,
+    /// The shortest and longest length Maio picks from when a request leaves the length on Auto (arc42 8.2).
+    #[serde(default = "default_auto_seconds")]
+    pub auto_seconds: [u32; 2],
     #[serde(default)]
     pub limits: Limits,
     /// A job whose engine shows no change for this long fails, and is retried once elsewhere.
@@ -112,6 +115,10 @@ fn default_max_live() -> usize {
 
 fn default_crossfade() -> f32 {
     6.0
+}
+
+fn default_auto_seconds() -> [u32; 2] {
+    [120, 240]
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -284,6 +291,8 @@ pub fn parse(text: &str, env: impl Fn(&str) -> Option<String>) -> Result<Config>
     ensure!(cfg.engine_backoff_max_s >= cfg.engine_poll_s, "engine_backoff_max_s must be at least engine_poll_s");
     ensure!(cfg.max_live >= 1, "max_live must be at least 1");
     ensure!((0.0..=30.0).contains(&cfg.crossfade_s), "crossfade_s must be 0 to 30 seconds");
+    let [shortest, longest] = cfg.auto_seconds;
+    ensure!(15 <= shortest && shortest <= longest && longest <= 600, "auto_seconds is [shortest, longest], from 15 to 600 seconds");
     if let Some(origin) = &mut cfg.public_origin {
         *origin = origin.trim_end_matches('/').to_string();
         let rest = origin.strip_prefix("https://").or_else(|| origin.strip_prefix("http://"));
@@ -336,6 +345,7 @@ impl Config {
             genres: self.genres.clone(),
             default_language: self.lyrics.default_language.clone(),
             default_lyrics_by: self.lyrics.default_engine.clone(),
+            auto_seconds: (self.auto_seconds[0], self.auto_seconds[1]),
             naming_engine: self.naming.engine.clone(),
             make_rate: Rate::parse(&self.limits.make).expect("checked when the config was loaded"),
             pending_jobs: self.limits.pending_jobs,
@@ -373,7 +383,7 @@ mod tests {
         let s = cfg.make_settings();
         assert_eq!((s.make_rate, s.pending_jobs, s.stall), (Rate { max: 20, window_s: 600 }, 4, Duration::from_secs(600)));
         assert_eq!((s.poll, s.lyrics_timeout, s.naming_timeout), (Duration::from_secs(2), Duration::from_secs(30), Duration::from_secs(15)));
-        assert_eq!(s.backoff_max, Duration::from_secs(30));
+        assert_eq!((s.backoff_max, s.auto_seconds), (Duration::from_secs(30), (120, 240)));
         let s = parse(&format!("{MINIMAL}engine_poll_s = 3\nengine_backoff_max_s = 60\n"), no_env).unwrap().make_settings();
         assert_eq!((s.poll, s.backoff_max), (Duration::from_secs(3), Duration::from_secs(60)), "both can be set");
     }
@@ -459,5 +469,9 @@ mod tests {
         assert!(!cfg.relay.enabled);
         assert!(error(&format!("max_live = 0\n{MINIMAL}")).contains("max_live"));
         assert!(error(&format!("crossfade_s = 31.0\n{MINIMAL}")).contains("crossfade_s"));
+        assert_eq!(parse(&format!("auto_seconds = [60, 90]\n{MINIMAL}"), no_env).unwrap().make_settings().auto_seconds, (60, 90));
+        for bad in ["[10, 90]", "[90, 60]", "[60, 601]"] {
+            assert!(error(&format!("auto_seconds = {bad}\n{MINIMAL}")).contains("auto_seconds"), "{bad}");
+        }
     }
 }

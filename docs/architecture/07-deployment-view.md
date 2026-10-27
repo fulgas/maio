@@ -37,6 +37,7 @@ max_live = 4
 crossfade_s = 6.0
 moods = ["calm", "focused", "upbeat", "playful", "tense", "dreamy", "melancholy", "triumphant"]
 genres = ["lo-fi", "ambient", "synthwave", "jazz", "orchestral", "rock", "electronic", "hip-hop", "funk", "folk", "chillhop", "reggae"]
+auto_seconds = [120, 240]
 
 [limits]
 make = "20/10m"
@@ -80,6 +81,7 @@ default_language = "en"
 ```
 
 - `[relay] host` and the ports are what the live strip shows listeners; set `host` to the name they reach this machine by.
+- `auto_seconds` (default `[120, 240]`) is the shortest and longest length Maio picks from when a request leaves the length on Auto, 15 to 600 seconds (arc42 8.2).
 - `log_format = "json"` switches logs to JSON (arc42 8.6); `engine_stall_s` (default 600) fails a song that has not changed for that long; `engine_poll_s` (default 2) is how often a song being made is polled, and `engine_backoff_max_s` (default 30) the longest wait after a busy answer or a failed poll (arc42 8.8).
 
 The environment (`.env`, copy `.env.example`; never printed):

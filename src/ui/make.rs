@@ -3,7 +3,7 @@
 use crate::{
     domain::{
         engine::Health,
-        request::{Energy, SongRequest, Tempo},
+        request::{Auto, Energy, SongRequest, Tempo, Vocals, Voice, engine_prompt},
     },
     ui::api::EngineStatus,
 };
@@ -17,9 +17,13 @@ pub const SLOWEST: u32 = 40;
 pub const FASTEST: u32 = 220;
 /// Where the slider rests while the tempo is on Auto.
 pub const AUTO_AT: u32 = 120;
-/// "Sung in": (code, label); empty means the server's default.
+/// The settings panel's lists (arc42 8.5): (value, label), Auto first; Auto sends nothing, or `"auto"` for vocals.
+pub const ENERGIES: [(&str, &str); 4] = [("", "Auto"), ("low", "Low"), ("medium", "Medium"), ("high", "High")];
+pub const VOCALS: [(&str, &str); 3] = [("", "Auto"), ("instrumental", "Instrumental"), ("vocals", "Vocals")];
+pub const VOICES: [(&str, &str); 4] = [("", "Auto"), ("female", "Female"), ("male", "Male"), ("duet", "Duet")];
+/// "Sung in": (code, label); Auto is the server's default language.
 pub const LANGUAGES: [(&str, &str); 10] = [
-    ("", "Default language"),
+    ("", "Auto"),
     ("en", "English"),
     ("es", "Spanish"),
     ("fr", "French"),
@@ -31,39 +35,24 @@ pub const LANGUAGES: [(&str, &str); 10] = [
     ("zh", "Chinese"),
 ];
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct MakeForm {
     pub prompt: String,
     pub mood: String,
     pub genre: String,
-    /// Not a chip: only "Make one like this" sets it, from a song made through the API.
     pub energy: String,
-    pub seconds: u32,
+    /// A length, or none for Auto: Maio picks one.
+    pub seconds: Option<u32>,
     /// A BPM, or none for Auto: the engine decides.
     pub tempo: Option<u32>,
     pub seed: String,
-    pub vocals: bool,
+    /// `""` for Auto (Maio picks), `"instrumental"` or `"vocals"`.
+    pub vocals: String,
+    /// `""` for Auto, or a voice: only with vocals.
+    pub voice: String,
     pub lyrics: String,
     pub language: String,
     pub lyrics_by: String,
-}
-
-impl Default for MakeForm {
-    fn default() -> Self {
-        Self {
-            prompt: String::new(),
-            mood: String::new(),
-            genre: String::new(),
-            energy: String::new(),
-            seconds: 180,
-            tempo: None,
-            seed: String::new(),
-            vocals: false,
-            lyrics: String::new(),
-            language: String::new(),
-            lyrics_by: String::new(),
-        }
-    }
 }
 
 fn some(s: &str) -> Option<String> {
@@ -82,20 +71,19 @@ impl MakeForm {
             "" => None,
             s => Some(s.parse::<i64>().map_err(|_| "The seed is a whole number.".to_string())?),
         };
-        let v = self.vocals;
+        let v = self.sings();
         Ok(SongRequest {
             prompt,
             mood,
             genre: some(&self.genre),
-            energy: match self.energy.as_str() {
-                "low" => Some(Energy::Low),
-                "medium" => Some(Energy::Medium),
-                "high" => Some(Energy::High),
-                _ => None,
-            },
-            seconds: Some(self.seconds),
+            energy: self.energy(),
+            seconds: self.seconds,
             tempo: self.tempo.map(Tempo::Bpm),
-            vocals: v.then_some(true),
+            vocals: Some(match self.vocals.as_str() {
+                "" => Vocals::Auto(Auto::Auto),
+                _ => Vocals::Set(v),
+            }),
+            voice: self.voice(),
             lyrics: if v { some(&self.lyrics) } else { None },
             vocal_language: if v { some(&self.language) } else { None },
             lyrics_by: if v { some(&self.lyrics_by) } else { None },
@@ -103,6 +91,58 @@ impl MakeForm {
             seed,
             allow_noncommercial: allow_noncommercial.then_some(true),
         })
+    }
+
+    pub fn sings(&self) -> bool {
+        self.vocals == "vocals"
+    }
+
+    fn energy(&self) -> Option<Energy> {
+        match self.energy.as_str() {
+            "low" => Some(Energy::Low),
+            "medium" => Some(Energy::Medium),
+            "high" => Some(Energy::High),
+            _ => None,
+        }
+    }
+
+    fn voice(&self) -> Option<Voice> {
+        Voice::parse(&self.voice).filter(|_| self.sings())
+    }
+
+    /// The empty prompt's placeholder: what the settings alone send to the engine, or None while none of them is set.
+    pub fn placeholder(&self) -> Option<String> {
+        let words = [!self.mood.is_empty(), !self.genre.is_empty(), !self.energy.is_empty(), self.tempo.is_some(), !self.vocals.is_empty()];
+        words.contains(&true).then(|| {
+            engine_prompt(
+                None,
+                some(&self.genre).as_deref(),
+                some(&self.mood).as_deref(),
+                self.energy(),
+                self.tempo,
+                self.vocals != "instrumental",
+                self.voice(),
+            )
+        })
+    }
+
+    /// How many settings are not on Auto: the count on the settings button.
+    pub fn count(&self) -> usize {
+        let sings = self.sings();
+        [
+            !self.mood.is_empty(),
+            !self.genre.is_empty(),
+            !self.energy.is_empty(),
+            self.tempo.is_some(),
+            self.seconds.is_some(),
+            !self.seed.trim().is_empty(),
+            !self.vocals.is_empty(),
+            sings && !self.voice.is_empty(),
+            sings && !self.language.is_empty(),
+        ]
+        .into_iter()
+        .filter(|set| *set)
+        .count()
     }
 }
 
@@ -114,10 +154,11 @@ impl MakeForm {
             mood: s.mood.clone().unwrap_or_default(),
             genre: s.genre.clone().unwrap_or_default(),
             energy: s.energy.clone().unwrap_or_default(),
-            seconds: slider_seconds(s.seconds),
+            seconds: Some(slider_seconds(s.seconds)),
             tempo: s.bpm.filter(|b| (SLOWEST..=FASTEST).contains(b)),
             seed: s.seed.to_string(),
-            vocals: s.vocals,
+            vocals: if s.vocals { "vocals" } else { "instrumental" }.into(),
+            voice: if s.vocals { s.voice.clone().unwrap_or_default() } else { String::new() },
             lyrics: if s.vocals { s.lyrics.clone().unwrap_or_default() } else { String::new() },
             language: if s.vocals { s.vocal_language.clone().unwrap_or_default() } else { String::new() },
             lyrics_by: String::new(),
@@ -154,14 +195,55 @@ mod tests {
     }
 
     #[test]
-    fn a_prompt_alone_makes_an_instrumental_three_minute_song() {
+    fn a_prompt_alone_leaves_every_setting_on_auto() {
         let r = form().request(false).unwrap();
         assert_eq!(r.prompt.as_deref(), Some("warm pads"));
-        assert_eq!(r.seconds, Some(180));
-        assert_eq!(r.vocals, None);
-        assert_eq!(r.lyrics, None);
-        assert_eq!(r.seed, None);
+        assert_eq!((r.seconds, r.tempo, r.seed), (None, None, None), "Maio picks the length, the engine the tempo, a new seed");
+        assert_eq!(r.vocals, Some(Vocals::Auto(Auto::Auto)), "Maio picks instrumental or vocals");
+        assert_eq!((r.voice, r.lyrics), (None, None));
         assert_eq!(r.allow_noncommercial, None);
+        assert_eq!(form().count(), 0, "nothing set");
+    }
+
+    #[test]
+    fn length_is_a_time_or_auto() {
+        assert_eq!(MakeForm { seconds: Some(150), ..form() }.request(false).unwrap().seconds, Some(150));
+    }
+
+    #[test]
+    fn vocals_are_auto_instrumental_or_sung_and_a_voice_goes_only_with_vocals() {
+        let with = |vocals: &str, voice: &str| MakeForm { vocals: vocals.into(), voice: voice.into(), ..form() }.request(false).unwrap();
+        assert_eq!(with("instrumental", "male").vocals, Some(Vocals::Set(false)));
+        assert_eq!(with("instrumental", "male").voice, None);
+        assert_eq!(with("", "male").voice, None, "on Auto there is no voice to pick");
+        let r = with("vocals", "duet");
+        assert_eq!((r.vocals, r.voice), (Some(Vocals::Set(true)), Some(Voice::Duet)));
+        assert_eq!(with("vocals", "").voice, None, "Auto voice");
+    }
+
+    #[test]
+    fn the_placeholder_is_what_the_settings_alone_send() {
+        assert_eq!(MakeForm::default().placeholder(), None, "nothing set: the sample description");
+        let f = MakeForm { genre: "ambient".into(), mood: "calm".into(), tempo: Some(96), vocals: "vocals".into(), voice: "female".into(), ..form() };
+        assert_eq!(f.placeholder().as_deref(), Some("ambient, calm mood, 96 bpm, female vocals"));
+        assert_eq!(MakeForm { vocals: "instrumental".into(), ..MakeForm::default() }.placeholder().as_deref(), Some("instrumental"));
+    }
+
+    #[test]
+    fn the_count_is_the_settings_that_are_not_on_auto() {
+        let f = MakeForm {
+            mood: "calm".into(),
+            energy: "low".into(),
+            tempo: Some(96),
+            seconds: Some(60),
+            seed: "42".into(),
+            vocals: "instrumental".into(),
+            voice: "male".into(),
+            language: "pt".into(),
+            ..form()
+        };
+        assert_eq!(f.count(), 6, "a voice and a language count only with vocals");
+        assert_eq!(MakeForm { vocals: "vocals".into(), ..f }.count(), 8);
     }
 
     #[test]
@@ -203,7 +285,8 @@ mod tests {
     fn from_song_copies_the_settings_and_the_seed() {
         let f = MakeForm::from_song(&made());
         assert_eq!((f.prompt.as_str(), f.mood.as_str(), f.genre.as_str(), f.energy.as_str()), ("warm pads", "calm", "lo-fi", "low"));
-        assert_eq!(f.seconds, 180, "the nearest step of the length slider");
+        assert_eq!(f.seconds, Some(180), "the nearest step of the length slider");
+        assert_eq!(f.vocals, "instrumental");
         assert_eq!(f.tempo, Some(93));
         assert_eq!(f.seed, "1234");
         let r = f.request(false).unwrap();
@@ -213,13 +296,19 @@ mod tests {
 
     #[test]
     fn from_song_keeps_the_words_sung_and_works_for_a_mood_only_song() {
-        let sung = crate::domain::Song { vocals: true, lyrics: Some("[verse]\nhi".into()), vocal_language: Some("pt".into()), ..made() };
+        let sung = crate::domain::Song {
+            vocals: true,
+            voice: Some("male".into()),
+            lyrics: Some("[verse]\nhi".into()),
+            vocal_language: Some("pt".into()),
+            ..made()
+        };
         let f = MakeForm::from_song(&sung);
-        assert!(f.vocals);
+        assert_eq!((f.vocals.as_str(), f.voice.as_str()), ("vocals", "male"));
         assert_eq!((f.lyrics.as_str(), f.language.as_str()), ("[verse]\nhi", "pt"));
         let mood_only = crate::domain::Song { prompt: String::new(), bpm: None, seconds: 41.0, ..made() };
         let f = MakeForm::from_song(&mood_only);
-        assert_eq!((f.tempo, f.seconds), (None, 45), "no tempo: Auto");
+        assert_eq!((f.tempo, f.seconds), (None, Some(45)), "no tempo: Auto");
         assert!(f.request(false).is_ok(), "a mood alone is a valid request");
     }
 
@@ -251,8 +340,8 @@ mod tests {
         let f = MakeForm { lyrics: "[verse]\nhi".into(), language: "en".into(), lyrics_by: "claude".into(), ..form() };
         let r = f.request(false).unwrap();
         assert_eq!((r.lyrics, r.vocal_language, r.lyrics_by), (None, None, None));
-        let r = MakeForm { vocals: true, ..f }.request(false).unwrap();
-        assert_eq!(r.vocals, Some(true));
+        let r = MakeForm { vocals: "vocals".into(), ..f }.request(false).unwrap();
+        assert_eq!(r.vocals, Some(Vocals::Set(true)));
         assert_eq!(r.lyrics.as_deref(), Some("[verse]\nhi"));
         assert_eq!(r.vocal_language.as_deref(), Some("en"));
         assert_eq!(r.lyrics_by.as_deref(), Some("claude"));
@@ -260,7 +349,7 @@ mod tests {
 
     #[test]
     fn empty_lyrics_ask_the_writer() {
-        let r = MakeForm { vocals: true, lyrics: "  ".into(), ..form() }.request(false).unwrap();
+        let r = MakeForm { vocals: "vocals".into(), lyrics: "  ".into(), ..form() }.request(false).unwrap();
         assert_eq!(r.lyrics, None);
     }
 

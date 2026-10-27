@@ -224,12 +224,17 @@ fn NewPlaylist(open: RwSignal<bool>) -> impl IntoView {
 #[component]
 fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
     let c = expect_context::<Changes>();
-    let f = MakeForm::default();
-    let (prompt, mood, genre) = (RwSignal::new(f.prompt), RwSignal::new(f.mood), RwSignal::new(f.genre));
-    let (seconds, tempo, seed) = (RwSignal::new(f.seconds), RwSignal::new(f.tempo), RwSignal::new(f.seed));
-    let (vocals, lyrics, language, lyrics_by) =
-        (RwSignal::new(false), RwSignal::new(String::new()), RwSignal::new(String::new()), RwSignal::new(String::new()));
-    let energy = RwSignal::new(String::new());
+    let (prompt, mood, genre, energy) =
+        (RwSignal::new(String::new()), RwSignal::new(String::new()), RwSignal::new(String::new()), RwSignal::new(String::new()));
+    let (seconds, tempo, seed) = (RwSignal::new(None::<u32>), RwSignal::new(None::<u32>), RwSignal::new(String::new()));
+    let (vocals, voice, lyrics, language, lyrics_by) = (
+        RwSignal::new(String::new()),
+        RwSignal::new(String::new()),
+        RwSignal::new(String::new()),
+        RwSignal::new(String::new()),
+        RwSignal::new(String::new()),
+    );
+    let open = RwSignal::new(false);
     // "Make one like this" hands a form over; take it, and bring the prompt into view.
     let draft = expect_context::<crate::ui::make::Draft>();
     let prompt_box = NodeRef::<leptos::html::Textarea>::new();
@@ -244,9 +249,11 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
         tempo.set(f.tempo);
         seed.set(f.seed);
         vocals.set(f.vocals);
+        voice.set(f.voice);
         lyrics.set(f.lyrics);
         language.set(f.language);
         lyrics_by.set(f.lyrics_by);
+        open.set(true); // the copied settings in view
         if let Some(t) = prompt_box.get() {
             t.scroll_into_view();
             let _ = t.focus();
@@ -256,23 +263,24 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
     let st = move || status.get().and_then(Result::ok);
     // The slider ends where the ready engines do; a longer length picked before stops there too.
     let longest = Memo::new(move |_| st().map_or(make::LONGEST, |s| make::longest(&crate::ui::events::engines_now(&s.engines, &c.engines.get()))));
-    let length = move || seconds.get().min(longest.get());
-    let bpm = move || tempo.get().unwrap_or(make::AUTO_AT);
-    let form = move || MakeForm {
-        prompt: prompt.get_untracked(),
-        mood: mood.get_untracked(),
-        genre: genre.get_untracked(),
-        energy: energy.get_untracked(),
-        seconds: seconds.get_untracked().min(longest.get_untracked()),
-        tempo: tempo.get_untracked(),
-        seed: seed.get_untracked(),
-        vocals: vocals.get_untracked(),
-        lyrics: lyrics.get_untracked(),
-        language: language.get_untracked(),
-        lyrics_by: lyrics_by.get_untracked(),
+    let current = move || MakeForm {
+        prompt: prompt.get(),
+        mood: mood.get(),
+        genre: genre.get(),
+        energy: energy.get(),
+        seconds: seconds.get().map(|s| s.min(longest.get())),
+        tempo: tempo.get(),
+        seed: seed.get(),
+        vocals: vocals.get(),
+        voice: voice.get(),
+        lyrics: lyrics.get(),
+        language: language.get(),
+        lyrics_by: lyrics_by.get(),
     };
+    let sings = move || vocals.get() == "vocals";
+    let count = Memo::new(move |_| current().count());
     // One request at a time: a double click must not make two songs.
-    let send = move |allow: bool| match form().request(allow) {
+    let send = move |allow: bool| match untrack(current).request(allow) {
         Err(msg) => error.set(Some(msg)),
         Ok(_) if busy.get_untracked() => {}
         Ok(req) => leptos::task::spawn_local(async move {
@@ -283,7 +291,6 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
                 Ok(_) => {
                     error.set(None);
                     prompt.set(String::new());
-                    seed.set(String::new()); // a copied seed is for one song
                     if let Ok(open) = api::jobs().await {
                         c.jobs.update(|jobs| {
                             open.into_iter().for_each(|j| {
@@ -302,99 +309,129 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
         send(false);
     };
     let ready = expect_context::<crate::ui::frame::EngineReady>().0;
-    let moods = move || st().map(|s| s.moods).unwrap_or_default();
-    let genres = move || st().map(|s| s.genres).unwrap_or_default();
-    let writers = move || st().map(|s| s.text_engines.into_iter().map(|t| t.id).collect::<Vec<_>>()).unwrap_or_default();
+    let auto_first =
+        |all: Vec<String>| std::iter::once((String::new(), "Auto".to_string())).chain(all.into_iter().map(|m| (m.clone(), m))).collect::<Vec<_>>();
+    let moods = Signal::derive(move || auto_first(st().map(|s| s.moods).unwrap_or_default()));
+    let genres = Signal::derive(move || auto_first(st().map(|s| s.genres).unwrap_or_default()));
+    let writers = Signal::derive(move || {
+        let ids = st().map(|s| s.text_engines.into_iter().map(|t| t.id).collect::<Vec<_>>()).unwrap_or_default();
+        [("", "Auto"), ("ace-step", "ACE-Step")]
+            .map(|(v, l)| (v.to_string(), l.to_string()))
+            .into_iter()
+            .chain(ids.into_iter().map(|w| (w.clone(), w)))
+            .collect::<Vec<_>>()
+    });
+    let toggle = NodeRef::<leptos::html::Button>::new();
+    let toggle_label = move || match count.get() {
+        0 => "Song settings: mood, tempo, length, vocals and more".to_string(),
+        n => format!("Song settings: {n} set"),
+    };
+    let close = move || {
+        open.set(false);
+        if let Some(b) = toggle.get_untracked() {
+            let _ = b.focus();
+        }
+    };
+    let seed_tip = move || {
+        if seed.with(|s| s.trim().is_empty()) {
+            "A new random seed each time, so every song is a new take"
+        } else {
+            "The number the song starts from: the same seed and settings make the same song. Change one setting for a variation"
+        }
+    };
     view! {
-        <form class="make" aria-labelledby="make-title" on:submit=submit>
-            <div class="make-head">
-                <h2 id="make-title">"Make a song"</h2>
-                <span class="hint">"Describe the sound; the settings below are optional."</span>
-            </div>
-            <div class="make-row">
-                <label class="prompt"><span class="sr">"What it sounds like"</span>
-                    <textarea rows="3" maxlength="500" bind:value=prompt node_ref=prompt_box
-                        placeholder="Warm Rhodes and soft rain on the window, slow brushed drums, a late night in an empty office"></textarea>
-                </label>
-                // Off while no engine is ready, and says why: the server would refuse the song (arc42 8.8).
-                <button type="submit" class="make-button" disabled=move || busy.get() || !ready.get()
-                    aria-label=move || if ready.get() { "Make the song" } else { "Make the song: no music engine is ready" }
-                    data-tip=move || if ready.get() { "Make a song from this description" } else { "No music engine is ready" }>
-                    <Svg icon=Icon::Make size=28/><span>"Make"</span>
-                </button>
-            </div>
-            <div class="chips" role="group" aria-label="Song settings">
-                <Chip icon=Icon::Mood label="Mood" value=mood options=Signal::derive(move || std::iter::once((String::new(), "Any mood".to_string())).chain(moods().into_iter().map(|m| (m.clone(), m))).collect())/>
-                <Chip icon=Icon::Genre label="Genre" value=genre options=Signal::derive(move || std::iter::once((String::new(), "Any genre".to_string())).chain(genres().into_iter().map(|g| (g.clone(), g))).collect())/>
-                // The tempo is a chip holding a slider, on Auto until it is moved: then no tempo is sent and the engine decides.
-                // Not a label: the reset button inside it would be a second control in one label.
-                <div class="chip tempo" class:auto=move || tempo.get().is_none() data-tip="How fast the song is"><Svg icon=Icon::Tempo size=18/>
-                    <input type="range" aria-label="Tempo" min=make::SLOWEST.to_string() max=make::FASTEST.to_string() step="1"
-                        prop:value=move || bpm().to_string()
-                        style=move || format!("--fill: {}%", (bpm() - make::SLOWEST) * 100 / (make::FASTEST - make::SLOWEST))
-                        aria-valuetext=move || tempo.get().map_or("Auto".to_string(), format::beats)
-                        on:input=move |ev| tempo.set(event_target_value(&ev).parse().ok())
-                        // A press on the thumb where it rests takes that tempo too, though the value does not move.
-                        on:pointerdown=move |_| if tempo.get_untracked().is_none() { tempo.set(Some(make::AUTO_AT)) }
-                        // Page Up and Page Down move 10 BPM; the browser's own move is a tenth of the range.
-                        on:keydown=move |ev| {
-                            let by: i64 = match ev.key().as_str() { "PageUp" => 10, "PageDown" => -10, _ => return };
-                            ev.prevent_default();
-                            tempo.set(Some((i64::from(bpm()) + by).clamp(make::SLOWEST.into(), make::FASTEST.into()) as u32));
-                        }/>
-                    <output aria-hidden="true">{move || tempo.get().map_or("Auto".to_string(), |b| format!("{b} bpm"))}</output>
-                    // Hidden on Auto, its place kept, so the chip never changes size.
-                    <IconButton icon=Icon::Refresh size=14 label="Tempo: back to Auto".to_string() on_click=move || tempo.set(None)/>
+        <form class="make" class:open=move || open.get() aria-labelledby="make-title" on:submit=submit>
+            <div class="make-main">
+                <div class="make-head">
+                    <h2 id="make-title">"Make a song"</h2>
+                    <span class="hint">"Describe the sound. Leave the settings on Auto and Maio picks them."</span>
+                    <button type="button" class="icon settings-toggle" node_ref=toggle aria-controls="make-settings"
+                        aria-expanded=move || open.get().to_string() aria-label=toggle_label data-tip=toggle_label
+                        on:click=move |_| open.update(|o| *o = !*o)>
+                        <Svg icon=Icon::Settings size=20/>
+                        <span class="badge" aria-hidden="true" hidden=move || count.get() == 0>{move || count.get()}</span>
+                    </button>
                 </div>
-                // The length is a chip holding a slider. Its value is shown as a time and said in words.
-                <label class="chip length" data-tip="How long the song is"><Svg icon=Icon::Length size=18/>
-                    <input type="range" aria-label="Length" min=make::SHORTEST.to_string() max=move || longest.get().to_string() step=make::STEP.to_string()
-                        prop:value=move || length().to_string()
-                        // How much of the track is filled, for the styled track (the native fill has no colour of its own).
-                        style=move || format!("--fill: {}%", (length() - make::SHORTEST) * 100 / (longest.get() - make::SHORTEST).max(1))
-                        aria-valuetext=move || format::spoken(length())
-                        on:input=move |ev| seconds.set(event_target_value(&ev).parse().unwrap_or(180))
-                        // Page Up and Page Down move a minute; the browser's own move is a tenth of the range.
-                        on:keydown=move |ev| {
-                            let by: i64 = match ev.key().as_str() { "PageUp" => 60, "PageDown" => -60, _ => return };
-                            ev.prevent_default();
-                            seconds.set((i64::from(length()) + by).clamp(make::SHORTEST.into(), longest.get_untracked().into()) as u32);
-                        }/>
-                    <output aria-hidden="true">{move || format::clock(f64::from(length()))}</output>
-                </label>
-                <button type="button" class="chip toggle" aria-pressed=move || vocals.get().to_string() data-tip=move || if vocals.get() { "Sung, with lyrics. Press for an instrumental" } else { "Instrumental. Press to add vocals and lyrics" } on:click=move |_| vocals.update(|v| *v = !*v)>
-                    <Svg icon=Icon::Mic size=18/>{move || if vocals.get() { "Vocals" } else { "Instrumental" }}
-                </button>
-                // A seed shows only when "Make one like this" copied it; without one, every song is a new take.
-                <Show when=move || !seed.with(|s| s.trim().is_empty())>
-                    <span class="chip seed" data-tip="The seed of the song you copied: with the same settings it comes out the same. Remove it for a new take">
-                        <span>{move || format!("Seed {}", seed.get())}</span>
-                        <IconButton icon=Icon::Cancel class="bare" size=16 label="Remove the seed: make a new take".to_string() on_click=move || seed.set(String::new())/>
-                    </span>
-                </Show>
-            </div>
-            <Show when=move || vocals.get()>
-                <div class="lyrics">
-                    <label>"Lyrics, with [verse] and [chorus] sections"
-                        <textarea rows="4" maxlength="4000" placeholder="Leave empty and they are written for you" bind:value=lyrics></textarea>
+                <div class="make-row">
+                    <label class="prompt"><span class="sr">"What it sounds like"</span>
+                        <textarea rows="3" maxlength="500" bind:value=prompt node_ref=prompt_box
+                            placeholder=move || current().placeholder()
+                                .unwrap_or_else(|| "Warm Rhodes and soft rain on the window, slow brushed drums, a late night in an empty office".into())></textarea>
                     </label>
-                    <div class="lyrics-side">
-                        <label>"Sung in"
-                            <select class="field" prop:value=move || language.get() on:change=move |ev| language.set(event_target_value(&ev))>
-                                {LANGUAGES.iter().map(|(v, l)| view! { <option value=*v>{*l}</option> }).collect_view()}
-                            </select>
-                        </label>
-                        <label>"If empty, written by"
-                            <select class="field" prop:value=move || lyrics_by.get() on:change=move |ev| lyrics_by.set(event_target_value(&ev))>
-                                <option value="">"Default writer"</option>
-                                <option value="ace-step">"ACE-Step"</option>
-                                {move || writers().into_iter().map(|w| view! { <option value=w>{w.clone()}</option> }).collect_view()}
-                            </select>
-                        </label>
-                    </div>
+                    // Off while no engine is ready, and says why: the server would refuse the song (arc42 8.8).
+                    <button type="submit" class="make-button" disabled=move || busy.get() || !ready.get()
+                        aria-label=move || if ready.get() { "Make the song" } else { "Make the song: no music engine is ready" }
+                        data-tip=move || if ready.get() { "Make a song from this description" } else { "No music engine is ready" }>
+                        <Svg icon=Icon::Make size=28/><span>"Make"</span>
+                    </button>
                 </div>
-            </Show>
-            <p class="error" role="alert">{move || error.get()}</p>
+                <Show when=sings>
+                    <div class="lyrics">
+                        <div class="lyrics-top">
+                            <label for="make-lyrics">"Lyrics, with [verse] and [chorus] sections"</label>
+                            <div class="sets"><Pick icon=Icon::Pen label="Lyrics by" value=lyrics_by options=writers/></div>
+                        </div>
+                        <textarea id="make-lyrics" rows="4" maxlength="4000" placeholder="Leave empty and they are written for you" bind:value=lyrics></textarea>
+                    </div>
+                </Show>
+                <p class="error" role="alert">{move || error.get()}</p>
+            </div>
+            <div class="make-settings" id="make-settings" role="group" aria-labelledby="make-settings-title" hidden=move || !open.get()>
+                <div class="settings-head">
+                    <h3 id="make-settings-title">"Settings"</h3>
+                    // Every setting back on Auto; the person's words and lyrics stay.
+                    <IconButton icon=Icon::Refresh size=18 label="Put every setting back on Auto".to_string() disabled=Signal::derive(move || count.get() == 0)
+                        on_click=move || {
+                            [mood, genre, energy, seed, vocals, voice, language, lyrics_by].into_iter().for_each(|s| s.set(String::new()));
+                            seconds.set(None);
+                            tempo.set(None);
+                        }/>
+                    <IconButton icon=Icon::Cancel size=18 label="Close the settings".to_string() on_click=close/>
+                </div>
+                <section class="set-group" aria-label="Style">
+                    <h4 aria-hidden="true">"Style"</h4>
+                    <div class="sets">
+                        <Pick icon=Icon::Mood label="Mood" value=mood options=moods/>
+                        <Pick icon=Icon::Genre label="Genre" value=genre options=genres/>
+                        <Pick icon=Icon::Energy label="Energy" value=energy options=make::ENERGIES.map(|(v, l)| (v.to_string(), l.to_string())).to_vec()/>
+                    </div>
+                </section>
+                <section class="set-group" aria-label="Song">
+                    <h4 aria-hidden="true">"Song"</h4>
+                    <div class="sets">
+                        // On Auto until moved: then no tempo is sent and the engine decides.
+                        <Slider icon=Icon::Tempo label="Tempo" value=tempo min=Signal::stored(make::SLOWEST) max=Signal::stored(make::FASTEST) step=1 page=10
+                            rest=make::AUTO_AT shown=|b| format!("{b} bpm") said=format::beats/>
+                        // On Auto until moved: then Maio picks a length (arc42 8.2).
+                        <Slider icon=Icon::Length label="Length" value=seconds min=Signal::stored(make::SHORTEST) max=longest step=make::STEP page=60
+                            rest=180 shown=|s| format::clock(f64::from(s)) said=format::spoken/>
+                        <div class="set seed" class:auto=move || seed.with(|s| s.trim().is_empty()) data-tip=seed_tip>
+                            <span class="set-name"><Svg icon=Icon::Seed size=16/>"Seed"</span>
+                            <span class="set-control">
+                                <input type="text" class="field" inputmode="numeric" placeholder="Auto" bind:value=seed
+                                    aria-label=move || format!("Seed. {}", seed_tip())/>
+                            </span>
+                            <span class="set-value">
+                                <IconButton icon=Icon::Dice size=18 label="Pick a random seed".to_string()
+                                    on_click=move || seed.set(((js_sys::Math::random() * 4_294_967_296.0) as u64).to_string())/>
+                            </span>
+                            <span class="set-reset"><IconButton icon=Icon::Refresh size=14 label="Seed: back to Auto".to_string() on_click=move || seed.set(String::new())/></span>
+                        </div>
+                    </div>
+                </section>
+                <section class="set-group" aria-label="Voice">
+                    <h4 aria-hidden="true">"Voice"</h4>
+                    <div class="sets">
+                        <Pick icon=Icon::Mic label="Vocals" value=vocals tip="Auto lets Maio pick instrumental or vocals each time"
+                            options=make::VOCALS.map(|(v, l)| (v.to_string(), l.to_string())).to_vec()/>
+                        <Show when=sings>
+                            <Pick icon=Icon::Voice label="Voice" value=voice tip="A hint to the engine: it usually follows it, but not always"
+                                options=make::VOICES.map(|(v, l)| (v.to_string(), l.to_string())).to_vec()/>
+                            <Pick icon=Icon::Language label="Sung in" value=language options=LANGUAGES.map(|(v, l)| (v.to_string(), l.to_string())).to_vec()/>
+                        </Show>
+                    </div>
+                </section>
+            </div>
         </form>
         <Modal open=ask_noncommercial title="Non-commercial engine">
             <p>"The engine that can make this song allows only non-commercial use of what it makes. Make it anyway?"</p>
@@ -406,15 +443,70 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
     }
 }
 
-/// A setting as an icon chip over a native select.
+/// A setting as a pill (arc42 8.5): its icon and name, then a dropdown with Auto first. A caption is said with the name.
 #[component]
-fn Chip(icon: Icon, label: &'static str, value: RwSignal<String>, #[prop(into)] options: Signal<Vec<(String, String)>>) -> impl IntoView {
+fn Pick(
+    icon: Icon,
+    label: &'static str,
+    value: RwSignal<String>,
+    #[prop(into)] options: Signal<Vec<(String, String)>>,
+    #[prop(optional)] tip: Option<&'static str>,
+) -> impl IntoView {
+    let name = tip.map_or(label.to_string(), |t| format!("{label}. {t}"));
     view! {
-        <label class="chip" data-tip=format!("{label} of the song")><Svg icon size=18/>
-            <select aria-label=label prop:value=move || value.get() on:change=move |ev| value.set(event_target_value(&ev))>
-                {move || options.get().into_iter().map(|(v, l)| view! { <option value=v>{l}</option> }).collect_view()}
-            </select>
+        <label class="set" data-tip=tip>
+            <span class="set-name"><Svg icon size=16/>{label}</span>
+            <span class="set-control">
+                <select class="field" aria-label=name prop:value=move || value.get() on:change=move |ev| value.set(event_target_value(&ev))>
+                    {move || options.get().into_iter().map(|(v, l)| view! { <option value=v.clone() selected=value.get_untracked() == v>{l}</option> }).collect_view()}
+                </select>
+            </span>
+            <span class="set-value"></span>
+            <span class="set-reset"></span>
         </label>
+    }
+}
+
+/// A setting as a pill holding a slider, on Auto (dimmed, "Auto" in place of the value) until it is moved; ↺ goes back.
+/// The value shows in a fixed width, so a drag never resizes the pill. Not a label: the reset is a second control.
+#[component]
+fn Slider(
+    icon: Icon,
+    label: &'static str,
+    value: RwSignal<Option<u32>>,
+    min: Signal<u32>,
+    #[prop(into)] max: Signal<u32>,
+    step: u32,
+    /// What Page Up and Page Down move; the browser's own move is a tenth of the range.
+    page: u32,
+    /// Where the thumb rests on Auto.
+    rest: u32,
+    shown: fn(u32) -> String,
+    said: fn(u32) -> String,
+) -> impl IntoView {
+    let at = move || value.get().unwrap_or(rest).clamp(min.get(), max.get());
+    view! {
+        <div class="set range" class:auto=move || value.get().is_none()>
+            <span class="set-name"><Svg icon size=16/>{label}</span>
+            <span class="set-control">
+                <input type="range" aria-label=label min=move || min.get().to_string() max=move || max.get().to_string() step=step.to_string()
+                    prop:value=move || at().to_string()
+                    // How much of the track is filled, for the styled track (the native fill has no colour of its own).
+                    style=move || format!("--fill: {}%", (at() - min.get()) * 100 / (max.get() - min.get()).max(1))
+                    aria-valuetext=move || value.get().map_or("Auto".to_string(), |_| said(at()))
+                    on:input=move |ev| value.set(event_target_value(&ev).parse().ok())
+                    // A press on the thumb where it rests takes that value too, though the value does not move.
+                    on:pointerdown=move |_| if value.get_untracked().is_none() { value.set(Some(at())) }
+                    on:keydown=move |ev| {
+                        let by: i64 = match ev.key().as_str() { "PageUp" => page.into(), "PageDown" => -i64::from(page), _ => return };
+                        ev.prevent_default();
+                        value.set(Some((i64::from(at()) + by).clamp(min.get_untracked().into(), max.get_untracked().into()) as u32));
+                    }/>
+            </span>
+            <output class="set-value" aria-hidden="true">{move || value.get().map_or("Auto".to_string(), |_| shown(at()))}</output>
+            // Hidden on Auto, its place kept.
+            <span class="set-reset"><IconButton icon=Icon::Refresh size=14 label=format!("{label}: back to Auto") on_click=move || value.set(None)/></span>
+        </div>
     }
 }
 

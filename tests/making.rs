@@ -90,6 +90,7 @@ async fn a_prompt_becomes_a_tagged_opus_song_in_the_library() {
             genres: vec![],
             default_language: "en".into(),
             default_lyrics_by: "ace-step".into(),
+            auto_seconds: (120, 240),
             naming_engine: None,
             make_rate: Rate { max: 20, window_s: 600 },
             pending_jobs: 4,

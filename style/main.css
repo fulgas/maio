@@ -177,7 +177,7 @@ output.set-value { width: 7.5ch; white-space: nowrap; font-weight: 600; font-var
 @media (max-width: 899px) {
   .make { flex-direction: column; }
   .make-settings { width: 100%; padding: 14px 0 0; border-left: 0; border-top: 1px solid var(--line); }
-  .sets { grid-template-columns: max-content minmax(0, 1fr) max-content max-content; }
+  .sets { grid-template-columns: max-content minmax(0, 1fr) max-content max-content; max-width: 480px; }
   .set input[type=range] { width: 100%; }
 }
 @media (max-width: 720px) {

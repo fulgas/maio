@@ -19,7 +19,7 @@ Maio has an API that scripts use, a config file and a database, so a release mus
 
 ## Decision Outcome
 
-Chosen option: "Semantic Versioning, worked out from Conventional Commits, with a commit-msg hook", because the commits already carry what the number needs: a breaking change means a major release (minor while the version starts with 0), a feature a minor one, only fixes or performance work a patch, and anything else no release. A git hook in the repository refuses other messages, with nothing to install. A release sets the crate's version, is committed as a release commit and tagged with the version, signed.
+Chosen option: "Semantic Versioning, worked out from Conventional Commits, with a commit-msg hook", because the commits already carry what the number needs: a breaking change means a major release (minor while the version starts with 0), a feature a minor one, only fixes, performance work or updated dependencies a patch (a dependency changes what ships), and anything else no release. A git hook in the repository refuses other messages, with nothing to install. A release sets the crate's version, is committed as a release commit and tagged with the version, signed.
 
 ### Consequences
 

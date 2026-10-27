@@ -51,11 +51,19 @@
       "groupName": "Rust dependencies (major)"
     },
     {
-      "description": "Every GitHub Actions update in one pull request",
+      "description": "Every GitHub Actions update in one pull request, typed ci(deps): it does not change what ships",
       "matchManagers": [
         "github-actions"
       ],
-      "groupName": "GitHub Actions"
+      "groupName": "GitHub Actions",
+      "semanticCommitType": "ci"
+    },
+    {
+      "description": "The browser tests' dependencies, typed test(deps): they do not change what ships",
+      "matchManagers": [
+        "npm"
+      ],
+      "semanticCommitType": "test"
     }
   ],
   "vulnerabilityAlerts": {

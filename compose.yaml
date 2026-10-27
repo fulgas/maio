@@ -20,7 +20,7 @@ services:
   # Lets anyone pull every live playlist over RTSP, SRT and RTMP; Maio publishes to it and answers its auth.
   # Host ports 8555, 8891 and 1936 leave 8554, 8890 and 1935 free for another MediaMTX on the same machine.
   mediamtx:
-    image: bluenviron/mediamtx:1.21.2
+    image: bluenviron/mediamtx:1.21.3@sha256:59e43552f3be43695b70c19424dc2a42fcec18075f88d91561a24ac5d70a586c
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
     ports:

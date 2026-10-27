@@ -278,7 +278,7 @@ impl MusicEngine for FakeEngine {
 
     async fn submit(&self, request: &EngineRequest) -> std::result::Result<String, CallError> {
         self.calls.lock().push(("submit", tokio::time::Instant::now()));
-        if self.busy.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok() {
+        if self.busy.try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok() {
             return Err(CallError::Busy);
         }
         match *self.outcome.lock() {
@@ -293,7 +293,7 @@ impl MusicEngine for FakeEngine {
 
     async fn job(&self, id: &str) -> std::result::Result<RemoteJob, CallError> {
         self.calls.lock().push(("poll", tokio::time::Instant::now()));
-        if self.poll_failures.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok() {
+        if self.poll_failures.try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok() {
             return Err(CallError::Transport("no answer in time".into()));
         }
         let running = RemoteJob { job_id: id.into(), state: "running".into(), progress: 0.5, ..Default::default() };

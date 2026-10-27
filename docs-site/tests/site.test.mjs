@@ -9,7 +9,7 @@ const result = await build();
 const docs = new Map(result.documents.map(d => [d.id, d]));
 
 test('every arc42 section and decision record is published, grouped for the reader', () => {
-  assert.deepEqual(result.documents.filter(d => d.group === 'project').map(d => d.id), ['overview', 'project-rules', 'contributing', 'security', 'code-of-conduct']);
+  assert.deepEqual(result.documents.filter(d => d.group === 'project').map(d => d.id), ['overview', 'project-rules', 'contributing', 'security', 'accessibility', 'code-of-conduct']);
   assert.equal(docs.get('overview').source, 'README.md', 'the README is the project overview');
   const arc42 = result.documents.filter(d => d.group === 'architecture');
   assert.equal(arc42.length, 12);
@@ -314,7 +314,7 @@ test('the compass is the home page and leads to the four corners of Diátaxis, e
   assert.ok(!/\.axis\{[^}]*text-transform:uppercase/.test(css), 'the axes are in sentence case, not tracked capitals');
   for (const id of ['tutorials/01-your-first-song-on-air', 'how-to/02-add-a-text-engine', 'product', 'architecture/01-introduction-and-goals', 'architecture/09-architecture-decisions', 'reference', 'design'])
     assert.ok(compass.includes(`href="/${id}/"`), `the compass links ${id}`);
-  for (const id of ['overview', 'project-rules', 'contributing', 'security', 'code-of-conduct']) assert.ok(compass.includes(`href="/${id}/"`), `the project row links ${id}`);
+  for (const id of ['overview', 'project-rules', 'contributing', 'security', 'accessibility', 'code-of-conduct']) assert.ok(compass.includes(`href="/${id}/"`), `the project row links ${id}`);
   assert.match(compass, /data-tab="docs" class="active"/, 'the Docs tab is the compass');
   assert.match(compass, /href="\/explore\/#view\/context">Explore the C4 model</, 'the explorer is part of the explanation');
   assert.deepEqual([...compass.matchAll(/data-tab="([a-z]+)"/g)].map(m => m[1]), ['docs', 'view', 'decisions'], 'Docs first');

@@ -20,7 +20,7 @@ Follow [Development](README.md#development) in the README, and turn on the commi
 4. Write commit messages in [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) form, one logical change per commit: `fix(player): Pause while listening live turns to Play`. Sign each one off with `git commit -s`, which certifies the [Developer Certificate of Origin](https://developercertificate.org).
 5. Open a pull request that says what changed for the person using Maio, and why.
 
-The full rules (principles, the layers, scopes for commit messages, secrets and accessibility) are in [Project rules](docs/project-rules.md).
+The full rules (principles, the layers, scopes for commit messages, secrets and accessibility) are in [Project rules](docs/project-rules.md). What a change to the web app needs for accessibility, and how barriers are reported, is in [Accessibility](ACCESSIBILITY.md).
 
 ## Conduct
 

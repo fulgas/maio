@@ -15,7 +15,7 @@ Maio is a personal, self-hosted tool. One person runs it and owns everything in 
 - **Playlists.** Ordered by drag and drop, with shuffle and repeat in the player.
 - **Live streams.** Put a playlist on air: it plays on the server, with crossfades, as MP3, AAC and HLS, and through [MediaMTX](https://github.com/bluenviron/mediamtx) over RTSP, SRT and RTMP. Public or private links, listener counts, and it comes back on air after a restart.
 - **An API for everything.** Whatever the web app does, a script can do through the JSON API with a token.
-- **Accessible.** WCAG 2.1 AA: works with a keyboard and a screen reader, from 360 px wide, in a dark and a light theme.
+- **Accessible.** WCAG 2.1 AA: works with a keyboard and a screen reader, from 360 px wide, in a dark and a light theme. [ACCESSIBILITY.md](ACCESSIBILITY.md) says how, and how to report a barrier.
 
 ## Requirements
 

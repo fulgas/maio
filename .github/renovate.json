@@ -7,74 +7,43 @@
   "schedule": [
     "* 0-5 1,15 * *"
   ],
-  "separateMajorMinor": true,
+  "semanticCommits": "enabled",
+  "semanticCommitType": "build",
+  "semanticCommitScope": "deps",
   "packageRules": [
     {
-      "description": "Set a sensible default for all Cargo packages",
+      "description": "Cargo: raise the version in Cargo.toml, not only the lock file",
       "matchDatasources": [
         "cargo"
       ],
       "rangeStrategy": "bump"
     },
     {
-      "description": "Group all major dependency updates into one PR for manual review",
-      "matchUpdateTypes": [
-        "major"
+      "description": "Every Rust crate update in one pull request, majors included; give a crate its own rule to split it out",
+      "matchDatasources": [
+        "cargo"
       ],
-      "groupName": "Major Dependencies",
-      "semanticCommitType": "feat",
-      "automerge": false
+      "groupName": "Rust dependencies",
+      "separateMajorMinor": false,
+      "separateMultipleMajor": false
     },
     {
-      "description": "Group minor/patch updates for the Serde ecosystem",
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
-      "groupName": "Serde ecosystem",
-      "matchPackageNames": [
-        "/^serde/",
-        "/^serde-*/"
-      ],
-      "semanticCommitType": "fix"
-    },
-    {
-      "description": "Group minor/patch updates for the Tokio ecosystem",
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
-      "groupName": "Tokio ecosystem",
-      "matchPackageNames": [
-        "/^tokio/"
-      ],
-      "semanticCommitType": "fix"
-    },
-    {
-      "description": "Auto-merge patch updates for dev-dependencies",
-      "matchDepTypes": [
-        "devDependencies"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "semanticCommitType": "fix",
-      "automerge": true
-    },
-    {
-      "description": "Group GitHub Actions updates",
+      "description": "Every GitHub Actions update in one pull request",
       "matchManagers": [
         "github-actions"
       ],
       "groupName": "GitHub Actions"
     }
   ],
+  "vulnerabilityAlerts": {
+    "description": "A security fix is a fix: it makes a release",
+    "semanticCommitType": "fix"
+  },
   "lockFileMaintenance": {
     "enabled": true,
     "automerge": true,
     "schedule": [
       "* 0-5 1,15 * *"
     ]
-  },
-  "semanticCommits": "enabled"
+  }
 }

@@ -67,4 +67,4 @@ A release comes through a pull request ([ADR 0019](adr/0019-releases-come-throug
 
 ## Accessibility
 
-Every screen meets WCAG 2.1 AA ([arc42 10](architecture/10-quality-requirements.md)): keyboard throughout, visible focus, text contrast of at least 4.5:1, targets of at least 24 px, from 360 px wide. A review with axe-core and a keyboard pass comes before a release.
+Every screen meets WCAG 2.1 AA ([arc42 10](architecture/10-quality-requirements.md)): keyboard throughout, visible focus, text contrast of at least 4.5:1, targets of at least 24 px, from 360 px wide. A review with axe-core and a keyboard pass comes before a release. How barriers are reported and handled is in [Accessibility](../ACCESSIBILITY.md).

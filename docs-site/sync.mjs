@@ -20,7 +20,7 @@ const plain = t => t.replace(/`([^`]*)`/g, '$1').replace(/\*\*|__|\*|_/g, '').re
 const slugify = t => plain(t).toLowerCase().replace(/[^\p{L}\p{N}_ -]/gu, '').replaceAll(' ', '-');
 const toml = s => `"${String(s).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
-const rootIds = { '../README.md': 'overview', '../DESIGN.md': 'design', '../CONTRIBUTING.md': 'contributing', '../SECURITY.md': 'security', '../CODE_OF_CONDUCT.md': 'code-of-conduct' };
+const rootIds = { '../README.md': 'overview', '../DESIGN.md': 'design', '../CONTRIBUTING.md': 'contributing', '../SECURITY.md': 'security', '../ACCESSIBILITY.md': 'accessibility', '../CODE_OF_CONDUCT.md': 'code-of-conduct' };
 const markdownIn = async dir => (await readdir(path.join(docsRoot, dir))).filter(n => /^\d.*\.md$/.test(n)).sort().map(n => `${dir}/${n}`);
 const idOf = source => rootIds[source] ?? source.replace(/\.md$/, '');
 const known = new Set();
@@ -62,7 +62,7 @@ function link(href, source) {
 /** Writes content/ (and the explorer's document index) for Zola, and copies the fonts into static/. */
 export async function sync() {
   // In the order the compass and the sidebars show them: the project, then the four kinds of Diátaxis.
-  const files = ['../README.md', 'project-rules.md', '../CONTRIBUTING.md', '../SECURITY.md', '../CODE_OF_CONDUCT.md', ...(await markdownIn('tutorials')), ...(await markdownIn('how-to')), 'reference.md', 'tech.md', '../DESIGN.md', 'product.md', ...(await markdownIn('architecture')), ...(await markdownIn('adr')), 'adr/template.md'];
+  const files = ['../README.md', 'project-rules.md', '../CONTRIBUTING.md', '../SECURITY.md', '../ACCESSIBILITY.md', '../CODE_OF_CONDUCT.md', ...(await markdownIn('tutorials')), ...(await markdownIn('how-to')), 'reference.md', 'tech.md', '../DESIGN.md', 'product.md', ...(await markdownIn('architecture')), ...(await markdownIn('adr')), 'adr/template.md'];
   known.clear(); for (const f of files) known.add(f);
   const version = (await readFile(path.join(repositoryRoot, 'Cargo.toml'), 'utf8')).match(/^version = "([^"]+)"/m)[1];
   await cp(path.join(repositoryRoot, 'public/fonts'), path.join(siteRoot, 'static/fonts'), { recursive: true });

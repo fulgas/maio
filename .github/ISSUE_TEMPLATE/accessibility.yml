@@ -1,0 +1,46 @@
+name: Accessibility barrier
+description: Something in Maio gets in your way with a keyboard, a screen reader, zoom, a phone or another way of using it
+title: "[Accessibility]: "
+labels: ["accessibility", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you: a report like this helps Maio work for more people. You never need to share a disability or anything personal. How we handle it is in [ACCESSIBILITY.md](https://github.com/fulgas/maio/blob/main/ACCESSIBILITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What you were trying to do, and what happened
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where in Maio
+      placeholder: e.g. the Make form, a playlist page, the player, sign-in
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce, if you can
+  - type: textarea
+    id: environment
+    attributes:
+      label: What you use
+      value: |
+        - Browser and version:
+        - Operating system:
+        - Assistive technology and version, if any:
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How much it gets in your way (optional)
+      options:
+        - "Critical: I cannot do it at all"
+        - "Serious: only with a lot of difficulty or a workaround"
+        - "Moderate: annoying or inconsistent"
+        - "Minor: it barely gets in the way"
+  - type: markdown
+    attributes:
+      value: A screenshot or a recording helps, if you are comfortable sharing one; drop it in any box above.

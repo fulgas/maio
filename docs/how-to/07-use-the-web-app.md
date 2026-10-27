@@ -137,7 +137,7 @@ It also shows the engine's version, model, lyrics model, queue, song lengths, vo
 
    ![Switching the theme](../images/manual/account-1.png)
 
-2. The **⋯** button at the right of the header opens **Change password** and **Sign out**. Change password asks for the current password and the new one twice, 10 to 128 characters.
+2. The **⋯** button at the right of the header opens **Change password** and **Sign out**. Change password asks for the current password and the new one twice, 10 to 128 characters. The eye at the end of a password field shows what you typed; press it again to hide it.
 
    ![The account menu and Change password](../images/manual/account-2.png)
 

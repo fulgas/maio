@@ -102,10 +102,37 @@ await check("the Keep me signed in box is big enough to hit", async () => {
 await check("a failed sign-in says so and puts focus back in the password field", async () => {
   await page.waitForLoadState("networkidle");
   await page.getByLabel("Username").fill(user);
-  await page.getByLabel("Password").fill("not-the-password");
+  await page.getByLabel("Password", { exact: true }).fill("not-the-password");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByRole("alert").filter({ hasText: /./ }).waitFor({ timeout: 5_000 });
   assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("type")), "password");
+});
+
+await check("the eye in the password field shows and hides what was typed, keeps focus, and never signs in", async () => {
+  const field = page.getByLabel("Password", { exact: true });
+  const posts = [], count = (r) => r.method() === "POST" && posts.push(r.url());
+  page.on("request", count);
+  try {
+    await field.fill("peek-a-boo-1");
+    const show = page.getByRole("button", { name: "Show password" });
+    const reach = await show.boundingBox();
+    assert.ok(reach.width >= 44 && reach.height >= 44, `the eye is ${reach.width}x${reach.height}`);
+    assert.equal(await show.getAttribute("data-tip"), "Show password", "its caption is its name");
+    await show.click();
+    assert.equal(await field.getAttribute("type"), "text", "shown as text");
+    assert.ok(await field.evaluate((e) => e === document.activeElement), "focus stays in the field");
+    await page.keyboard.type("x");
+    assert.equal(await field.inputValue(), "peek-a-boo-1x", "typing carries on");
+    const hide = page.getByRole("button", { name: "Hide password" });
+    assert.equal(await hide.getAttribute("data-tip"), "Hide password");
+    await hide.focus();
+    await page.keyboard.press("Enter");
+    assert.equal(await field.getAttribute("type"), "password", "hidden again, from the keyboard");
+    assert.deepEqual(posts, [], "the eye never submits the form");
+  } finally {
+    page.off("request", count);
+    await field.fill("");
+  }
 });
 
 step("sign in, typing before the app has loaded");
@@ -113,7 +140,7 @@ await check("typing before the app loads survives hydration", async () => {
   await page.route("**/*.wasm", (r) => setTimeout(() => r.continue().catch(() => {}), 1500));
   await page.goto(base + "/sign-in");
   await page.getByLabel("Username").fill(user);
-  await page.getByLabel("Password").fill(password);
+  await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click({ timeout: 10_000 });
   await page.waitForURL(base + "/", { timeout: 5_000 });
   await page.unroute("**/*.wasm");
@@ -122,7 +149,7 @@ if (new URL(page.url()).pathname !== "/") {
   await page.goto(base + "/sign-in");
   await page.waitForLoadState("networkidle");
   await page.getByLabel("Username").fill(user);
-  await page.getByLabel("Password").fill(password);
+  await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(base + "/");
 }
@@ -875,6 +902,11 @@ await check("a wrong current password says so and stays on the page", async () =
   await page.locator(".error", { hasText: /./ }).waitFor({ timeout: 5_000 });
   assert.equal(new URL(page.url()).pathname, "/password");
   assert.equal((await page.locator(".error").textContent()).trim(), "That is not your current password.");
+  const eyes = page.locator("form.narrow").getByRole("button", { name: "Show password" });
+  assert.equal(await eyes.count(), 3, "an eye in each password field");
+  await eyes.nth(1).click();
+  assert.equal(await page.locator("input[autocomplete=new-password]").first().getAttribute("type"), "text");
+  assert.equal(await page.getByLabel("Current password").getAttribute("type"), "password", "each field on its own");
 });
 
 await check("a song list that fails to load says so, not 'No songs yet'", async () => {

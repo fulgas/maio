@@ -3,7 +3,11 @@
 use leptos::{ev::SubmitEvent, html::Input, prelude::*};
 use thaw::{ToastIntent, ToasterInjection};
 
-use crate::ui::{api, say};
+use crate::ui::{
+    api,
+    icons::{Icon, Svg},
+    say,
+};
 
 /// True once the wasm runs; the server renders false, so a submit before then does nothing.
 fn hydrated() -> RwSignal<bool> {
@@ -18,6 +22,7 @@ pub fn SignIn() -> impl IntoView {
     // wiping what a fast typist or the browser's autofill put there before the app loaded.
     let (user, pass, remember) = (NodeRef::<Input>::new(), NodeRef::<Input>::new(), NodeRef::<Input>::new());
     let (error, busy, ready) = (RwSignal::new(None::<String>), RwSignal::new(false), hydrated());
+    let shown = RwSignal::new(false);
     let submit = move |ev: SubmitEvent| {
         ev.prevent_default();
         let value = |r: NodeRef<Input>| r.get_untracked().map(|i| i.value()).unwrap_or_default();
@@ -49,7 +54,9 @@ pub fn SignIn() -> impl IntoView {
                 <h1 class="logo">"m"<span>"ai"</span>"o"</h1>
                 <p class="tagline"><b>"M"</b>"usic + "<b>"AI"</b>" + "<b>"O"</b>"utput"</p>
                 <label>"Username"<input name="username" autocomplete="username" required node_ref=user/></label>
-                <label>"Password"<input name="password" type="password" autocomplete="current-password" required node_ref=pass/></label>
+                <label>"Password"<span class="secret">
+                    <input name="password" type=move || kind(shown) autocomplete="current-password" required node_ref=pass/><Reveal shown/>
+                </span></label>
                 <label class="check"><input type="checkbox" node_ref=remember/>"Keep me signed in"</label>
                 <p class="error" role="alert">{move || error.get()}</p>
                 <button class="primary" type="submit" disabled=move || busy.get() || !ready.get()>"Sign in"</button>
@@ -63,6 +70,7 @@ pub fn Password() -> impl IntoView {
     let toaster = ToasterInjection::expect_context();
     let (current, new, again) = (RwSignal::new(String::new()), RwSignal::new(String::new()), RwSignal::new(String::new()));
     let (error, busy) = (RwSignal::new(None::<String>), RwSignal::new(false));
+    let shown = [RwSignal::new(false), RwSignal::new(false), RwSignal::new(false)];
     let submit = move |ev: SubmitEvent| {
         ev.prevent_default();
         if new.get_untracked() != again.get_untracked() {
@@ -75,6 +83,7 @@ pub fn Password() -> impl IntoView {
                 Ok(()) => {
                     error.set(None);
                     [current, new, again].iter().for_each(|s| s.set(String::new()));
+                    shown.iter().for_each(|s| s.set(false)); // hidden again once changed
                     say(toaster, "Password changed. Your other sessions are signed out.".into(), ToastIntent::Success);
                 }
                 // The account's "wrong username or password" names a field this form does not have.
@@ -87,12 +96,37 @@ pub fn Password() -> impl IntoView {
     view! {
         <h1>"Change password"</h1>
         <form class="narrow" method="post" on:submit=submit>
-            <label>"Current password"<input type="password" autocomplete="current-password" required bind:value=current/></label>
-            <label>"New password"<input type="password" autocomplete="new-password" minlength="10" maxlength="128" required bind:value=new/>
+            <label>"Current password"<span class="secret">
+                <input type=move || kind(shown[0]) autocomplete="current-password" required bind:value=current/><Reveal shown=shown[0]/>
+            </span></label>
+            <label>"New password"<span class="secret">
+                <input type=move || kind(shown[1]) autocomplete="new-password" minlength="10" maxlength="128" required bind:value=new/><Reveal shown=shown[1]/>
+            </span>
                 <span class="hint">"10 to 128 characters."</span></label>
-            <label>"New password again"<input type="password" autocomplete="new-password" required bind:value=again/></label>
+            <label>"New password again"<span class="secret">
+                <input type=move || kind(shown[2]) autocomplete="new-password" required bind:value=again/><Reveal shown=shown[2]/>
+            </span></label>
             <p class="error" role="alert">{move || error.get()}</p>
             <button class="primary" type="submit" disabled=busy>"Change password"</button>
         </form>
+    }
+}
+
+fn kind(shown: RwSignal<bool>) -> &'static str {
+    if shown.get() { "text" } else { "password" }
+}
+
+/// The eye at the end of a password field: shows what was typed, or hides it again (arc42 8.1). Its name changes
+/// with what it does, so it carries no pressed state as well.
+#[component]
+fn Reveal(shown: RwSignal<bool>) -> impl IntoView {
+    let label = move || if shown.get() { "Hide password" } else { "Show password" };
+    view! {
+        <button type="button" class="icon reveal" aria-label=label data-tip=label
+            // A press keeps focus in the field, so typing carries on.
+            on:mousedown=|ev| ev.prevent_default()
+            on:click=move |_| shown.update(|s| *s = !*s)>
+            <Svg icon=Signal::derive(move || if shown.get() { Icon::EyeOff } else { Icon::Eye }) size=20/>
+        </button>
     }
 }

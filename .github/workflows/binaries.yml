@@ -3,11 +3,14 @@ name: Binaries
 # Builds what people download for a release: maio with its web app for each platform, each with a checksum, an SBOM and
 # a Sigstore signature. It starts when the release app pushes a release tag (release.yml leaves its GitHub Release as a
 # draft), attaches every file to that draft, and only then publishes it: releases are immutable once published. It can
-# also run by hand for a tag whose release is still a draft.
+# also run by hand for a tag whose release is still a draft. A pull request that changes it builds and packs every
+# platform as a trial, without signing, uploading or publishing anything.
 
 on:
   push:
     tags: [ 'v*' ]
+  pull_request:
+    paths: [ '.github/workflows/binaries.yml' ]
   workflow_dispatch:
     inputs:
       tag:
@@ -18,7 +21,7 @@ permissions:
   contents: read
 
 env:
-  TAG: ${{ inputs.tag || github.ref_name }}
+  TAG: ${{ inputs.tag || (github.event_name == 'pull_request' && 'trial') || github.ref_name }}
 
 jobs:
   binaries:
@@ -33,13 +36,23 @@ jobs:
         include:
           - { target: x86_64-unknown-linux-gnu, os: ubuntu-24.04 }
           - { target: aarch64-unknown-linux-gnu, os: ubuntu-24.04-arm }
-          - { target: aarch64-apple-darwin, os: macos-15 }
+          # Static, for Alpine and any Linux without glibc.
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-24.04 }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm }
+          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+    defaults:
+      run:
+        shell: bash # Git Bash on Windows, so every platform runs the same steps
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ env.TAG }}
-      - name: Install the Rust in rust-toolchain.toml
-        run: rustup toolchain install
+          ref: ${{ github.event_name == 'pull_request' && github.sha || env.TAG }}
+      - name: Install the Rust in rust-toolchain.toml, for this target
+        run: rustup toolchain install && rustup target add "${{ matrix.target }}"
+      - name: Install musl's C compiler, for SQLite and the TLS library
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           key: ${{ matrix.target }}
@@ -47,34 +60,46 @@ jobs:
         with:
           tool: cargo-leptos@0.3.11,cargo-cyclonedx@0.5.9
       - name: Build the server and the web app
+        env:
+          LEPTOS_BIN_TARGET_TRIPLE: ${{ matrix.target }}
         run: cargo leptos build --release
       - name: Pack maio, its web app, the example config and the licences
         env:
           NAME: maio-${{ env.TAG }}-${{ matrix.target }}
         run: |
+          out="target/${{ matrix.target }}/release"
           mkdir -p "$NAME/bin"
-          cp target/release/maio target/release/hash.txt "$NAME/bin/"
+          cp "$out"/maio$( [[ "${{ matrix.target }}" == *windows* ]] && echo .exe ) "$out/hash.txt" "$NAME/bin/"
           cp -R target/site "$NAME/site"
           cp maio.example.toml LICENSE-APACHE.md LICENSE-MIT.md README.md "$NAME/"
-          cat > "$NAME/maio" <<'SH'
+          if [[ "${{ matrix.target }}" == *windows* ]]; then
+            # Starts Maio with its web app next to it: maio.cmd maio.toml (ffmpeg and ffprobe must be on PATH).
+            printf '%s\r\n' '@echo off' 'set "here=%~dp0"' 'set LEPTOS_OUTPUT_NAME=maio' 'set "LEPTOS_SITE_ROOT=%here%site"' \
+              'set LEPTOS_SITE_PKG_DIR=pkg' 'set LEPTOS_ENV=PROD' 'set LEPTOS_HASH_FILES=true' '"%here%bin\maio.exe" %*' > "$NAME/maio.cmd"
+          else
+            cat > "$NAME/maio" <<'SH'
           #!/bin/sh
           # Starts Maio with its web app next to it: ./maio maio.toml (ffmpeg and ffprobe must be on PATH).
           here=$(cd "$(dirname "$0")" && pwd)
           export LEPTOS_OUTPUT_NAME=maio LEPTOS_SITE_ROOT="$here/site" LEPTOS_SITE_PKG_DIR=pkg LEPTOS_ENV=PROD LEPTOS_HASH_FILES=true
           exec "$here/bin/maio" "$@"
           SH
-          chmod +x "$NAME/maio"
+            chmod +x "$NAME/maio"
+          fi
           # A CycloneDX SBOM of what the server binary is built from, in the archive and beside it.
           cargo cyclonedx --format json --spec-version 1.5 --target "${{ matrix.target }}" --override-filename "$NAME.cdx"
           cp "$NAME.cdx.json" "$NAME/"
           tar czf "$NAME.tar.gz" "$NAME"
-          shasum -a 256 "$NAME.tar.gz" > "$NAME.tar.gz.sha256"
+          if command -v sha256sum >/dev/null; then sha256sum "$NAME.tar.gz"; else shasum -a 256 "$NAME.tar.gz"; fi > "$NAME.tar.gz.sha256"
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        if: github.event_name != 'pull_request'
         with:
           cosign-release: v3.1.4
       - name: Sign the archive (keyless, with this workflow's identity)
+        if: github.event_name != 'pull_request'
         run: for f in maio-*.tar.gz; do cosign sign-blob --yes --bundle "$f.sigstore.json" "$f"; done
       - name: Attach to the release
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ env.TAG }}" maio-*.tar.gz maio-*.tar.gz.sha256 maio-*.tar.gz.sigstore.json maio-*.cdx.json --clobber
@@ -82,6 +107,7 @@ jobs:
   release:
     name: Publish the release
     needs: binaries
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-26.04
     permissions:
       contents: write

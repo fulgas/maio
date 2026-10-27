@@ -59,7 +59,7 @@ To build Maio from this repository instead, see [Development](#development): `ju
 
 ## Releases
 
-Each [release](https://github.com/fulgas/maio/releases) comes as the container image `ghcr.io/fulgas/maio` (for `linux/amd64` and `linux/arm64`) and as archives for Linux and for Macs with Apple silicon, each with its SBOM. The image and the archives are signed by the workflows that build them with [Sigstore](https://www.sigstore.dev), with no key to trust but the workflow's identity. To check them with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
+Each [release](https://github.com/fulgas/maio/releases) comes as the container image `ghcr.io/fulgas/maio` (for `linux/amd64` and `linux/arm64`) and as archives for Linux (glibc, and static musl for Alpine and the like) on x86_64 and ARM, for Windows on x86_64, and for Macs with Apple silicon, each with its SBOM. Each archive starts Maio with `./maio maio.toml` (`maio.cmd maio.toml` on Windows); ffmpeg and ffprobe must be on PATH. The image and the archives are signed by the workflows that build them with [Sigstore](https://www.sigstore.dev), with no key to trust but the workflow's identity. To check them with [cosign](https://docs.sigstore.dev/cosign/system_config/installation/):
 
 ```bash
 cosign verify ghcr.io/fulgas/maio:0.1.1 \

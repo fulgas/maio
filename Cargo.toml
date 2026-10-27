@@ -41,7 +41,7 @@ opentelemetry = { version = "0.33", optional = true }
 opentelemetry-appender-tracing = { version = "0.33", optional = true }
 opentelemetry-otlp = { version = "0.33", optional = true }
 opentelemetry_sdk = { version = "0.33", optional = true }
-rand = { version = "0.9", optional = true }
+rand = { version = "0.10", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"], optional = true }
 rusqlite = { version = "0.40", features = ["bundled"], optional = true }
 serde = { version = "1", features = ["derive"] }

@@ -3,14 +3,11 @@ name: Binaries
 # Builds what people download for a release: maio with its web app for each platform, each with a checksum, an SBOM and
 # a Sigstore signature. It starts when the release app pushes a release tag (release.yml leaves its GitHub Release as a
 # draft), attaches every file to that draft, and only then publishes it: releases are immutable once published. It can
-# also run by hand for a tag whose release is still a draft. A pull request that changes it builds and packs every
-# platform as a trial, without signing, uploading or publishing anything.
+# also run by hand for a tag whose release is still a draft.
 
 on:
   push:
     tags: [ 'v*' ]
-  pull_request:
-    paths: [ '.github/workflows/binaries.yml' ]
   workflow_dispatch:
     inputs:
       tag:
@@ -21,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  TAG: ${{ inputs.tag || (github.event_name == 'pull_request' && 'trial') || github.ref_name }}
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   binaries:
@@ -49,7 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.sha || env.TAG }}
+          ref: ${{ env.TAG }}
       - name: Install the Rust in rust-toolchain.toml, for this target
         run: rustup toolchain install && rustup target add "${{ matrix.target }}"
       - name: Install musl's C compiler, for SQLite and the TLS library
@@ -94,14 +91,11 @@ jobs:
           tar czf "$NAME.tar.gz" "$NAME"
           if command -v sha256sum >/dev/null; then sha256sum "$NAME.tar.gz"; else shasum -a 256 "$NAME.tar.gz"; fi > "$NAME.tar.gz.sha256"
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-        if: github.event_name != 'pull_request'
         with:
           cosign-release: v3.1.4
       - name: Sign the archive (keyless, with this workflow's identity)
-        if: github.event_name != 'pull_request'
         run: for f in maio-*.tar.gz; do cosign sign-blob --yes --bundle "$f.sigstore.json" "$f"; done
       - name: Attach to the release
-        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ env.TAG }}" maio-*.tar.gz maio-*.tar.gz.sha256 maio-*.tar.gz.sigstore.json maio-*.cdx.json --clobber
@@ -109,7 +103,6 @@ jobs:
   release:
     name: Publish the release
     needs: binaries
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-26.04
     permissions:
       contents: write

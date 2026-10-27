@@ -133,6 +133,7 @@ sequenceDiagram
     end
     R-->>B: event relay, over /api/v1/events, when a check finds something new: state, version, time up, each live playlist on MediaMTX
     Note over B: the MediaMTX line turns grey and a toast says so, another toast when it is back
+    Note over B: while it is not answering, the live strip's RTSP, SRT and RTMP copy buttons are disabled
 ```
 
 The password Maio uses with MediaMTX is made up at each start; MediaMTX checks it through the same auth hook (arc42 8.1).

@@ -566,6 +566,58 @@ await check("what a toast says reaches screen readers", async () => {
   await page.locator("[role=status]", { hasText: /HLS link/ }).waitFor({ state: "attached", timeout: 5_000 });
 });
 
+// A second server has MediaMTX set up (e2e/maio-relay.toml), faked by e2e/fake-mediamtx.mjs, which can stop answering.
+await check("while MediaMTX is not answering the RTSP, SRT and RTMP links can't be copied, and can again when it is back", async () => {
+  assert.equal(await page.getByRole("button", { name: /Copy the RTSP link/ }).count(), 0, "no relay set up: no relay links");
+  const relayBase = "http://127.0.0.1:8098", mediamtx = "http://127.0.0.1:7812";
+  const relayed = ["RTSP", "SRT", "RTMP"], direct = ["MP3", "AAC", "HLS"];
+  const other = await browser.newPage();
+  try {
+    await other.goto(relayBase + "/sign-in");
+    const id = await other.evaluate(async ([username, password]) => {
+      const call = async (method, path, body) => {
+        const r = await fetch("/api/v1" + path, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+        if (!r.ok) throw new Error(`${method} ${path}: ${r.status}`);
+        return r.status === 204 ? null : r.json();
+      };
+      await call("POST", "/session", { username, password });
+      const list = await call("POST", "/playlists", { name: "Relayed list" });
+      await call("PUT", `/playlists/${list.id}/live`, { live: true });
+      return list.id;
+    }, [user, password]);
+    await other.goto(`${relayBase}/playlists/${id}`);
+    const copy = (kind) => other.getByRole("button", { name: new RegExp(`^Copy the ${kind} link`) });
+    const expect = async (down) => {
+      for (const kind of relayed) {
+        assert.equal(await copy(kind).isDisabled(), down, `${kind} disabled`);
+        if (down) {
+          assert.equal(await copy(kind).getAttribute("aria-label"), `Copy the ${kind} link: MediaMTX is not answering`);
+          assert.equal(await copy(kind).getAttribute("data-tip"), "MediaMTX is not answering");
+        } else {
+          assert.match(await copy(kind).getAttribute("data-tip"), /:\/\/radio\.lan:/, `${kind} shows its link`);
+        }
+      }
+      for (const kind of direct) assert.equal(await copy(kind).isEnabled(), true, `${kind} enabled`);
+      assert.equal(await other.getByRole("switch", { name: /Live stream on/ }).isEnabled(), true, "the Live switch stays");
+    };
+    const notAnswering = other.getByRole("button", { name: "Copy the RTSP link: MediaMTX is not answering" });
+    await copy("RTSP").waitFor({ timeout: 10_000 });
+    await expect(false);
+    await fetch(mediamtx + "/down", { method: "POST" });
+    await notAnswering.waitFor({ timeout: 12_000 });
+    await expect(true);
+    await other.reload();
+    await notAnswering.waitFor({ timeout: 5_000 });
+    await expect(true);
+    await fetch(mediamtx + "/up", { method: "POST" });
+    await notAnswering.waitFor({ state: "detached", timeout: 12_000 });
+    await expect(false);
+  } finally {
+    await fetch(mediamtx + "/up", { method: "POST" }).catch(() => {});
+    await other.close();
+  }
+});
+
 await check("Play on a live playlist tunes into its stream; a song's own Play stays on demand", async () => {
   const onAir = async () => (await (await page.request.get(base + "/api/v1" + playlistPath + "/live")).json()).on_air;
   assert.equal(await page.locator(".band").getByRole("button", { name: /^Shuffle/ }).count(), 0, "a live playlist's order is the live strip's shuffle");

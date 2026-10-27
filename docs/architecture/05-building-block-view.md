@@ -33,7 +33,7 @@ src/
   ui/          the web app (Leptos components); uses only domain, talks to the server through the API
   main.rs      the maio binary
 tests/         tests through the public API of each layer
-e2e/           a real browser through every screen, against a fake acestep-api
+e2e/           a real browser through every screen, against a fake acestep-api and a fake MediaMTX control API
 ```
 
 | Layer | Responsibility |

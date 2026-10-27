@@ -135,6 +135,12 @@ pub fn relay_line(r: &RelayStatus) -> (String, bool) {
     }
 }
 
+/// Why a live address cannot be copied now, if it cannot: RTSP, SRT and RTMP come through MediaMTX, so not while it
+/// is not answering. While Maio is still checking it after a start they can, as the header warns of nothing then.
+pub fn address_blocked(kind: &str, relay: Option<RelayState>) -> Option<&'static str> {
+    (matches!(kind, "RTSP" | "SRT" | "RTMP") && relay == Some(RelayState::Down)).then_some("MediaMTX is not answering")
+}
+
 /// A live playlist on the MediaMTX panel: its name, then facts about it.
 pub type RelayStreamCard = (String, Vec<String>);
 
@@ -246,6 +252,19 @@ mod tests {
         assert_eq!(relay_line(&one), ("MediaMTX: Late night coding not arriving".to_string(), false));
         let two = relay(RelayState::Up, vec![stream("A", false, none), stream("B", false, none)]);
         assert_eq!(relay_line(&two), ("MediaMTX: 2 streams not arriving".to_string(), false));
+    }
+
+    #[test]
+    fn only_the_relay_addresses_are_blocked_and_only_while_mediamtx_is_not_answering() {
+        for kind in ["RTSP", "SRT", "RTMP"] {
+            assert_eq!(address_blocked(kind, Some(RelayState::Down)), Some("MediaMTX is not answering"));
+            assert_eq!(address_blocked(kind, Some(RelayState::Up)), None);
+            assert_eq!(address_blocked(kind, Some(RelayState::Checking)), None, "not known to be down yet");
+            assert_eq!(address_blocked(kind, None), None);
+        }
+        for kind in ["MP3", "AAC", "HLS"] {
+            assert_eq!(address_blocked(kind, Some(RelayState::Down)), None, "{kind} does not need MediaMTX");
+        }
     }
 
     #[test]

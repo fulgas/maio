@@ -5,7 +5,7 @@ use leptos_router::hooks::{use_location, use_navigate};
 use thaw::{ToastIntent, ToasterInjection};
 
 use crate::{
-    domain::relay::RelayState,
+    domain::relay::{RelayState, RelayStatus},
     ui::{
         api, format,
         icons::{Icon, IconButton, Svg},
@@ -19,6 +19,10 @@ use crate::{
 /// Make and "Make one like this" are off while it is false.
 #[derive(Clone, Copy)]
 pub struct EngineReady(pub Signal<bool>);
+
+/// MediaMTX as the header knows it, for the page under it; `None` when there is no relay.
+#[derive(Clone, Copy)]
+pub struct RelayNow(pub Signal<Option<RelayStatus>>);
 
 #[component]
 pub fn Frame(children: Children) -> impl IntoView {
@@ -48,6 +52,8 @@ pub fn Frame(children: Children) -> impl IntoView {
     let engine = move || status.get().and_then(Result::ok).map(|_| format::engine_line(&engines()));
     provide_context(EngineReady(Signal::derive(move || engine().is_none_or(|e| e.1))));
     let relay = move || changes.relay.get().unwrap_or_else(|| status.get().and_then(Result::ok).and_then(|s| s.relay));
+    // The live strip's relay addresses follow it too (arc42 8.4).
+    provide_context(RelayNow(Signal::derive(relay)));
     // A toast when MediaMTX goes wrong or comes back; nothing on the first look or while it is still being checked.
     let was_ok = StoredValue::new(None::<bool>);
     Effect::new(move |_| {

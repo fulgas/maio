@@ -30,7 +30,7 @@ src/
   web/         the axum server; wires everything
   ui/          the Leptos web app
 tests/         Rust tests; layers.rs keeps the direction
-e2e/           a real browser against a fake acestep-api
+e2e/           a real browser against a fake acestep-api and a fake MediaMTX control API
 docs/          this documentation
 docs-site/     the documentation website and the C4 model
 ```

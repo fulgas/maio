@@ -1,0 +1,15 @@
+# A second smoke test server with MediaMTX set up, faked by e2e/fake-mediamtx.mjs: only its control API answers, so
+# the published audio goes nowhere. The first server (maio.toml) stays without one.
+listen = "127.0.0.1:8098"
+data_dir = "target/e2e-relay-data"
+moods = ["calm"]
+
+[[engine]]
+id = "fake"
+url = "http://127.0.0.1:7811"
+
+[relay]
+enabled = true
+publish = "rtsp://127.0.0.1:7812"
+api = "http://127.0.0.1:7812"
+host = "radio.lan"

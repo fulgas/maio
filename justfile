@@ -42,13 +42,18 @@ e2e:
     #!/usr/bin/env bash
     set -euo pipefail
     cargo leptos build
-    rm -rf target/e2e-data
+    rm -rf target/e2e-data target/e2e-relay-data
     # Its own port, so a real ACE-Step on {{engine_port}} never answers the tests.
     node e2e/fake-ace.mjs 7811 & engine=$!
+    node e2e/fake-mediamtx.mjs 7812 & mediamtx=$!
     for _ in $(seq 120); do curl -sf -o /dev/null http://127.0.0.1:7811/health && break; sleep 0.5; done
+    for _ in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:7812/v3/info && break; sleep 0.5; done
     LEPTOS_ENV=PROD MAIO_ADMIN_USER=smoke MAIO_ADMIN_PASSWORD=smoke-password-1 target/debug/maio e2e/maio.toml & server=$!
-    trap 'kill $engine $server 2>/dev/null || true' EXIT
+    # A second server, with MediaMTX set up, for the checks that need it.
+    LEPTOS_ENV=PROD MAIO_ADMIN_USER=smoke MAIO_ADMIN_PASSWORD=smoke-password-1 target/debug/maio e2e/maio-relay.toml & relayed=$!
+    trap 'kill $engine $mediamtx $server $relayed 2>/dev/null || true' EXIT
     for _ in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:8099/sign-in && break; sleep 0.5; done
+    for _ in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:8098/sign-in && break; sleep 0.5; done
     cd e2e && npm install --silent && npx playwright install chromium >/dev/null
     E2E_USER=smoke E2E_PASSWORD=smoke-password-1 node smoke.mjs
     # SCREENS=1: then the pictures for the how-to guides, into docs/images/manual.

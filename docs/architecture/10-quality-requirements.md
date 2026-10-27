@@ -25,6 +25,6 @@
 ## 10.2 How it is checked
 
 - `just test`: format check, every unit and integration test (domain rules, use cases with fakes, adapters against SQLite, ffmpeg and fake engines, the HTTP API, pages, logs, traces), and the WebAssembly build.
-- `just e2e`: a real browser through every screen against a fake `acestep-api` (`e2e/fake-ace.mjs`): making songs, playlists, live with private links, listening live, changes made elsewhere showing with nothing fetched, the accessibility checks (focus, targets, contrast, dialogs, captions inside the window, announcements), no console errors.
+- `just e2e`: a real browser through every screen against a fake `acestep-api` (`e2e/fake-ace.mjs`), and a second server with MediaMTX set up whose control API is faked (`e2e/fake-mediamtx.mjs`) and can stop answering: making songs, playlists, live with private links, the relay addresses while MediaMTX is not answering, listening live, changes made elsewhere showing with nothing fetched, the accessibility checks (focus, targets, contrast, dialogs, captions inside the window, announcements), no console errors.
 - `just test` also builds the architecture website and checks it: every link, every model reference into the documentation, every C4 view, and the model's geometry (`docs-site/tests`).
 - An accessibility review before a release: axe-core on every screen and dialog in both themes, a keyboard pass, 200 % zoom.

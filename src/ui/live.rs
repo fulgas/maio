@@ -9,6 +9,8 @@ use crate::{
     ui::{
         api,
         events::Changes,
+        format,
+        frame::RelayNow,
         icons::{Icon, IconButton, Svg},
         say,
     },
@@ -39,6 +41,9 @@ pub fn LiveStrip(playlist: Memo<String>, on_air: RwSignal<Option<(Option<String>
             on_air.set(v);
         }
     });
+    // Only whether MediaMTX answers: its other news comes every 5 s while a playlist is live, and must redraw nothing.
+    let relay = expect_context::<RelayNow>().0;
+    let relay_state = Memo::new(move |_| relay.get().map(|r| r.state));
     let change = move |body: serde_json::Value| {
         leptos::task::spawn_local(async move {
             if let Err(f) = api::set_live(&playlist.get_untracked(), &body).await {
@@ -100,8 +105,12 @@ pub fn LiveStrip(playlist: Memo<String>, on_air: RwSignal<Option<(Option<String>
                                 // The whole address, as copied: HTTP paths come relative from the API.
                                 let url = if url.starts_with('/') { format!("{}{url}", window().location().origin().unwrap_or_default()) } else { url };
                                 let tip = url.clone();
+                                // The relay's addresses are disabled, saying why, while MediaMTX is not answering.
+                                let why = move || format::address_blocked(kind, relay_state.get());
                                 view! {
-                                    <button type="button" class="copy" aria-label=format!("Copy the {kind} link") data-tip=tip
+                                    <button type="button" class="copy" disabled=move || why().is_some()
+                                        aria-label=move || match why() { Some(w) => format!("Copy the {kind} link: {w}"), None => format!("Copy the {kind} link") }
+                                        data-tip=move || why().map_or_else(|| tip.clone(), str::to_string)
                                         on:click=move |_| copy(url.clone(), kind)>{kind}<Svg icon=Icon::Copy size=16/></button>
                                 }
                             })

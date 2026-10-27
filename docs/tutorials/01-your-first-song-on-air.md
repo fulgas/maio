@@ -5,7 +5,7 @@ In about fifteen minutes you make a song, put it in a playlist, play it, and put
 ## Make a song
 
 1. On **Songs**, describe the song in **What it sounds like**, for example *warm pads, slow, rain on the window*.
-2. Pick a mood, a genre and a tempo with the chips under the box, and a length with the slider among them, or leave them as they are. Leave **Vocals** off for an instrumental.
+2. Pick a mood and a genre with the chips under the box, and a tempo and a length with the sliders among them, or leave them as they are. Leave **Vocals** off for an instrumental.
 3. Press **Make**. The song appears under **Being made**, with its progress and the time left.
 4. When it is done it moves to your songs, with a title. Press its play button to hear it.
 

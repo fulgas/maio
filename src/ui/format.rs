@@ -25,6 +25,11 @@ pub fn spoken(seconds: u32) -> String {
     }
 }
 
+/// 96 → "96 beats per minute": a tempo as a screen reader says it.
+pub fn beats(bpm: u32) -> String {
+    format!("{bpm} beat{} per minute", if bpm == 1 { "" } else { "s" })
+}
+
 /// A total: "45 s", "58 min", "2 h 31 min".
 pub fn length(seconds: f64) -> String {
     let s = seconds.max(0.0).round() as u64;
@@ -324,6 +329,12 @@ mod tests {
         assert_eq!(spoken(15), "15 seconds");
         assert_eq!(spoken(75), "1 minute 15 seconds");
         assert_eq!(spoken(61), "1 minute 1 second");
+    }
+
+    #[test]
+    fn beats_says_a_tempo_in_words() {
+        assert_eq!(beats(96), "96 beats per minute");
+        assert_eq!(beats(1), "1 beat per minute");
     }
 
     #[test]

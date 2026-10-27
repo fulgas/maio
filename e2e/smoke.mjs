@@ -199,6 +199,56 @@ await check("a page listens for events before it loads anything, so no change fa
   assert.ok(loads.every(([, i]) => i > listening), order.join(", "));
 });
 
+await check("the tempo is a slider from 40 to 220 bpm in steps of 1, on Auto until it is moved", async () => {
+  const slider = page.getByRole("slider", { name: "Tempo" });
+  const attrs = await slider.evaluate((e) => ({ min: e.min, max: e.max, step: e.step }));
+  assert.deepEqual(attrs, { min: "40", max: "220", step: "1" });
+  await tallEnough(slider, "the tempo slider");
+  const chip = page.locator("form.make .chip.tempo"), shown = chip.locator("output");
+  const reset = chip.getByRole("button", { name: "Tempo: back to Auto" });
+  const width = async () => (await chip.boundingBox()).width;
+  const auto = async () => {
+    assert.equal((await shown.textContent()).trim(), "Auto");
+    assert.equal(await slider.getAttribute("aria-valuetext"), "Auto");
+    assert.ok(Number(await slider.evaluate((e) => getComputedStyle(e).opacity)) < 1, "the slider is dimmed on Auto");
+    assert.equal(await chip.locator("button").evaluate((e) => getComputedStyle(e).visibility), "hidden", "no reset on Auto");
+  };
+  const says = async (value) => {
+    assert.equal(await slider.inputValue(), value);
+    assert.equal((await shown.textContent()).trim(), `${value} bpm`);
+    assert.equal(await slider.getAttribute("aria-valuetext"), `${value} beats per minute`);
+    assert.equal(await slider.evaluate((e) => getComputedStyle(e).opacity), "1", "a set tempo is not dimmed");
+  };
+  await auto();
+  const before = await width();
+  await slider.focus();
+  await page.keyboard.press("ArrowRight");
+  await says("121");
+  await page.keyboard.press("ArrowLeft");
+  await says("120");
+  await page.keyboard.press("PageUp");
+  await says("130");
+  await page.keyboard.press("PageDown");
+  await says("120");
+  await page.keyboard.press("Home");
+  await says("40");
+  await page.keyboard.press("End");
+  await says("220");
+  assert.ok(await shown.evaluate((e) => e.scrollWidth <= e.clientWidth), "\"220 bpm\" fits its place");
+  const reach = await reset.boundingBox();
+  assert.ok(reach.width >= 44 && reach.height >= 44, `the reset button is ${reach.width}x${reach.height}, under 44 px`);
+  await reset.click();
+  await auto();
+  for (let bpm = 40; bpm <= 220; bpm++) {
+    await slider.fill(String(bpm));
+    assert.equal(await width(), before, `the chip changes size at ${bpm} bpm`);
+  }
+  await says("220");
+  await reset.click();
+  await auto();
+  assert.equal(await width(), before, "back on Auto, the chip keeps its size");
+});
+
 await check("a song's title opens its details, with downloads and Make one like this", async () => {
   await page.getByRole("button", { name: `Details for ${title}` }).first().click();
   const dialog = page.getByRole("dialog");
@@ -220,6 +270,10 @@ await check("a song's title opens its details, with downloads and Make one like 
   assert.equal(await page.getByLabel("What it sounds like").inputValue(), longPrompt);
   // The fake engine's song is 20 s long: the slider takes the nearest 15 seconds.
   assert.equal(await page.getByRole("slider", { name: "Length" }).inputValue(), "15", "the song's length, on a step of the slider");
+  assert.equal(await page.getByRole("slider", { name: "Tempo" }).inputValue(), "90", "the song's tempo");
+  assert.equal((await page.locator("form.make .chip.tempo output").textContent()).trim(), "90 bpm");
+  await page.getByRole("button", { name: "Tempo: back to Auto" }).click();
+  assert.equal((await page.locator("form.make .chip.tempo output").textContent()).trim(), "Auto");
   await page.locator(".chip.seed").waitFor();
   await page.getByRole("button", { name: "Remove the seed: make a new take" }).click();
   assert.equal(await page.locator(".chip.seed").count(), 0);
@@ -285,22 +339,27 @@ await check("the length is a slider from 0:15 to 10:00 in steps of 15 s, shown a
   await says("600", "10:00", "10 minutes");
 });
 
-await check("a double click on Make starts one song, as long as the slider says", async () => {
+await check("a double click on Make starts one song, as long and as fast as the sliders say", async () => {
   const posts = [];
   const count = (r) => r.method() === "POST" && r.url().endsWith("/api/v1/songs") && posts.push(r);
   page.on("request", count);
   await page.getByLabel("What it sounds like").fill("double click test");
   await page.getByLabel("Length").fill("45");
+  await page.getByRole("slider", { name: "Tempo" }).fill("96");
   await page.getByRole("button", { name: "Make the song" }).dblclick();
   await page.waitForTimeout(1500);
   page.off("request", count);
   assert.equal(posts.length, 1, `${posts.length} songs asked for`);
   assert.equal(posts[0].postDataJSON().seconds, 45, "the slider's length is asked for");
+  assert.equal(posts[0].postDataJSON().tempo, 96, "the slider's tempo is asked for, as a bpm");
+  await page.getByRole("button", { name: "Tempo: back to Auto" }).click();
 });
 await page.locator(".song", { hasText: "double click test" }).first().waitFor({ timeout: 120_000 });
 
 await check("Cancel keeps keyboard focus while a song is being made", async () => {
+  const asked = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/v1/songs"));
   await makeSong("a long one to cancel", 600);
+  assert.equal((await asked).postDataJSON().tempo ?? null, null, "on Auto no tempo is asked for: the engine decides");
   const cancel = page.getByRole("button", { name: /^Cancel a long one to cancel/ });
   await cancel.waitFor();
   await cancel.focus();

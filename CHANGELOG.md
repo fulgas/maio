@@ -2,6 +2,23 @@
 
 Every release of Maio, made from its Conventional Commits (see docs/project-rules.md).
 
+## [0.2.0](https://github.com/fulgas/maio/compare/v0.1.1...v0.2.0) - 2026-10-27
+
+### Features
+
+- *(ui)* pick any song length from 0:15 to 10:00 with a slider ([#23](https://github.com/fulgas/maio/issues/23) [#23](https://github.com/fulgas/maio/issues/23) )
+- *(ui)* pick any tempo from 40 to 220 bpm with a slider, or leave it on Auto ([#24](https://github.com/fulgas/maio/issues/24) [#24](https://github.com/fulgas/maio/issues/24) )
+- *(ui)* pick every song setting in a settings panel, each one on Auto until you choose ([#28](https://github.com/fulgas/maio/issues/28) [#28](https://github.com/fulgas/maio/issues/28) )
+- *(account)* show or hide a password while typing it, with the eye at the end of the field ([#30](https://github.com/fulgas/maio/issues/30) [#30](https://github.com/fulgas/maio/issues/30) )
+
+### Fixes
+
+- *(ui)* on a phone a playlist's name fits its band, its songs keep their titles, and the header has two tidy rows
+- *(ui)* a song row names the playlists that hold it, its mood and key stay on one line, and the live strip fits a phone
+- *(ui)* Make waits for a ready music engine, and says why it is off ([#21](https://github.com/fulgas/maio/issues/21) [#21](https://github.com/fulgas/maio/issues/21) )
+- *(live)* RTSP, SRT and RTMP addresses can't be copied while MediaMTX is not answering ([#22](https://github.com/fulgas/maio/issues/22) [#22](https://github.com/fulgas/maio/issues/22) )
+- *(ui)* settings stacked under the prompt stay at most 480 px wide, so values stay near their names
+
 ## [0.1.1](https://github.com/fulgas/maio/releases/tag/v0.1.1) - 2026-10-26
 
 ### Features

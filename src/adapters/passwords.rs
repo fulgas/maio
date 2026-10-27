@@ -4,13 +4,13 @@ use std::sync::LazyLock;
 
 use crate::usecases::ports::Passwords;
 use anyhow::{Result, anyhow};
-use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier, password_hash::SaltString};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 
 pub struct Argon2Passwords;
 
 fn hash(password: &str) -> Result<String> {
-    let salt = SaltString::encode_b64(&rand::random::<[u8; 16]>()).map_err(|e| anyhow!("making a salt: {e}"))?;
-    Ok(Argon2::default().hash_password(password.as_bytes(), &salt).map_err(|e| anyhow!("hashing a password: {e}"))?.to_string())
+    // Argon2 makes its own random salt.
+    Ok(Argon2::default().hash_password(password.as_bytes()).map_err(|e| anyhow!("hashing a password: {e}"))?.to_string())
 }
 
 /// A real hash to check against when the username does not exist, so both cases take the same time.

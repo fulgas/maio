@@ -257,6 +257,7 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
     // The slider ends where the ready engines do; a longer length picked before stops there too.
     let longest = Memo::new(move |_| st().map_or(make::LONGEST, |s| make::longest(&crate::ui::events::engines_now(&s.engines, &c.engines.get()))));
     let length = move || seconds.get().min(longest.get());
+    let bpm = move || tempo.get().unwrap_or(make::AUTO_AT);
     let form = move || MakeForm {
         prompt: prompt.get_untracked(),
         mood: mood.get_untracked(),
@@ -325,7 +326,26 @@ fn MakeSong(status: LocalResource<Result<Status, Failure>>) -> impl IntoView {
             <div class="chips" role="group" aria-label="Song settings">
                 <Chip icon=Icon::Mood label="Mood" value=mood options=Signal::derive(move || std::iter::once((String::new(), "Any mood".to_string())).chain(moods().into_iter().map(|m| (m.clone(), m))).collect())/>
                 <Chip icon=Icon::Genre label="Genre" value=genre options=Signal::derive(move || std::iter::once((String::new(), "Any genre".to_string())).chain(genres().into_iter().map(|g| (g.clone(), g))).collect())/>
-                <Chip icon=Icon::Tempo label="Tempo" value=tempo options=Signal::derive(move || crate::ui::make::tempo_options(&tempo.get()))/>
+                // The tempo is a chip holding a slider, on Auto until it is moved: then no tempo is sent and the engine decides.
+                // Not a label: the reset button inside it would be a second control in one label.
+                <div class="chip tempo" class:auto=move || tempo.get().is_none() data-tip="How fast the song is"><Svg icon=Icon::Tempo size=18/>
+                    <input type="range" aria-label="Tempo" min=make::SLOWEST.to_string() max=make::FASTEST.to_string() step="1"
+                        prop:value=move || bpm().to_string()
+                        style=move || format!("--fill: {}%", (bpm() - make::SLOWEST) * 100 / (make::FASTEST - make::SLOWEST))
+                        aria-valuetext=move || tempo.get().map_or("Auto".to_string(), format::beats)
+                        on:input=move |ev| tempo.set(event_target_value(&ev).parse().ok())
+                        // A press on the thumb where it rests takes that tempo too, though the value does not move.
+                        on:pointerdown=move |_| if tempo.get_untracked().is_none() { tempo.set(Some(make::AUTO_AT)) }
+                        // Page Up and Page Down move 10 BPM; the browser's own move is a tenth of the range.
+                        on:keydown=move |ev| {
+                            let by: i64 = match ev.key().as_str() { "PageUp" => 10, "PageDown" => -10, _ => return };
+                            ev.prevent_default();
+                            tempo.set(Some((i64::from(bpm()) + by).clamp(make::SLOWEST.into(), make::FASTEST.into()) as u32));
+                        }/>
+                    <output aria-hidden="true">{move || tempo.get().map_or("Auto".to_string(), |b| format!("{b} bpm"))}</output>
+                    // Hidden on Auto, its place kept, so the chip never changes size.
+                    <IconButton icon=Icon::Refresh size=14 label="Tempo: back to Auto".to_string() on_click=move || tempo.set(None)/>
+                </div>
                 // The length is a chip holding a slider. Its value is shown as a time and said in words.
                 <label class="chip length" data-tip="How long the song is"><Svg icon=Icon::Length size=18/>
                     <input type="range" aria-label="Length" min=make::SHORTEST.to_string() max=move || longest.get().to_string() step=make::STEP.to_string()

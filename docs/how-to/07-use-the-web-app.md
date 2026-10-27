@@ -10,7 +10,7 @@ Describe it, choose what you care about, and press Make. You need an engine that
 
    ![Typing a description into What it sounds like](../images/manual/make-1.png)
 
-2. Pick a **mood**, a **genre** and a **tempo** with the chips under the box, and a **length** with the slider among them (0:15 to 10:00), or leave them as they are.
+2. Pick a **mood** and a **genre** with the chips under the box, and a **tempo** (40 to 220 BPM) and a **length** (0:15 to 10:00) with the sliders among them, or leave them as they are. The tempo starts on **Auto**, which leaves it to the engine; its reset button brings it back there.
 
    ![Choosing a mood with the chips under the box](../images/manual/make-2.png)
 

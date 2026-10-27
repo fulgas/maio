@@ -177,6 +177,8 @@ impl HttpEngine {
     }
 
     async fn post<T: serde::de::DeserializeOwned>(&self, path: &str, body: Value, timeout: Duration) -> Result<T, CallError> {
+        // Exactly what the engine gets, for debugging a song (arc42 8.6): seen with RUST_LOG=maio=debug.
+        tracing::debug!(path, %body, "engine request");
         let r = self.traced(self.http.post(self.url(path))).json(&body).timeout(timeout).send().await.map_err(|e| self.call_failed(http(e)))?;
         let status = r.status();
         // ACE-Step's queue is full: try again later, not a refusal (arc42 8.8).

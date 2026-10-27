@@ -38,6 +38,8 @@ pub struct MakeSettings {
     pub genres: Vec<String>,
     pub default_language: String,
     pub default_lyrics_by: String,
+    /// `auto_seconds`: the lengths an Auto length is picked from (arc42 8.2).
+    pub auto_seconds: (u32, u32),
     /// `[naming] engine`: the text engine that names songs, if any.
     pub naming_engine: Option<String>,
     pub make_rate: Rate,
@@ -154,6 +156,7 @@ impl Making {
             text_engines: &text_ids,
             default_language: &s.default_language,
             default_lyrics_by: &s.default_lyrics_by,
+            auto_seconds: s.auto_seconds,
         };
         let n = request.normalize(&rules, self.ports.ids.seed())?;
         let statuses = self.statuses();
@@ -457,6 +460,7 @@ impl Making {
             title_source: title.source,
             description: title.description,
             prompt: n.prompt.clone().unwrap_or_default(),
+            engine_prompt: Some(n.engine_prompt.clone()),
             mood: n.mood.clone(),
             genre: n.genre.clone(),
             energy: n.energy.map(|e| e.as_str().to_string()),
@@ -464,6 +468,7 @@ impl Making {
             bpm: n.bpm.or(metas.bpm),
             seed: remote.seed.unwrap_or(n.seed),
             vocals: n.vocals,
+            voice: n.voice.filter(|_| n.vocals).map(|v| v.as_str().to_string()),
             key: metas.key,
             time_signature: metas.time_signature,
             lyrics,
@@ -525,7 +530,10 @@ impl Making {
 mod tests {
     use std::sync::atomic::Ordering;
 
-    use crate::domain::engine::Health;
+    use crate::domain::{
+        engine::Health,
+        request::{Vocals, Voice},
+    };
 
     use super::*;
     use crate::usecases::{
@@ -547,6 +555,7 @@ mod tests {
             genres: vec!["jazz".into()],
             default_language: "en".into(),
             default_lyrics_by: "ace-step".into(),
+            auto_seconds: (120, 240),
             naming_engine: None,
             make_rate: Rate { max: 20, window_s: 600 },
             pending_jobs: 4,
@@ -622,7 +631,8 @@ mod tests {
     #[tokio::test]
     async fn a_prompt_makes_one_song_kept_in_the_library() {
         let w = world();
-        let accepted = w.making.make(&SongRequest { prompt: Some("warm pads".into()), genre: Some("jazz".into()), ..calm() }).unwrap();
+        let accepted =
+            w.making.make(&SongRequest { prompt: Some("warm pads".into()), genre: Some("jazz".into()), seconds: Some(180), ..calm() }).unwrap();
         assert_eq!(accepted.eta_s, Some(120), "0.5 × 180 s + 30 s");
         let job = finished(&w, &accepted.job_id).await;
         assert_eq!(job.state, JobState::Done, "{job:?}");
@@ -631,11 +641,22 @@ mod tests {
         assert_eq!((song.engine.as_str(), song.artist.as_str(), song.vocals, song.title_source), ("ace-step", "Maio", false, TitleSource::Words));
         assert_eq!(song.file, format!("songs/{}.opus", song.id));
         assert_eq!(w.engines[0].submitted.lock()[0].prompt, "warm pads, jazz, calm mood, instrumental");
+        assert_eq!(song.engine_prompt.as_deref(), Some("warm pads, jazz, calm mood, instrumental"), "the song keeps what was sent");
         assert_eq!(*w.engines[0].deleted.lock(), ["remote1"], "the engine job is freed");
         assert_eq!(*w.files.retagged.lock(), std::slice::from_ref(&song.title));
         assert_eq!(w.notifier.songs.lock().len(), 1);
         assert!(w.notifier.jobs.lock().iter().any(|j| j.state == JobState::Done));
         assert!(w.making.jobs().is_empty(), "nothing is waiting or making");
+    }
+
+    #[tokio::test]
+    async fn a_voice_goes_to_the_engine_and_stays_with_the_song() {
+        let w = world();
+        let sing = SongRequest { vocals: Some(Vocals::Set(true)), voice: Some(Voice::Duet), lyrics: Some("[verse]\nla".into()), ..calm() };
+        let job = finished(&w, &w.making.make(&sing).unwrap().job_id).await;
+        let song = song_of(&w, &job);
+        assert_eq!(song.voice.as_deref(), Some("duet"));
+        assert_eq!(w.engines[0].submitted.lock()[0].prompt, "calm mood, male and female vocals");
     }
 
     #[tokio::test]
@@ -772,7 +793,9 @@ mod tests {
     #[tokio::test]
     async fn vocals_get_lyrics_from_a_text_engine_and_a_title_from_them() {
         let w = world_with(vec![FakeEngine::up("ace-step")], vec![text("local")], settings());
-        let job = finished(&w, &w.making.make(&SongRequest { vocals: Some(true), lyrics_by: Some("local".into()), ..calm() }).unwrap().job_id).await;
+        let job =
+            finished(&w, &w.making.make(&SongRequest { vocals: Some(Vocals::Set(true)), lyrics_by: Some("local".into()), ..calm() }).unwrap().job_id)
+                .await;
         let song = song_of(&w, &job);
         let sent = w.engines[0].submitted.lock()[0].clone();
         assert!(!sent.write_lyrics && sent.lyrics.as_deref().is_some_and(|l| l.contains("night bus")));
@@ -788,8 +811,11 @@ mod tests {
         for text_engine in broken {
             let w = world_with(vec![FakeEngine::up("ace-step")], vec![text_engine], settings());
             *w.engines[0].lyrics.lock() = Some("[chorus]\nace wrote this".into());
-            let job =
-                finished(&w, &w.making.make(&SongRequest { vocals: Some(true), lyrics_by: Some("local".into()), ..calm() }).unwrap().job_id).await;
+            let job = finished(
+                &w,
+                &w.making.make(&SongRequest { vocals: Some(Vocals::Set(true)), lyrics_by: Some("local".into()), ..calm() }).unwrap().job_id,
+            )
+            .await;
             assert_eq!(job.note.as_deref(), Some("lyrics by local failed, so ACE-Step wrote them"));
             assert!(w.engines[0].submitted.lock()[0].write_lyrics);
             let song = song_of(&w, &job);

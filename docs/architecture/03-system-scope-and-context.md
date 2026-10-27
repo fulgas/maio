@@ -101,11 +101,11 @@ Lyrics, titles and descriptions come from text engines: language models that wri
 | GET | `/status` | engines (music and text) with health, live playlists, MediaMTX (`relay`, null without one), disk usage, moods and genres |
 | PUT | `/engines/{id}/model` | `{"model"}`: load another installed model (ACE-Step's `/v1/init`); `204` |
 | GET | `/events` | server-sent events, each carrying the new state as the API would answer it: `job` (the job); `song` (`{"id", "deleted", "song"}`: the song with its playlist marks); `playlist` (`{"id", "deleted", "summary", "view"}`, and a `song` event for each song whose marks changed); `live` (`{"id", "deleted", "live"}`: as `GET /playlists/{id}/live`, sent when it or another playlist goes on or off air, since it carries how many streams are in use, and when its song on air, its next song or its listeners change); `engine` (`{"id", "engine"}`, when its health, model or queue changes); `relay` (`{"relay"}`, when MediaMTX or what it carries changes). One task builds and tells every event, one at a time, so the newest state is always told last; a browser too far behind is disconnected, so it reconnects and loads again. The web app takes each event as the new state and never polls (arc42 8.5). |
-| POST | `/songs` | a song request (arc42 8.2); `202 {"job_id", "eta_s"}` |
+| POST | `/songs` | a song request (arc42 8.2): without `seconds` Maio picks a length, `vocals: "auto"` lets it pick instrumental or vocals, `voice` asks for one; `202 {"job_id", "eta_s"}` |
 | GET | `/jobs` | jobs waiting or making |
 | DELETE | `/jobs/{id}` | cancel |
 | GET | `/songs?q=&sort=newest\|title&limit=&cursor=` | search covers titles, prompts, moods, genres and lyrics; each song lists the playlists it is in |
-| GET | `/songs/{id}` | one song |
+| GET | `/songs/{id}` | one song, with everything it carries (arc42 8.2), the text sent to the engine (`engine_prompt`) among it |
 | PATCH | `/songs/{id}` | `{"title"}`; `title_source = "person"`, tags rewritten |
 | DELETE | `/songs/{id}` | only when in no playlist |
 | GET | `/songs/{id}/audio` | the file, with range requests |

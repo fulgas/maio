@@ -35,6 +35,13 @@ pub enum Icon {
     Grip,
     Engine,
     Relay,
+    Settings,
+    Energy,
+    Seed,
+    Dice,
+    Voice,
+    Language,
+    Pen,
 }
 
 /// (filled, inner SVG markup) on a 24×24 grid.
@@ -82,6 +89,19 @@ fn shape(icon: Icon) -> (bool, &'static str) {
         Listeners => (false, r#"<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/>"#),
         Refresh => (false, r#"<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4"/>"#),
         Copy => (false, r#"<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>"#),
+        Settings => (
+            false,
+            r#"<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>"#,
+        ),
+        Energy => (false, r#"<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>"#),
+        Seed => (false, r#"<path d="M12 21c-5-2-8-6-8-11 5 0 8 3 8 8M12 21c5-2 8-6 8-11-5 0-8 3-8 8M12 21v-8"/>"#),
+        Dice => (
+            false,
+            r#"<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01" stroke-width="3"/>"#,
+        ),
+        Voice => (false, r#"<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>"#),
+        Language => (false, r#"<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>"#),
+        Pen => (false, r#"<path d="M4 20h4L19 9l-4-4L4 16v4z"/>"#),
         Grip => (
             true,
             r#"<circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/>"#,

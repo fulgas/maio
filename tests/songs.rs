@@ -32,13 +32,15 @@ async fn a_prompt_becomes_a_song_and_events_tell_about_it() {
     let w = world();
     let s = sign_in(&w).await;
     let mut events = w.app.events.subscribe();
-    let (status, _, accepted) = send(&w, browser("POST", "/api/v1/songs", Some(&s), Some(json!({"prompt": "warm pads", "mood": "calm"})))).await;
+    let (status, _, accepted) =
+        send(&w, browser("POST", "/api/v1/songs", Some(&s), Some(json!({"prompt": "warm pads", "mood": "calm", "seconds": 180})))).await;
     assert_eq!((status, accepted["eta_s"].clone()), (StatusCode::ACCEPTED, json!(120)));
     until_no_jobs(&w, &s).await;
     let (status, _, page) = send(&w, browser("GET", "/api/v1/songs", Some(&s), None)).await;
     assert_eq!(status, StatusCode::OK);
     let song = &page["songs"][0];
     assert_eq!((song["prompt"].as_str(), song["playlists"].clone(), page["next"].clone()), (Some("warm pads"), json!([]), Value::Null));
+    assert_eq!(song["engine_prompt"].as_str(), Some("warm pads, calm mood, instrumental"), "what was sent to the engine");
     let mut kinds = Vec::new();
     while let Ok(e) = events.try_recv() {
         kinds.push(e.kind);

@@ -61,9 +61,18 @@ async function captionEdges(locator) {
   });
 }
 
+// The settings panel opens from the Make card's header and stays open until it is closed.
+async function settings() {
+  const toggle = page.locator("form.make .settings-toggle");
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+}
+
+// Instrumental: the fake engine's lyrics give every sung song the same title.
 async function makeSong(prompt, seconds) {
+  await settings();
+  await page.getByRole("combobox", { name: /^Vocals/ }).selectOption("instrumental");
   await page.getByLabel("What it sounds like").fill(prompt);
-  await page.getByLabel("Length").fill(String(seconds));
+  await page.getByRole("slider", { name: "Length" }).fill(String(seconds));
   await page.getByRole("button", { name: "Make the song" }).click();
 }
 
@@ -199,19 +208,105 @@ await check("a page listens for events before it loads anything, so no change fa
   assert.ok(loads.every(([, i]) => i > listening), order.join(", "));
 });
 
+await check("the settings open in a panel beside the prompt, every setting on Auto, with a count, and the empty prompt shows what they send", async () => {
+  const toggle = page.locator("form.make .settings-toggle"), panel = page.locator("#make-settings");
+  if ((await toggle.getAttribute("aria-expanded")) === "true") await page.getByRole("button", { name: "Close the settings" }).click();
+  assert.ok(await panel.isHidden(), "closed at first");
+  const reach = await toggle.boundingBox();
+  assert.ok(reach.width >= 44 && reach.height >= 44, `the settings button is ${reach.width}x${reach.height}`);
+  assert.match(await toggle.getAttribute("data-tip"), /^Song settings/);
+  await toggle.focus();
+  await page.keyboard.press("Enter");
+  await panel.waitFor();
+  assert.equal(await toggle.getAttribute("aria-expanded"), "true");
+  const prompt = await page.locator("form.make .prompt").boundingBox(), side = await panel.boundingBox();
+  assert.ok(side.x >= prompt.x + prompt.width, "beside the prompt, covering nothing");
+  const pick = (name) => page.getByRole("combobox", { name, exact: true });
+  for (const name of ["Mood", "Genre", "Energy"]) assert.equal(await pick(name).inputValue(), "", `${name} starts on Auto`);
+  const vocals = page.getByRole("combobox", { name: /^Vocals/ }), seed = page.getByRole("textbox", { name: /^Seed/ });
+  assert.equal(await vocals.inputValue(), "", "Vocals starts on Auto");
+  assert.equal(await seed.inputValue(), "", "the seed starts on Auto");
+  const badge = toggle.locator(".badge");
+  assert.ok(await badge.isHidden(), "no count while nothing is set");
+  const widths = (sel) => page.locator(".set-group").first().locator(sel).evaluateAll((all) => all.map((e) => Math.round(e.getBoundingClientRect().width)));
+  const [selects, pills] = [await widths("select"), await widths(".set")];
+  assert.ok(selects.every((w) => w === selects[0]), `every dropdown in a group as wide, so the arrows line up: ${selects}`);
+  assert.ok(pills.every((w) => w === pills[0]), `every pill in a group as wide: ${pills}`);
+
+  const box = page.getByLabel("What it sounds like"), text = () => box.getAttribute("placeholder");
+  assert.match(await text(), /^Warm Rhodes/, "nothing set: the sample description");
+  await pick("Mood").selectOption("calm");
+  await pick("Energy").selectOption("low");
+  assert.equal((await badge.textContent()).trim(), "2");
+  assert.equal(await toggle.getAttribute("aria-label"), "Song settings: 2 set");
+  assert.equal(await text(), "calm mood, low energy", "what the settings alone send, from the server's own builder");
+
+  assert.match(await seed.getAttribute("aria-label"), /A new random seed each time/);
+  await page.getByRole("button", { name: "Pick a random seed" }).click();
+  const picked = await seed.inputValue();
+  assert.match(picked, /^\d+$/, "the die fills in a seed you can see");
+  assert.match(await seed.getAttribute("aria-label"), /the same seed and settings make the same song/);
+  await page.getByRole("button", { name: "Seed: back to Auto" }).click();
+  assert.equal(await seed.inputValue(), "");
+
+  assert.match(await vocals.getAttribute("aria-label"), /Auto lets Maio pick instrumental or vocals each time/);
+  const voice = page.getByRole("combobox", { name: /^Voice/ });
+  assert.equal(await voice.count(), 0, "no voice without vocals");
+  await vocals.selectOption("vocals");
+  assert.match(await voice.getAttribute("aria-label"), /A hint to the engine/);
+  await voice.selectOption("duet");
+  assert.equal(await text(), "calm mood, low energy, male and female vocals");
+  await page.getByLabel("Lyrics, with [verse] and [chorus] sections").waitFor();
+  assert.ok(await pick("Lyrics by").isVisible(), "Lyrics by sits beside the lyrics");
+  await vocals.selectOption("instrumental");
+  assert.equal(await text(), "calm mood, low energy, instrumental");
+  const vocalsPill = page.locator(".set", { has: vocals });
+  await vocalsPill.hover();
+  assert.match(await vocalsPill.evaluate((e) => getComputedStyle(e, "::after").content), /Auto lets Maio pick/, "a caption on hover");
+  await box.fill("warm pads");
+  const clear = page.getByRole("button", { name: "Put every setting back on Auto" });
+  assert.match(await clear.getAttribute("data-tip"), /back on Auto/, "a caption");
+  await clear.click();
+  for (const name of ["Mood", "Energy"]) assert.equal(await pick(name).inputValue(), "", `${name} back on Auto`);
+  assert.equal(await vocals.inputValue(), "");
+  assert.equal(await page.getByLabel("What it sounds like").inputValue(), "warm pads", "the words stay");
+  assert.ok(await badge.isHidden(), "back on Auto, no count");
+  assert.ok(await clear.isDisabled(), "nothing left to clear");
+
+  await page.getByRole("button", { name: "Close the settings" }).click();
+  assert.ok(await panel.isHidden());
+  assert.ok(await toggle.evaluate((e) => e === document.activeElement), "focus goes back to the settings button");
+
+  const size = page.viewportSize();
+  await page.setViewportSize({ width: 360, height: 800 });
+  try {
+    await toggle.click();
+    const p = await page.locator("form.make .prompt").boundingBox(), s = await panel.boundingBox();
+    assert.ok(s.y >= p.y + p.height, "on a phone the panel opens under the prompt");
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "no sideways scroll at 360 px");
+    for (const b of await panel.locator("button:visible").all()) {
+      const r = await b.boundingBox();
+      assert.ok(r.width >= 44 && r.height >= 44, `${await b.getAttribute("aria-label")} is ${r.width}x${r.height}`);
+    }
+  } finally {
+    await page.setViewportSize(size);
+  }
+  await page.getByLabel("What it sounds like").fill("");
+});
+
 await check("the tempo is a slider from 40 to 220 bpm in steps of 1, on Auto until it is moved", async () => {
   const slider = page.getByRole("slider", { name: "Tempo" });
   const attrs = await slider.evaluate((e) => ({ min: e.min, max: e.max, step: e.step }));
   assert.deepEqual(attrs, { min: "40", max: "220", step: "1" });
   await tallEnough(slider, "the tempo slider");
-  const chip = page.locator("form.make .chip.tempo"), shown = chip.locator("output");
+  const chip = page.locator("form.make .set", { has: slider }), shown = chip.locator("output");
   const reset = chip.getByRole("button", { name: "Tempo: back to Auto" });
   const width = async () => (await chip.boundingBox()).width;
   const auto = async () => {
     assert.equal((await shown.textContent()).trim(), "Auto");
     assert.equal(await slider.getAttribute("aria-valuetext"), "Auto");
     assert.ok(Number(await slider.evaluate((e) => getComputedStyle(e).opacity)) < 1, "the slider is dimmed on Auto");
-    assert.equal(await chip.locator("button").evaluate((e) => getComputedStyle(e).visibility), "hidden", "no reset on Auto");
+    assert.equal(await chip.locator(".set-reset button").evaluate((e) => getComputedStyle(e).visibility), "hidden", "no reset on Auto");
   };
   const says = async (value) => {
     assert.equal(await slider.inputValue(), value);
@@ -253,6 +348,9 @@ await check("a song's title opens its details, with downloads and Make one like 
   await page.getByRole("button", { name: `Details for ${title}` }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.getByText("Described as").waitFor();
+  const sent = dialog.locator("dt .captioned", { hasText: "Sent to the engine" });
+  assert.match(await sent.getAttribute("aria-label"), /The exact text the engine received/);
+  assert.match(await dialog.locator("dt .captioned", { hasText: "Seed" }).getAttribute("data-tip"), /The number this song started from/);
   const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("link", { name: "Download as MP3" }).click()]);
   assert.match(download.suggestedFilename(), /\.mp3$/);
   for (const chip of await dialog.locator(".downloads .chip").all()) {
@@ -271,12 +369,16 @@ await check("a song's title opens its details, with downloads and Make one like 
   // The fake engine's song is 20 s long: the slider takes the nearest 15 seconds.
   assert.equal(await page.getByRole("slider", { name: "Length" }).inputValue(), "15", "the song's length, on a step of the slider");
   assert.equal(await page.getByRole("slider", { name: "Tempo" }).inputValue(), "90", "the song's tempo");
-  assert.equal((await page.locator("form.make .chip.tempo output").textContent()).trim(), "90 bpm");
+  const tempo = page.locator("form.make .set", { has: page.getByRole("slider", { name: "Tempo" }) }).locator("output");
+  assert.equal((await tempo.textContent()).trim(), "90 bpm");
   await page.getByRole("button", { name: "Tempo: back to Auto" }).click();
-  assert.equal((await page.locator("form.make .chip.tempo output").textContent()).trim(), "Auto");
-  await page.locator(".chip.seed").waitFor();
-  await page.getByRole("button", { name: "Remove the seed: make a new take" }).click();
-  assert.equal(await page.locator(".chip.seed").count(), 0);
+  assert.equal((await tempo.textContent()).trim(), "Auto");
+  assert.equal(await page.getByRole("combobox", { name: /^Vocals/ }).inputValue(), "instrumental", "the song's vocals");
+  assert.match(await page.getByRole("textbox", { name: /^Seed/ }).inputValue(), /^\d+$/, "the song's seed, shown");
+  await page.getByRole("button", { name: "Seed: back to Auto" }).click();
+  assert.equal(await page.getByRole("textbox", { name: /^Seed/ }).inputValue(), "");
+  await page.getByRole("combobox", { name: /^Vocals/ }).selectOption("");
+  await page.getByRole("button", { name: "Length: back to Auto" }).click();
   await page.getByLabel("What it sounds like").fill("");
 });
 
@@ -314,7 +416,8 @@ await check("the length is a slider from 0:15 to 10:00 in steps of 15 s, shown a
   const attrs = await slider.evaluate((e) => ({ min: e.min, max: e.max, step: e.step, ticks: e.list?.options.length ?? 0 }));
   assert.deepEqual(attrs, { min: "15", max: "600", step: "15", ticks: 0 });
   await tallEnough(slider, "the length slider");
-  const shown = page.locator("form.make .length output");
+  await settings();
+  const shown = page.locator("form.make .set", { has: slider }).locator("output");
   const says = async (value, time, words) => {
     assert.equal(await slider.inputValue(), value);
     assert.equal((await shown.textContent()).trim(), time);
@@ -325,7 +428,7 @@ await check("the length is a slider from 0:15 to 10:00 in steps of 15 s, shown a
   await slider.focus();
   await page.keyboard.press("ArrowRight");
   await says("165", "2:45", "2 minutes 45 seconds");
-  const ring = await slider.evaluate((e) => ({ inRow: !!e.closest(".chips"), slider: getComputedStyle(e).outlineStyle, chip: getComputedStyle(e.closest(".chip")).outlineStyle }));
+  const ring = await slider.evaluate((e) => ({ inRow: !!e.closest(".sets"), slider: getComputedStyle(e).outlineStyle, chip: getComputedStyle(e.closest(".set")).outlineStyle }));
   assert.deepEqual(ring, { inRow: true, slider: "none", chip: "solid" }, "a pill among the settings, the ring around the whole pill");
   await page.keyboard.press("ArrowLeft");
   await says("150", "2:30", "2 minutes 30 seconds");
@@ -344,7 +447,9 @@ await check("a double click on Make starts one song, as long and as fast as the 
   const count = (r) => r.method() === "POST" && r.url().endsWith("/api/v1/songs") && posts.push(r);
   page.on("request", count);
   await page.getByLabel("What it sounds like").fill("double click test");
-  await page.getByLabel("Length").fill("45");
+  await settings();
+  await page.getByRole("combobox", { name: /^Vocals/ }).selectOption("instrumental");
+  await page.getByRole("slider", { name: "Length" }).fill("45");
   await page.getByRole("slider", { name: "Tempo" }).fill("96");
   await page.getByRole("button", { name: "Make the song" }).dblclick();
   await page.waitForTimeout(1500);
@@ -353,6 +458,7 @@ await check("a double click on Make starts one song, as long and as fast as the 
   assert.equal(posts[0].postDataJSON().seconds, 45, "the slider's length is asked for");
   assert.equal(posts[0].postDataJSON().tempo, 96, "the slider's tempo is asked for, as a bpm");
   await page.getByRole("button", { name: "Tempo: back to Auto" }).click();
+  await page.getByRole("button", { name: "Length: back to Auto" }).click();
 });
 await page.locator(".song", { hasText: "double click test" }).first().waitFor({ timeout: 120_000 });
 
@@ -380,7 +486,8 @@ await check("the playlist marks are an image screen readers name, and small cont
   await tallEnough(page.getByRole("slider", { name: "Volume" }), "the volume slider");
   await tallEnough(page.locator(".song-title").first(), "a song title");
   await tallEnough(page.getByRole("searchbox"), "the search box");
-  await tallEnough(page.getByLabel("Mood"), "the Mood select");
+  await settings();
+  await tallEnough(page.getByLabel("Mood", { exact: true }), "the Mood select");
 });
 
 await check("keyboard focus shows on the mustard player bar", async () => {
@@ -927,15 +1034,16 @@ await check("the songs search shows its focus ring around the whole search pill,
   await box.fill("");
 });
 
-await check("the Make form's chips show their focus ring around the whole chip, not inside it", async () => {
-  for (const name of ["Mood", "Genre", "Tempo", "Length"]) {
+await check("the Make form's pills show their focus ring around the whole pill, not inside it", async () => {
+  await settings();
+  for (const name of ["Mood", "Genre", "Energy", "Tempo", "Length"]) {
     await page.getByLabel(name, { exact: true }).focus();
     await page.keyboard.press("Shift");
     const ring = await page.evaluate(() => {
-      const select = document.activeElement, chip = select.closest(".chip");
+      const select = document.activeElement, chip = select.closest(".set");
       return { select: getComputedStyle(select).outlineStyle, chip: getComputedStyle(chip).outlineStyle };
     });
-    assert.deepEqual(ring, { select: "none", chip: "solid" }, `${name}: the chip carries the ring`);
+    assert.deepEqual(ring, { select: "none", chip: "solid" }, `${name}: the pill carries the ring`);
   }
 });
 

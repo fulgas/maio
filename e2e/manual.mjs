@@ -123,7 +123,8 @@ await guide("overview", async ({ page, step, click, type, look }) => {
   await page.locator("form.make").waitFor();
   await step(1, "full", async () => {
     await type(page.getByLabel("What it sounds like"), "slow piano and rain on the window, a late night");
-    await page.getByLabel("Length").fill("30");
+    await click(page.getByRole("button", { name: /^Song settings/ }));
+    await page.getByRole("slider", { name: "Length" }).fill("30");
     await click(page.getByRole("button", { name: "Make the song" }));
     await page.getByRole("heading", { name: "Being made" }).waitFor({ state: "hidden", timeout: 60_000 });
     await click(first(page).locator(".play"));
@@ -136,13 +137,17 @@ await guide("make", async ({ page, step, click, type, look }) => {
   const make = () => [page.locator("form.make")];
   await step(1, make, () => type(page.getByLabel("What it sounds like"), "warm pads, slow, rain on the window"));
   await step(2, make, async () => {
-    await click(page.getByLabel("Mood"));
-    await page.getByLabel("Mood").selectOption("calm");
+    await click(page.getByRole("button", { name: /^Song settings/ }));
+    await click(page.getByLabel("Mood", { exact: true }));
+    await page.getByLabel("Mood", { exact: true }).selectOption("calm");
     await page.keyboard.press("Escape");
   });
-  await step(3, make, async () => { await click(page.locator("form.make .chip.toggle")); await look(page.locator("form.make .lyrics")); });
+  await step(3, make, async () => {
+    await page.getByRole("combobox", { name: /^Vocals/ }).selectOption("vocals");
+    await look(page.locator("form.make .lyrics"));
+  });
   await step(4, () => [page.locator("form.make"), page.locator("section.making")], async () => {
-    await page.getByLabel("Length").fill("30");
+    await page.getByRole("slider", { name: "Length" }).fill("30");
     await click(page.getByRole("button", { name: "Make the song" }));
     await look(page.locator("section.making .job"));
   });
@@ -156,7 +161,7 @@ await guide("again", async ({ page, step, click, look }) => {
   await page.goto(base + "/");
   await first(page).waitFor();
   await step(1, () => [first(page), page.getByRole("dialog")], async () => { await click(first(page).locator(".song-title")); await look(page.getByRole("dialog")); });
-  await step(2, () => [page.locator("form.make")], async () => { await click(page.getByRole("dialog").getByRole("button", { name: "Make one like this" })); await look(page.locator("form.make .chip.seed")); });
+  await step(2, () => [page.locator("form.make")], async () => { await click(page.getByRole("dialog").getByRole("button", { name: "Make one like this" })); await look(page.locator("form.make .set.seed")); });
   await step(3, () => [page.locator("form.make"), page.locator("section.making")], async () => {
     await click(page.getByRole("button", { name: "Make the song" }));
     await look(page.locator("section.making .job"));

@@ -10,11 +10,11 @@ Describe it, choose what you care about, and press Make. You need an engine that
 
    ![Typing a description into What it sounds like](../images/manual/make-1.png)
 
-2. Pick a **mood** and a **genre** with the chips under the box, and a **tempo** (40 to 220 BPM) and a **length** (0:15 to 10:00) with the sliders among them, or leave them as they are. The tempo starts on **Auto**, which leaves it to the engine; its reset button brings it back there.
+2. For more control, press the settings button beside the title. The settings open beside the prompt: **Mood**, **Genre** and **Energy**, then **Tempo** (40 to 220 BPM), **Length** (0:15 to 10:00) and **Seed**, then **Vocals**. Everything starts on **Auto** and Maio or the engine picks; move a slider or pick a value to choose it yourself, and press ↺ to give it back. The button counts the settings you set, and the reset beside ✕ puts them all back on Auto. With the box empty, its grey text shows what the settings alone send to the engine.
 
-   ![Choosing a mood with the chips under the box](../images/manual/make-2.png)
+   ![The settings beside the prompt](../images/manual/make-2.png)
 
-3. For singing, press **Instrumental** so it says **Vocals**. A lyrics box opens: write your own, with `[verse]` and `[chorus]` sections, or leave it empty and they are written for you. Choose the language under **Sung in**.
+3. For singing, set **Vocals** to **Vocals**. **Voice** (female, male or a duet) and **Sung in** appear, and a lyrics box opens under the prompt: write your own, with `[verse]` and `[chorus]` sections, or leave it empty and they are written for you, by the writer under **Lyrics by**. On **Auto**, Maio picks instrumental or vocals each time.
 
    ![Turning on vocals opens the lyrics box](../images/manual/make-3.png)
 
@@ -36,7 +36,7 @@ Every song keeps its seed. Made again with the same settings and the same seed, 
 
    ![Pressing a song's title opens its details](../images/manual/again-1.png)
 
-2. Press **Make one like this**. The Make box fills in with the song's description, settings and seed; the seed shows as a chip.
+2. Press **Make one like this**. The Make box fills in with the song's description, settings and seed; the seed shows in the settings.
 
    ![Make one like this fills in the Make box, with the seed](../images/manual/again-2.png)
 
@@ -44,7 +44,7 @@ Every song keeps its seed. Made again with the same settings and the same seed, 
 
    ![Making the copy](../images/manual/again-3.png)
 
-To keep the settings but get a new take, remove the seed chip with its × before pressing Make. Change the description or a setting and the song changes too. What a song keeps is in [arc42 8.2](../architecture/08-crosscutting-concepts.md#82-songs).
+To keep the settings but get a new take, set the seed back to Auto with its ↺ before pressing Make; 🎲 picks a new seed you can see and keep. Change the description or a setting and the song changes too. What a song keeps is in [arc42 8.2](../architecture/08-crosscutting-concepts.md#82-songs).
 
 ## Find, play and download a song
 

@@ -125,6 +125,7 @@ await guide("overview", async ({ page, step, click, type, look }) => {
     await type(page.getByLabel("What it sounds like"), "slow piano and rain on the window, a late night");
     await click(page.getByRole("button", { name: /^Song settings/ }));
     await page.getByRole("slider", { name: "Length" }).fill("30");
+    await click(page.getByRole("button", { name: "Close the settings" }));
     await click(page.getByRole("button", { name: "Make the song" }));
     await page.getByRole("heading", { name: "Being made" }).waitFor({ state: "hidden", timeout: 60_000 });
     await click(first(page).locator(".play"));
@@ -148,6 +149,8 @@ await guide("make", async ({ page, step, click, type, look }) => {
   });
   await step(4, () => [page.locator("form.make"), page.locator("section.making")], async () => {
     await page.getByRole("slider", { name: "Length" }).fill("30");
+    // Closed, the panel leaves room on screen for the job under the form.
+    await click(page.getByRole("button", { name: "Close the settings" }));
     await click(page.getByRole("button", { name: "Make the song" }));
     await look(page.locator("section.making .job"));
   });

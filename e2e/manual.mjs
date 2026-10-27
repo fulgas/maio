@@ -160,6 +160,68 @@ await guide("make", async ({ page, step, click, type, look }) => {
   });
 });
 
+// The tutorial "Shape a song with the settings" (docs/tutorials/02-shape-a-song-with-the-settings.md).
+await guide("settings", async ({ page, step, aim, click, type, look }) => {
+  await page.goto(base + "/");
+  const form = () => [page.locator("form.make")];
+  const pick = (name) => page.getByRole("combobox", { name, exact: true });
+  await step(1, () => [page.locator("form.make"), page.locator("section.making")], async () => {
+    await type(page.getByLabel("What it sounds like"), "warm pads, rain on the window");
+    await click(page.getByRole("button", { name: "Make the song" }));
+    await look(page.locator("section.making .job"));
+  });
+  await page.getByRole("heading", { name: "Being made" }).waitFor({ state: "hidden", timeout: 60_000 });
+  await step(2, () => [page.getByRole("dialog")], async () => {
+    await click(first(page).locator(".song-title"));
+    await look(page.getByRole("dialog").getByText("Sent to the engine"));
+  });
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  await step(3, form, async () => {
+    await click(page.getByRole("button", { name: /^Song settings/ }));
+    await click(pick("Mood"));
+    await pick("Mood").selectOption("calm");
+    await page.keyboard.press("Escape");
+    await click(pick("Energy"));
+    await pick("Energy").selectOption("low");
+    await page.keyboard.press("Escape");
+    await look(page.getByLabel("What it sounds like"));
+  });
+  await step(4, form, async () => {
+    const tempo = page.getByRole("slider", { name: "Tempo" }), length = page.getByRole("slider", { name: "Length" });
+    await aim(tempo);
+    for (const bpm of [100, 96, 92, 90]) { await tempo.fill(String(bpm)); await page.waitForTimeout(120); }
+    await aim(length);
+    for (const s of [150, 120, 90, 60]) { await length.fill(String(s)); await page.waitForTimeout(120); }
+    await click(page.getByRole("button", { name: "Length: back to Auto" }));
+  });
+  // Closed, the panel leaves the song in view, so nothing scrolls while the clip records.
+  await page.getByRole("button", { name: "Close the settings" }).click();
+  await page.evaluate(() => scrollTo(0, 0));
+  await step(5, form, async () => {
+    await click(first(page).locator(".song-title"));
+    await click(page.getByRole("dialog").getByRole("button", { name: "Make one like this" }));
+    await look(page.locator("form.make .set.seed"));
+  });
+  // Start from an instrumental with no lyrics, so the step shows the lyrics box open empty.
+  await page.getByRole("combobox", { name: /^Vocals/ }).selectOption("vocals");
+  await page.getByLabel("Lyrics, with [verse] and [chorus] sections").fill("");
+  await page.getByRole("combobox", { name: /^Vocals/ }).selectOption("instrumental");
+  await step(6, form, async () => {
+    await click(page.getByRole("combobox", { name: /^Vocals/ }));
+    await page.getByRole("combobox", { name: /^Vocals/ }).selectOption("vocals");
+    await page.keyboard.press("Escape");
+    await click(page.getByRole("combobox", { name: /^Voice/ }));
+    await page.getByRole("combobox", { name: /^Voice/ }).selectOption("female");
+    await page.keyboard.press("Escape");
+    await look(page.locator("form.make .lyrics"));
+  });
+  await step(7, form, async () => {
+    await click(page.getByRole("button", { name: "Put every setting back on Auto" }));
+    await look(page.locator("#make-settings"));
+  });
+});
+
 await guide("again", async ({ page, step, click, look }) => {
   await page.goto(base + "/");
   await first(page).waitFor();

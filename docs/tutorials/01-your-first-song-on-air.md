@@ -40,6 +40,7 @@ Every Make is a new take with a new seed, so the same description makes a differ
 
 ## What next
 
+- [Shape a song with the settings](02-shape-a-song-with-the-settings.md): mood, energy, tempo, length, the seed and a voice, one at a time.
 - [Use the web app](../how-to/07-use-the-web-app.md): every other task in the browser, from making the same song again to checking the engine.
 - [Go live and share a stream](../how-to/03-go-live-and-share-a-stream.md), including RTSP, SRT and RTMP.
 - [Add a text engine](../how-to/02-add-a-text-engine.md), for lyrics and titles written by a language model.

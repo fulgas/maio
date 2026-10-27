@@ -2,6 +2,13 @@
 
 Every release of Maio, made from its Conventional Commits (see docs/project-rules.md).
 
+## [0.2.1](https://github.com/fulgas/maio/compare/v0.2.0...v0.2.1) - 2026-10-27
+
+### Dependencies
+
+- *(deps)* pin the dev-dependencies, the Docker base images and Playwright to exact versions
+- *(deps)* update every Rust crate, argon2 0.6, rand 0.10, reqwest 0.13, rusqlite 0.41, sha2 0.11 and parking_lot 0.13 included
+
 ## [0.2.0](https://github.com/fulgas/maio/compare/v0.1.1...v0.2.0) - 2026-10-27
 
 ### Features

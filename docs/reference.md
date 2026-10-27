@@ -8,6 +8,7 @@ The facts to look up while you work. They live in the architecture, next to the 
 | Every setting in `maio.toml`, and the environment variables | [arc42 7.3, Config](architecture/07-deployment-view.md#73-config) |
 | What is in the data folder | [arc42 7.2, the data volume](architecture/07-deployment-view.md#72-the-data-volume) |
 | Live stream addresses and formats | [arc42 8.4, Live](architecture/08-crosscutting-concepts.md#84-live) |
+| What each Make setting does, its values, Auto, and what the engine gets | [arc42 8.2, the settings one by one](architecture/08-crosscutting-concepts.md#the-settings-one-by-one) |
 | What a song carries | [arc42 8.2](architecture/08-crosscutting-concepts.md#82-songs) |
 | What each server-sent event carries | [arc42 3.5, the HTTP API](architecture/03-system-scope-and-context.md#35-the-http-api) |
 | When the engine is busy or down: circuit breaker, backoff, limits | [arc42 8.8](architecture/08-crosscutting-concepts.md#88-when-the-engine-is-busy-or-down) |

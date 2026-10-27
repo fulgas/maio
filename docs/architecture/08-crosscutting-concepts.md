@@ -58,6 +58,32 @@ stateDiagram-v2
 - Licences: an engine marked `commercial: "no"` is used only with `allow_noncommercial`; otherwise `409 noncommercial_engine`, and the web app asks before resending. An engine marked `"limited"` is allowed, and its licence note travels with the job and the song.
 - Rate limits (`[limits]`): `make` (default `20/10m`) and `pending_jobs` (default 4). Over a limit: `429 rate_limited` with `Retry-After`.
 
+### The settings, one by one
+
+The Make form's settings (8.5) are the request's fields. Each starts on Auto, which sends nothing (or `"auto"` for vocals); the server then decides as the last column says. A setting reaches the engine in one of two ways: as words added to the prompt, which the engine reads as a hint, or as a field of its own, which it follows exactly.
+
+| Setting | Field | Values | On Auto | What the engine gets |
+|---------|-------|--------|---------|----------------------|
+| Description | `prompt` | up to 500 characters | none: a mood is then needed | the words, first in the prompt |
+| Mood | `mood` | the `moods` in config | no mood | "calm mood" in the prompt |
+| Genre | `genre` | the `genres` in config | no genre | "lo-fi" in the prompt |
+| Energy | `energy` | low, medium, high | no energy | "low energy" in the prompt |
+| Tempo | `tempo` | 40 to 220 BPM | ACE-Step picks a tempo | "96 bpm" in the prompt, and `bpm` |
+| Length | `seconds` | 0:15 to 10:00, in steps of 15 s, up to what the ready engines can make | Maio picks one from `auto_seconds` (2:00 to 4:00 by default), in steps of 15 s | `audio_duration` |
+| Seed | `seed` | a whole number | a new random one, 0 to 4294967295 | `seed` |
+| Vocals | `vocals` | instrumental or vocals | Maio picks one | instrumental: "instrumental" in the prompt and `[Instrumental]` as the lyrics; vocals: the lyrics |
+| Voice | `voice` | female, male, duet; only with vocals | any voice | "female vocals", "male vocals" or "male and female vocals" in the prompt |
+| Sung in | `vocal_language` | a language | `[lyrics] default_language` (`en`) | `vocal_language`, and the lyrics writer is told it |
+| Lyrics | `lyrics` | up to 4000 characters, with `[verse]` and `[chorus]` sections; only with vocals | written for you | the lyrics, as they are |
+| Lyrics by | `lyrics_by` | ACE-Step, or a text engine | `[lyrics] default_engine` | used only when the lyrics are empty (above) |
+
+For example, "warm pads" with the mood calm, the energy low, a tempo of 96 and a female voice sends the prompt "warm pads, calm mood, low energy, 96 bpm, female vocals", with `bpm` 96 and the length and seed beside it.
+
+- **Hints and fields.** Mood, genre, energy and voice are only words in the prompt: the engine usually follows them, not always. Length, seed and the lyrics are followed exactly; the tempo is both.
+- **Auto length and Auto vocals** are picked from the seed, so the same seed with the same settings picks the same again.
+- **The same song again** needs the same settings, the same seed, and the same engine and model. "Make one like this" copies a song's settings and seed (8.5); change one setting for a variation, or set the seed back to Auto for a new take.
+- **What was sent** is kept with each song and shown in its details as "Sent to the engine"; at `debug`, the log carries every body sent to the engine (8.6).
+
 ### What a song carries
 
 Each song is stored as `songs/{id}.<ext>` in the storage format (`opus` by default; `flac`, `mp3`, `aac`), loudness-normalised to -16 LUFS on import ([ADR 0008](../adr/0008-songs-are-kept-opus-by-default.md)), plus a row with:

@@ -10,7 +10,7 @@ Describe it, choose what you care about, and press Make. You need an engine that
 
    ![Typing a description into What it sounds like](../images/manual/make-1.png)
 
-2. For more control, press the settings button beside the title. The settings open beside the prompt: **Mood**, **Genre** and **Energy**, then **Tempo** (40 to 220 BPM), **Length** (0:15 to 10:00) and **Seed**, then **Vocals**. Everything starts on **Auto** and Maio or the engine picks; move a slider or pick a value to choose it yourself, and press ↺ to give it back. The button counts the settings you set, and the reset beside ✕ puts them all back on Auto. With the box empty, its grey text shows what the settings alone send to the engine.
+2. For more control, press the settings button beside the title. The settings open beside the prompt: **Mood**, **Genre** and **Energy**, then **Tempo** (40 to 220 BPM), **Length** (0:15 to 10:00) and **Seed**, then **Vocals**. Everything starts on **Auto** and Maio or the engine picks; move a slider or pick a value to choose it yourself, and press ↺ to give it back. The button counts the settings you set, and the reset beside ✕ puts them all back on Auto. With the box empty, its grey text shows what the settings alone send to the engine. What each setting does, and what Auto means for it, is in [the settings, one by one](../architecture/08-crosscutting-concepts.md#the-settings-one-by-one).
 
    ![The settings beside the prompt](../images/manual/make-2.png)
 

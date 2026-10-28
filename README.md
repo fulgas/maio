@@ -2,6 +2,11 @@
 
 **M**usic + **AI** + **O**utput.
 
+[![Latest release](https://img.shields.io/github/v/release/fulgas/maio)](https://github.com/fulgas/maio/releases)
+[![License: MIT or Apache-2.0](https://img.shields.io/badge/license-MIT%20or%20Apache--2.0-blue)](#license)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/fulgas/maio/badge)](https://scorecard.dev/viewer/?uri=github.com/fulgas/maio)
+[![Documentation](https://github.com/fulgas/maio/actions/workflows/pages.yml/badge.svg)](https://fulgas.github.io/maio/)
+
 Make songs with a music generation model, keep them in your own library, arrange them into playlists, and play them: in the browser, or as live streams anyone with the link can tune in to.
 
 ![Maio in the browser: a song described, made and played](docs/images/manual/overview-1.png)
@@ -70,6 +75,12 @@ cosign verify-blob maio-v0.1.1-x86_64-unknown-linux-gnu.tar.gz \
   --bundle maio-v0.1.1-x86_64-unknown-linux-gnu.tar.gz.sigstore.json \
   --certificate-identity-regexp '^https://github.com/fulgas/maio/\.github/workflows/binaries\.yml@refs/(tags/v|heads/main)' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+Archives released after v0.2.1 also carry [SLSA](https://slsa.dev) build provenance, which says which workflow built them from which commit. To check it with the [GitHub CLI](https://cli.github.com):
+
+```bash
+gh attestation verify maio-<version>-x86_64-unknown-linux-gnu.tar.gz --repo fulgas/maio
 ```
 
 ## Engines and API keys

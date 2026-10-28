@@ -136,6 +136,7 @@ rounded:
   ![The banner, dark](docs/images/banner-dark.svg)
 
   ![The banner, light](docs/images/banner-light.svg)
+- **The social preview** (`docs/images/social-preview.png`, 1280×640): the dark banner as a card, for shared links. The documentation site names it as every page's link preview, and it is the repository's social preview on GitHub.
 
 - **Status icons** in the header: the engine (a chip) and MediaMTX (a broadcast mark), each with a 9 px status dot on its corner, green when all is well, ringed in the page colour; the state is the caption, never words on the bar.
 - **Tiles** on the shelf, in the playlist's colour (the tokens show the second playlist's).

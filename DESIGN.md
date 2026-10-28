@@ -131,6 +131,11 @@ rounded:
 - **The favicon** (`public/favicon.svg`): the wordmark's "ai", mustard strokes on a night rounded square, so it reads on light and dark tabs.
 
   ![The favicon](public/favicon.svg)
+- **The banner** (`docs/images/banner-dark.svg`, `docs/images/banner-light.svg`): the top of the README. The wordmark, "ai" in the accent, over the tagline "Music + AI + Output" (its M, AI and O in ink, the rest muted), and the shelf's four playlist colours as tiles. Dark on Night with Mustard, light on bg-light with Ochre; the README picks one by `prefers-color-scheme`. The letters are outlines, Unbounded at 800 and Albert Sans, because GitHub shows README pictures with no fonts.
+
+  ![The banner, dark](docs/images/banner-dark.svg)
+
+  ![The banner, light](docs/images/banner-light.svg)
 
 - **Status icons** in the header: the engine (a chip) and MediaMTX (a broadcast mark), each with a 9 px status dot on its corner, green when all is well, ringed in the page colour; the state is the caption, never words on the bar.
 - **Tiles** on the shelf, in the playlist's colour (the tokens show the second playlist's).

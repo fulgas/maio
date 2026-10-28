@@ -270,6 +270,16 @@ test('every page carries the favicon inline, whole', async () => {
   assert.equal(decodeURIComponent(icon[1]).trim(), (await readFile(path.join(repositoryRoot, 'public/favicon.svg'), 'utf8')).trim());
 });
 
+test('every page carries a link preview: the banner as a 1280x640 card', async () => {
+  const html = docs.get('overview').page;
+  const image = html.match(/<meta property="og:image" content="([^"]+)">/);
+  assert.ok(image, 'an og:image');
+  assert.match(image[1], /\/images\/social-preview\.png$/, 'the social preview');
+  assert.match(html, /<meta name="twitter:card" content="summary_large_image">/);
+  const png = await readFile(path.join(repositoryRoot, 'docs/images/social-preview.png'));
+  assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1280, 640], 'the size a link preview card wants');
+});
+
 test('DESIGN.md shows the favicon itself, inlined', () => {
   const design = docs.get('design');
   assert.match(design.markdown, /!\[The favicon\]\(public\/favicon\.svg\)/);

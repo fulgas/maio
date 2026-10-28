@@ -1,0 +1,40 @@
+name: CodeQL
+
+# GitHub's code scanning: CodeQL reads the Rust (the server and the web app), the JavaScript (the browser checks, the
+# documentation site, the C4 model) and the workflows themselves, on every pull request, every push to main and weekly.
+# Findings show in the Security tab. None of the three needs a build.
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: "40 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL ${{ matrix.language }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write # the findings in the Security tab
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ rust, javascript-typescript, actions ]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        with:
+          category: /language:${{ matrix.language }}

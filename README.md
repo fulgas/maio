@@ -1,6 +1,4 @@
-# Maio
-
-**M**usic + **AI** + **O**utput.
+<h1><picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/banner-dark.svg"><img src="docs/images/banner-light.svg" alt="Maio: Music + AI + Output" width="100%"></picture></h1>
 
 [![Latest release](https://img.shields.io/github/v/release/fulgas/maio)](https://github.com/fulgas/maio/releases)
 [![License: MIT or Apache-2.0](https://img.shields.io/badge/license-MIT%20or%20Apache--2.0-blue)](#license)

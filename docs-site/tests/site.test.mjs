@@ -222,7 +222,9 @@ test('the README is a proper README: what it is, requirements, quick start, port
   const readme = docs.get('overview');
   const sections = readme.headings.filter(h => h.depth === 2).map(h => h.text);
   for (const s of ['Features', 'Requirements', 'Quick start', 'Engines and API keys', 'Ports', 'Configuration', 'Development', 'Documentation', 'Contributing', 'Credits', 'License']) assert.ok(sections.includes(s), `README has no ${s} section`);
-  assert.match(readme.markdown, /^# Maio\n\n\*\*M\*\*usic \+ \*\*AI\*\* \+ \*\*O\*\*utput\./, 'the name says what it is');
+  assert.match(readme.markdown, /^<h1><picture><source media="\(prefers-color-scheme: dark\)" srcset="docs\/images\/banner-dark\.svg"><img src="docs\/images\/banner-light\.svg" alt="Maio: Music \+ AI \+ Output"/, 'the banner says what it is, in both themes');
+  assert.equal(readme.title, 'Maio', 'the banner names the page');
+  assert.match(readme.html, /<h1 class="banner"><img class="banner-dark" src="data:image\/svg\+xml,[^"]+" alt="Maio: Music \+ AI \+ Output"><img class="banner-light" src="data:image\/svg\+xml,/, 'the site inlines both banners, and its theme shows one');
   for (const id of ['contributing', 'security', 'code-of-conduct']) assert.match(readme.html, new RegExp(`href="/${id}/"`), `README links ${id}`);
   assert.match(docs.get('code-of-conduct').markdown, /Contributor Covenant/);
   assert.match(docs.get('security').markdown, /## Reporting a vulnerability/);

@@ -186,3 +186,8 @@ dialog.clip-zoom{width:min(1100px,94vw);max-height:92vh;padding:14px;border:1px 
 dialog.clip-zoom::backdrop{background:rgb(0 0 0/.6)}
 dialog.clip-zoom img{display:block;width:100%;height:auto;max-height:calc(92vh - 70px);border-radius:8px}
 dialog.clip-zoom .clip-close{display:block;margin:0 0 10px auto}
+
+/* The README's banner: the dark one by default, the light one with the light theme. */
+.banner{margin:0 0 16px}.banner img{display:block;width:100%;height:auto}.banner-light{display:none!important}:root[data-theme=light] .banner-light{display:block!important}:root[data-theme=light] .banner-dark{display:none!important}
+/* A paragraph of badges (linked status pictures, as under the README's banner) stays one row, as on GitHub. */
+p:has(> a > img[src*="shields.io"]) img,p:has(> a > img[src*="/badge"]) img{display:inline-block;margin:0 6px 0 0;vertical-align:middle}

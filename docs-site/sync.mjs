@@ -109,6 +109,17 @@ export async function sync() {
       headings.push({ text: plain(heading[2]), depth: heading[1].length, slug });
       line = `${line} {#${slug}}`;
       }
+      // The README's banner: an <h1> holding a <picture> of two local SVGs, dark (the source) and light (the img). The text
+      // before the colon in its alt text is the page's title. On the site the two are inlined side by side and its
+      // theme shows one: the site has its own theme switch, which a <picture> cannot follow.
+      const banner = line.match(/^<h1><picture><source [^>]*srcset="([^"]+\.svg)"><img src="([^"]+\.svg)" alt="([^"]+)"/);
+      if (banner) {
+        const [, dark, light, alt] = banner, name = alt.split(':')[0].trim();
+        const svg = href => `data:image/svg+xml,${encodeURIComponent(readFileSync(path.join(docsRoot, path.dirname(source), href), 'utf8').trim())}`;
+        if (title === id) title = name;
+        headings.push({ text: name, depth: 1, slug: slugify(name) });
+        line = `<h1 class="banner"><img class="banner-dark" src="${svg(dark)}" alt="${escape(alt)}"><img class="banner-light" src="${svg(light)}" alt="${escape(alt)}"></h1>`;
+      }
       // Pictures: a local SVG is inlined, as our build does.
       line = line.replace(/!\[([^\]]*)\]\(([^)\s]+\.svg)\)/g, (all, alt, href) => {
         const file = path.join(docsRoot, path.dirname(source), href);

@@ -17,7 +17,7 @@ permissions: read-all
 jobs:
   analysis:
     name: Scorecard
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       security-events: write # the results in the Security tab
       id-token: write # publishing them to the public Scorecard

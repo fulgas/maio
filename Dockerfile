@@ -1,4 +1,4 @@
-FROM rust:1-trixie@sha256:0b0ea86881537b3f645aace7e8e39556289f8787db057317c8d4978548213b9e AS build
+FROM rust:1-trixie@sha256:223cc32ddca8f3ee90c436dbc94b6b5f052ea7f9653c5201e9612f08ad7d21b8 AS build
 RUN rustup target add wasm32-unknown-unknown && cargo install --locked cargo-leptos@0.3.11
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./

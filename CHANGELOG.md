@@ -2,6 +2,17 @@
 
 Every release of Maio, made from its Conventional Commits (see docs/project-rules.md).
 
+## [0.2.2](https://github.com/fulgas/maio/compare/v0.2.1...v0.2.2) - 2026-11-23
+
+### Dependencies
+
+- *(deps)* lock file maintenance
+
+### Fixes
+
+- *(deps)* update rust crate gloo-net to 0.8
+- *(deps)* update rust crate rusqlite to 0.43
+
 ## [0.2.1](https://github.com/fulgas/maio/compare/v0.2.0...v0.2.1) - 2026-10-27
 
 ### Dependencies
